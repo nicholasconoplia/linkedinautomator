@@ -1132,8 +1132,19 @@ async function createDefaultPlans() {
 // Get user's current subscription and usage
 app.get('/api/subscription/status', requireAuth, async (req, res) => {
   try {
+    console.log('🎯 STATUS ENDPOINT HIT - DEPLOYMENT TEST v6d65ae0');
     const userId = req.user.id;
     const activateIncomplete = req.query.activate === 'true';
+    
+    // IMMEDIATE DEPLOYMENT TEST
+    if (req.query.test === 'deployment') {
+      return res.json({
+        deployment_test: true,
+        timestamp: new Date().toISOString(),
+        message: 'New deployment is working!',
+        user_id: userId
+      });
+    }
     
     const [subscription, usage] = await Promise.all([
       SubscriptionDB.getUserSubscription(userId),
