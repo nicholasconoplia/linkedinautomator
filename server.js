@@ -559,6 +559,92 @@ app.get('/debug', (req, res) => {
   res.json(envCheck);
 });
 
+// Debug routes to diagnose 404 issues
+app.get('/test-static', (req, res) => {
+  console.log('🔍 Testing static file access...');
+  const fs = require('fs');
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  
+  console.log('📁 __dirname:', __dirname);
+  console.log('📁 Checking path:', indexPath);
+  
+  try {
+    const fileExists = fs.existsSync(indexPath);
+    console.log('📄 File exists:', fileExists);
+    
+    if (fileExists) {
+      const stats = fs.statSync(indexPath);
+      console.log('📊 File stats:', {
+        size: stats.size,
+        modified: stats.mtime
+      });
+    }
+    
+    // List directory contents
+    const publicDir = path.join(__dirname, 'public');
+    const publicExists = fs.existsSync(publicDir);
+    console.log('📁 Public directory exists:', publicExists);
+    
+    if (publicExists) {
+      const files = fs.readdirSync(publicDir);
+      console.log('📁 Public directory contents:', files);
+    }
+    
+    // List root directory contents
+    const rootFiles = fs.readdirSync(__dirname);
+    console.log('📁 Root directory contents:', rootFiles);
+    
+    res.json({
+      indexPath,
+      fileExists,
+      publicExists,
+      publicContents: publicExists ? fs.readdirSync(publicDir) : [],
+      rootContents: rootFiles,
+      dirname: __dirname,
+      cwd: process.cwd()
+    });
+  } catch (error) {
+    console.error('❌ Error checking files:', error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
+app.get('/serve-index', (req, res) => {
+  console.log('🔍 Attempting to serve index.html directly...');
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('❌ Error serving index.html:', err);
+      res.status(404).json({ 
+        error: 'Could not serve index.html',
+        details: err.message,
+        path: indexPath
+      });
+    } else {
+      console.log('✅ Successfully served index.html');
+    }
+  });
+});
+
+// Catch-all route for debugging
+app.get('/catch-all-debug/*', (req, res) => {
+  console.log('🔍 Catch-all route hit:', {
+    path: req.path,
+    url: req.url,
+    method: req.method,
+    headers: Object.keys(req.headers)
+  });
+  
+  res.json({
+    message: 'This request made it to the Express server',
+    path: req.path,
+    url: req.url,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Note: Root route (/) is handled by vercel.json routing to public/index.html
 // Vercel routes "/" directly to "public/index.html" without going through Express
 
@@ -917,9 +1003,23 @@ module.exports = async (req, res) => {
   console.log('🔍 Vercel function called:', {
     method: req.method,
     url: req.url,
+    path: req.path || 'undefined',
+    originalUrl: req.originalUrl || 'undefined',
+    query: req.query,
     headers: Object.keys(req.headers),
-    initialized: serverInitialized
+    initialized: serverInitialized,
+    timestamp: new Date().toISOString()
   });
+
+  // Special debug logging for root requests
+  if (req.url === '/' || req.path === '/') {
+    console.log('🚨 ROOT REQUEST DETECTED:', {
+      url: req.url,
+      path: req.path,
+      originalUrl: req.originalUrl,
+      userAgent: req.headers['user-agent']
+    });
+  }
 
   if (!serverInitialized) {
     try {
@@ -939,13 +1039,19 @@ module.exports = async (req, res) => {
   }
   
   try {
-    console.log('📡 Passing request to Express app...');
+    console.log('📡 Passing request to Express app...', {
+      method: req.method,
+      url: req.url,
+      timestamp: new Date().toISOString()
+    });
     return serverApp(req, res);
   } catch (error) {
     console.error('❌ Error in Express app:', error);
+    console.error('❌ Error stack:', error.stack);
     return res.status(500).json({ 
       error: 'Request handling failed',
-      message: error.message 
+      message: error.message,
+      stack: error.stack
     });
   }
 }; 

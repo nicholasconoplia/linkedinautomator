@@ -12,6 +12,22 @@
   ],
   "routes": [
     {
+      "src": "/test-static",
+      "dest": "server.js"
+    },
+    {
+      "src": "/serve-index",
+      "dest": "server.js"
+    },
+    {
+      "src": "/debug",
+      "dest": "server.js"
+    },
+    {
+      "src": "/catch-all-debug/(.*)",
+      "dest": "server.js"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "server.js"
     },
