@@ -1067,11 +1067,31 @@ async function createDefaultPlans() {
 app.get('/api/subscription/status', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
+    const activateIncomplete = req.query.activate === 'true';
     
     const [subscription, usage] = await Promise.all([
       SubscriptionDB.getUserSubscription(userId),
       UsageDB.getMonthlyUsage(userId)
     ]);
+
+    // Auto-activate incomplete subscriptions if requested
+    if (activateIncomplete && subscription && subscription.status === 'incomplete') {
+      console.log('🔧 Auto-activating incomplete subscription for user:', userId);
+      await SubscriptionDB.updateSubscriptionStatus(userId, 'active');
+      
+      // Fetch updated subscription
+      const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
+      console.log('✅ Subscription auto-activated!');
+      
+      const usageLimit = await UsageDB.checkUsageLimit(userId);
+      
+      return res.json({
+        subscription: updatedSubscription,
+        usage,
+        usageLimit,
+        activated: true
+      });
+    }
 
     const usageLimit = await UsageDB.checkUsageLimit(userId);
     
@@ -1339,6 +1359,7 @@ app.get('/api/subscription/payment-status/:paymentIntentId', requireAuth, async 
 // Quick fix endpoint to activate incomplete subscription (GET and POST)
 app.get('/api/subscription/quick-activate', requireAuth, async (req, res) => {
   try {
+    console.log('🔧 Quick activation endpoint hit!');
     const userId = req.user.id;
     console.log('🔧 Quick activation requested for user:', userId);
     
@@ -1374,6 +1395,16 @@ app.get('/api/subscription/quick-activate', requireAuth, async (req, res) => {
     console.error('❌ Error in quick activation:', error);
     res.status(500).json({ error: 'Failed to activate subscription' });
   }
+});
+
+// Simple test endpoint without auth
+app.get('/api/subscription/test-activate', async (req, res) => {
+  console.log('🧪 Test activation endpoint hit!');
+  res.json({ 
+    success: true, 
+    message: 'Test endpoint working!',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Create checkout session (keep existing for backward compatibility)
