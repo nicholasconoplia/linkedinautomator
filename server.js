@@ -2378,3 +2378,8 @@ app.post('/api/admin/migrate-status-constraint', async (req, res) => {
     });
   }
 });
+
+// Migration page route
+app.get('/migrate', (req, res) => {
+  res.sendFile(path.join(__dirname, 'migrate.html'));
+});
