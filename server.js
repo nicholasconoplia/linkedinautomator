@@ -894,44 +894,69 @@ const stripeService = new StripeService();
 // Get subscription plans
 app.get('/api/subscription/plans', async (req, res) => {
   try {
-    // Handle activation via plans endpoint
-    if (req.query.activate === 'subscription') {
+    // Handle activation via plans endpoint - Multiple activation triggers
+    const activateParam = req.query.activate;
+    console.log('🔧 Plans endpoint - activate parameter:', activateParam);
+    
+    if (activateParam === 'subscription' || activateParam === 'now' || activateParam === 'force') {
       console.log('🚀 Direct activation requested via plans endpoint');
       
       // Simple SQL-based activation for user_id = 1
       try {
         const client = await pool.connect();
         
-        // Update subscription status directly
-        const updateResult = await client.query(
-          'UPDATE user_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = $2 AND status = $3 RETURNING *',
-          ['active', 1, 'incomplete']
+        // First check what subscriptions exist
+        const checkResult = await client.query(
+          'SELECT * FROM user_subscriptions WHERE user_id = $1',
+          [1]
         );
+        
+        console.log('🔍 Found subscriptions for user 1:', checkResult.rows.length);
+        if (checkResult.rows.length > 0) {
+          console.log('🔍 Current subscription status:', checkResult.rows[0].status);
+        }
+        
+        // Update subscription status directly - try both incomplete and any status
+        const updateResult = await client.query(
+          'UPDATE user_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = $2 RETURNING *',
+          ['active', 1]
+        );
+        
+        client.release();
         
         if (updateResult.rows.length > 0) {
           console.log('✅ Subscription activated directly via SQL!');
-          client.release();
+          console.log('✅ New status:', updateResult.rows[0].status);
           
           return res.json({
             success: true,
             message: 'Subscription activated successfully!',
             activated: true,
+            old_status: checkResult.rows[0]?.status || 'unknown',
+            new_status: updateResult.rows[0].status,
             subscription: updateResult.rows[0],
             instruction: 'Now refresh your homepage to see the changes!'
           });
         } else {
-          console.log('⚠️ No incomplete subscription found to activate');
-          client.release();
+          console.log('⚠️ No subscription found to activate');
           
           return res.json({
             success: false,
-            message: 'No incomplete subscription found',
-            instruction: 'Your subscription might already be active'
+            message: 'No subscription found for user',
+            debug: {
+              user_id: 1,
+              subscriptions_found: checkResult.rows.length,
+              update_affected: updateResult.rowCount
+            }
           });
         }
       } catch (activationError) {
         console.error('❌ Direct activation error:', activationError);
-        return res.status(500).json({ error: 'Activation failed', details: activationError.message });
+        return res.status(500).json({ 
+          error: 'Activation failed', 
+          details: activationError.message,
+          stack: activationError.stack 
+        });
       }
     }
     
