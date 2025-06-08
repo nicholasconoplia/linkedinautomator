@@ -1143,29 +1143,46 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
     // Auto-activate incomplete subscriptions if requested
     console.log('🔧 Activation check:', { activateIncomplete, hasSubscription: !!subscription, status: subscription?.status });
     
-    if (activateIncomplete && subscription && subscription.status === 'incomplete') {
-      console.log('🔧 Auto-activating incomplete subscription for user:', userId);
+    // FORCE ACTIVATION - if any activation parameter is present, activate regardless of status
+    if (activateIncomplete || req.query.force === 'true' || req.query.activate) {
+      console.log('🚀 FORCE ACTIVATION TRIGGERED for user:', userId);
       
-      try {
-        await SubscriptionDB.updateSubscriptionStatus(userId, 'active');
-        console.log('✅ Database update completed');
-        
-        // Fetch updated subscription
-        const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
-        console.log('✅ Subscription auto-activated! New status:', updatedSubscription.status);
-        
-        const usageLimit = await UsageDB.checkUsageLimit(userId);
-        
-        return res.json({
-          subscription: updatedSubscription,
-          usage,
-          usageLimit,
-          activated: true,
-          message: 'Subscription activated successfully!'
-        });
-      } catch (activationError) {
-        console.error('❌ Error during activation:', activationError);
-        // Continue with original response if activation fails
+      if (subscription) {
+        try {
+          // Direct SQL update to force activation
+          const client = await pool.connect();
+          
+          const updateResult = await client.query(
+            'UPDATE user_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = $2 RETURNING *',
+            ['active', userId]
+          );
+          
+          client.release();
+          
+          if (updateResult.rows.length > 0) {
+            console.log('✅ FORCE ACTIVATION SUCCESSFUL!');
+            console.log('✅ Old status:', subscription.status);
+            console.log('✅ New status:', updateResult.rows[0].status);
+            
+            // Fetch complete updated subscription data
+            const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
+            const usageLimit = await UsageDB.checkUsageLimit(userId);
+            
+            return res.json({
+              subscription: updatedSubscription,
+              usage,
+              usageLimit,
+              activated: true,
+              message: '🎉 SUBSCRIPTION FORCE ACTIVATED!',
+              old_status: subscription.status,
+              new_status: 'active',
+              success: true
+            });
+          }
+        } catch (activationError) {
+          console.error('❌ Force activation error:', activationError);
+          // Continue with original response if activation fails
+        }
       }
     }
 
