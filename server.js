@@ -893,25 +893,69 @@ const stripeService = new StripeService();
 // Get subscription plans
 app.get('/api/subscription/plans', async (req, res) => {
   try {
-    let plans = await SubscriptionDB.getPlans();
-    
-    // If no plans exist, create default ones
-    if (!plans || plans.length === 0) {
-      console.log('📋 No plans found, creating default plans...');
-      await createDefaultPlans();
-      plans = await SubscriptionDB.getPlans();
+    // Check for migration parameter
+    if (req.query.migrate === 'fix-constraint') {
+      console.log('🔄 Running database constraint migration via plans endpoint...');
+      
+      const client = await pool.connect();
+      try {
+        let migrationSteps = [];
+        
+        // Check existing constraint
+        const constraintQuery = `
+          SELECT constraint_name, check_clause 
+          FROM information_schema.check_constraints 
+          WHERE constraint_name = 'user_subscriptions_status_check'
+        `;
+        const constraintResult = await client.query(constraintQuery);
+        
+        if (constraintResult.rows.length > 0) {
+          migrationSteps.push(`Found existing constraint: ${constraintResult.rows[0].check_clause}`);
+          
+          // Drop existing constraint
+          await client.query(`
+            ALTER TABLE user_subscriptions 
+            DROP CONSTRAINT user_subscriptions_status_check
+          `);
+          migrationSteps.push('Dropped existing constraint');
+        } else {
+          migrationSteps.push('No existing constraint found');
+        }
+        
+        // Add new constraint
+        await client.query(`
+          ALTER TABLE user_subscriptions 
+          ADD CONSTRAINT user_subscriptions_status_check 
+          CHECK (status IN ('active', 'cancelled', 'past_due', 'unpaid', 'incomplete'))
+        `);
+        migrationSteps.push('Added new constraint with incomplete status');
+        
+        // Verify new constraint
+        const newConstraintResult = await client.query(constraintQuery);
+        if (newConstraintResult.rows.length > 0) {
+          migrationSteps.push(`New constraint verified: ${newConstraintResult.rows[0].check_clause}`);
+        }
+        
+        return res.json({
+          migration_success: true,
+          message: 'Status constraint migration completed successfully',
+          steps: migrationSteps,
+          timestamp: new Date().toISOString(),
+          next_step: 'Try creating a subscription now - it should work!'
+        });
+        
+      } finally {
+        client.release();
+      }
     }
-    
-    // Ensure we always return an array
-    if (!plans || !Array.isArray(plans)) {
-      console.warn('⚠️ Invalid plans data, returning empty array');
-      plans = [];
-    }
-    
-    console.log('📋 Returning plans:', plans.length, 'plans found');
+
+    // Regular plans endpoint
+    console.log('📋 Database query: Getting subscription plans...');
+    const plans = await SubscriptionDB.getPlans();
+    console.log('📋 Database query result:', plans?.length || 0, 'plans found');
     res.json(plans);
   } catch (error) {
-    console.error('❌ Error fetching plans:', error);
+    console.error('❌ Error fetching subscription plans:', error);
     res.status(500).json({ error: 'Failed to fetch subscription plans' });
   }
 });
