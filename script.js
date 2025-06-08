@@ -102,6 +102,7 @@ class LinkedInPostGenerator {
                     await this.loadUserData();
                 } else {
                     console.log('❌ User is not authenticated');
+                    this.currentUser = null;
                     this.showUnauthenticatedState();
                 }
             } else {
@@ -164,12 +165,25 @@ class LinkedInPostGenerator {
     }
     
     async loadUserData() {
+        // Only load user data if authenticated
+        if (!this.currentUser) {
+            console.log('🚫 Skipping user data load - not authenticated');
+            return;
+        }
+        
         try {
+            console.log('📥 Loading user data...');
+            
             // Load user preferences
             const prefsResponse = await fetch('/api/preferences');
             if (prefsResponse.ok) {
-                this.userPreferences = await prefsResponse.json();
-                this.populateAutomationForm();
+                const prefsText = await prefsResponse.text();
+                if (prefsText && prefsText !== 'undefined') {
+                    this.userPreferences = JSON.parse(prefsText);
+                    this.populateAutomationForm();
+                }
+            } else {
+                console.log('⚠️ Preferences not available:', prefsResponse.status);
             }
             
             // Load scheduled posts
@@ -227,13 +241,18 @@ class LinkedInPostGenerator {
     }
     
     async loadScheduledPosts() {
-        if (!this.scheduledPostsList) return;
+        if (!this.scheduledPostsList || !this.currentUser) return;
         
         try {
             const response = await fetch('/api/scheduled-posts');
             if (response.ok) {
-                const posts = await response.json();
-                this.displayScheduledPosts(posts);
+                const postsText = await response.text();
+                if (postsText && postsText !== 'undefined') {
+                    const posts = JSON.parse(postsText);
+                    this.displayScheduledPosts(posts);
+                }
+            } else {
+                console.log('⚠️ Scheduled posts not available:', response.status);
             }
         } catch (error) {
             console.error('Failed to load scheduled posts:', error);
@@ -267,16 +286,21 @@ class LinkedInPostGenerator {
     }
     
     async loadRecentActivity() {
-        if (!this.recentActivity) return;
+        if (!this.recentActivity || !this.currentUser) return;
         
         try {
             const response = await fetch('/api/scheduled-posts');
             if (response.ok) {
-                const posts = await response.json();
-                const recentPosts = posts
-                    .filter(post => post.status === 'posted' || post.status === 'failed')
-                    .slice(0, 5);
-                this.displayRecentActivity(recentPosts);
+                const postsText = await response.text();
+                if (postsText && postsText !== 'undefined') {
+                    const posts = JSON.parse(postsText);
+                    const recentPosts = posts
+                        .filter(post => post.status === 'posted' || post.status === 'failed')
+                        .slice(0, 5);
+                    this.displayRecentActivity(recentPosts);
+                }
+            } else {
+                console.log('⚠️ Recent activity not available:', response.status);
             }
         } catch (error) {
             console.error('Failed to load recent activity:', error);
