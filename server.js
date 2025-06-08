@@ -327,26 +327,42 @@ app.get('/auth/linkedin', (req, res) => {
 
 // LinkedIn callback (only if OAuth is configured)
 app.get('/auth/linkedin/callback', (req, res) => {
+  console.log('🔗 ===== LinkedIn callback route started =====');
+  console.log('🔗 Request URL:', req.url);
+  console.log('🔗 Request method:', req.method);
+  console.log('🔗 OAuth configured:', !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET));
+  
   if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
-    console.log('🔗 LinkedIn callback received');
+    console.log('🔗 LinkedIn callback received - OAuth credentials present');
     console.log('📄 Query parameters:', req.query);
-    console.log('📄 Request headers:', req.headers);
-    console.log('🍪 Session before auth:', req.session);
+    console.log('📄 Query parameter keys:', Object.keys(req.query));
+    console.log('📄 Authorization code present:', !!req.query.code);
+    console.log('📄 State parameter present:', !!req.query.state);
+    console.log('📄 Error parameter present:', !!req.query.error);
+    console.log('🍪 Session before auth:', {
+      sessionID: req.sessionID,
+      keys: Object.keys(req.session || {}),
+      passport: req.session?.passport
+    });
     
-    // Use custom callback handling for better debugging
-    passport.authenticate('linkedin', async (err, user, info) => {
-      console.log('🔄 Passport authenticate callback invoked');
-      console.log('❓ Error present:', !!err);
-      console.log('❓ User present:', !!user);
-      console.log('❓ Info present:', !!info);
-      
-      if (err) {
-        console.error('❌ LinkedIn authentication error:', err);
-        console.error('❌ Error details:', {
-          message: err.message,
-          stack: err.stack,
-          name: err.name
-        });
+    console.log('🎯 About to call passport.authenticate...');
+    
+    try {
+      // Use custom callback handling for better debugging
+      const authenticateResult = passport.authenticate('linkedin', async (err, user, info) => {
+        console.log('🔄 ===== Passport authenticate callback invoked =====');
+        console.log('❓ Error present:', !!err);
+        console.log('❓ User present:', !!user);
+        console.log('❓ Info present:', !!info);
+        console.log('❓ Full callback parameters:', { err: !!err, user: !!user, info });
+        
+        if (err) {
+          console.error('❌ LinkedIn authentication error:', err);
+          console.error('❌ Error details:', {
+            message: err.message,
+            stack: err.stack,
+            name: err.name
+          });
         
         // Detailed error display for debugging
         const errorDetails = {
@@ -446,8 +462,35 @@ ${JSON.stringify(loginErr, null, 2)}
         // Successful authentication - redirect to home with success message
         return res.redirect('/?authenticated=true');
       });
-    })(req, res);
+    });
+    
+    console.log('🎯 Calling authenticate function with req, res...');
+    authenticateResult(req, res);
+    console.log('🎯 Authenticate function called successfully');
+    
+  } catch (authError) {
+    console.error('❌ ===== Error in passport.authenticate call =====');
+    console.error('❌ Auth error type:', typeof authError);
+    console.error('❌ Auth error message:', authError.message);
+    console.error('❌ Auth error stack:', authError.stack);
+    console.error('❌ Full auth error:', authError);
+    
+    return res.send(`
+      <html>
+        <head><title>Authentication System Error</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+          <h1>❌ Authentication System Error</h1>
+          <p>There was an error in the authentication system itself.</p>
+          <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+${JSON.stringify(authError, null, 2)}
+          </pre>
+          <p><a href="/" style="background: #0073b1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">← Back to Home</a></p>
+        </body>
+      </html>
+    `);
+  }
   } else {
+    console.log('❌ LinkedIn OAuth not configured - redirecting with error');
     res.redirect('/?error=oauth_not_configured');
   }
 });
