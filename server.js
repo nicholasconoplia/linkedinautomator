@@ -72,8 +72,8 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
     LinkedInStrategy.call(this, options, verify);
     
-    // Use the legacy profile endpoint that's more reliable
-    this.profileUrl = 'https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))';
+    // Use the official OpenID Connect userinfo endpoint per LinkedIn docs
+    this.profileUrl = 'https://api.linkedin.com/v2/userinfo';
     this.emailUrl = null; // Email is included in userinfo response
   };
   
@@ -92,6 +92,12 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     
     this._oauth2.setAccessTokenName("oauth2_access_token");
     console.log('🔧 OAuth2 access token name set to: oauth2_access_token');
+    console.log('🔧 OAuth2 client details:', {
+      clientId: this._oauth2._clientId?.substring(0, 10) + '...',
+      callbackURL: this._oauth2._callbackURL,
+      authorizeURL: this._oauth2._authorizeURL,
+      accessTokenURL: this._oauth2._accessTokenURL
+    });
     
     this._oauth2.get(this.profileUrl, accessToken, function (err, body, res) {
       console.log('📡 ===== LinkedIn API Response Received =====');
@@ -126,32 +132,34 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
         console.log('🔍 Body length before parsing:', body?.length);
         
         const json = JSON.parse(body);
-        console.log('📋 ===== LinkedIn profile response parsed successfully =====');
+        console.log('📋 ===== LinkedIn userinfo response parsed successfully =====');
         console.log('📋 Parsed JSON type:', typeof json);
         console.log('📋 Parsed JSON constructor:', json?.constructor?.name);
         console.log('📋 Parsed JSON (full):', JSON.stringify(json, null, 2));
         console.log('🔑 Available fields in response:', Object.keys(json));
         
-        // Parse legacy LinkedIn profile format
+        // Parse OpenID Connect userinfo format per LinkedIn docs
         const profile = {
           provider: 'linkedin',
-          id: json.id,
-          displayName: `${json.firstName?.localized?.en_US || json.firstName?.preferredLocale?.language || ''} ${json.lastName?.localized?.en_US || json.lastName?.preferredLocale?.language || ''}`.trim(),
+          id: json.sub,
+          displayName: json.name,
           name: {
-            givenName: json.firstName?.localized?.en_US || json.firstName?.preferredLocale?.language || '',
-            familyName: json.lastName?.localized?.en_US || json.lastName?.preferredLocale?.language || ''
+            givenName: json.given_name,
+            familyName: json.family_name
           },
-          emails: [], // Will fetch separately with email endpoint if needed
-          photos: json.profilePicture?.displayImage ? [{ value: json.profilePicture.displayImage }] : [],
+          emails: json.email ? [{ value: json.email }] : [],
+          photos: json.picture ? [{ value: json.picture }] : [],
           _raw: body,
           _json: json
         };
         
         console.log('✅ ===== Profile object created successfully =====');
-        console.log('✅ Profile ID (json.id):', json.id);
-        console.log('✅ Profile firstName:', json.firstName);
-        console.log('✅ Profile lastName:', json.lastName);
-        console.log('✅ Profile picture:', json.profilePicture);
+        console.log('✅ Profile ID (json.sub):', json.sub);
+        console.log('✅ Profile name (json.name):', json.name);
+        console.log('✅ Profile given_name:', json.given_name);
+        console.log('✅ Profile family_name:', json.family_name);
+        console.log('✅ Profile email:', json.email);
+        console.log('✅ Profile picture:', json.picture);
         console.log('✅ Complete profile object:', {
           id: profile.id,
           displayName: profile.displayName,
@@ -181,7 +189,7 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     clientID: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
     callbackURL: process.env.LINKEDIN_CALLBACK_URL || "http://localhost:3000/auth/linkedin/callback",
-    scope: ['r_liteprofile', 'r_emailaddress'], // Using legacy scopes that are more reliable
+    scope: ['openid', 'profile', 'email'], // Official OpenID Connect scopes per LinkedIn docs
     state: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
