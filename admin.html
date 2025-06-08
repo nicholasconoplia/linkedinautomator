@@ -360,7 +360,7 @@
                                 <div style="text-align: right;">
                                     <div style="font-size: 0.9rem; opacity: 0.8;">Status: ${status}</div>
                                     <div style="font-size: 0.8rem; opacity: 0.6;">Created: ${new Date(key.created_at).toLocaleDateString()}</div>
-                                    <button class="btn-delete" onclick="adminDashboard.deleteKey('${key.id}', '${key.key_code}')" 
+                                    <button class="btn-delete" onclick="deleteAccessKey('${key.id}', '${key.key_code}')" 
                                             style="margin-top: 8px; background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
                                         🗑️ Delete
                                     </button>
@@ -417,11 +417,15 @@
             }
 
             async deleteKey(keyId, keyCode) {
+                console.log('Delete key called:', keyId, keyCode);
+                
                 if (!confirm(`Are you sure you want to delete the access key "${keyCode}"?\n\nThis action cannot be undone and will immediately revoke access for all users using this key.`)) {
+                    console.log('Delete cancelled by user');
                     return;
                 }
 
                 try {
+                    console.log('Starting delete process...');
                     this.showLoading(true);
                     
                     const response = await fetch(`/api/admin/access-key/${keyId}`, {
@@ -429,7 +433,9 @@
                         headers: { 'Content-Type': 'application/json' }
                     });
 
+                    console.log('Delete response status:', response.status);
                     const result = await response.json();
+                    console.log('Delete response data:', result);
 
                     if (response.ok) {
                         this.showMessage(`Access key "${keyCode}" deleted successfully!`, 'success');
@@ -438,6 +444,7 @@
                         throw new Error(result.error || 'Failed to delete access key');
                     }
                 } catch (error) {
+                    console.error('Delete error:', error);
                     this.showMessage('Error: ' + error.message, 'error');
                 } finally {
                     this.showLoading(false);
@@ -459,6 +466,19 @@
         document.addEventListener('DOMContentLoaded', () => {
             adminDashboard = new AdminDashboard();
         });
+
+        // Global function for delete button onclick
+        async function deleteAccessKey(keyId, keyCode) {
+            console.log('Global deleteAccessKey called with:', keyId, keyCode);
+            console.log('adminDashboard exists:', !!adminDashboard);
+            
+            if (adminDashboard) {
+                await adminDashboard.deleteKey(keyId, keyCode);
+            } else {
+                console.error('Admin dashboard not initialized');
+                alert('Error: Admin dashboard not properly loaded. Please refresh the page.');
+            }
+        }
 
         // Console welcome message
         console.log(`
