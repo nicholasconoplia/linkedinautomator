@@ -89,9 +89,11 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     this._oauth2.setAccessTokenName("oauth2_access_token");
     
     this._oauth2.get(this.profileUrl, accessToken, function (err, body, res) {
-      console.log('📡 LinkedIn API response received');
+      console.log('📡 LinkedIn API call completed');
       console.log('📊 Response status:', res?.statusCode);
       console.log('📄 Response body length:', body?.length);
+      console.log('📄 Response headers:', res?.headers);
+      console.log('🔍 Full response body:', body);
       
       if (err) {
         console.error('❌ LinkedIn API Error:', {
@@ -100,12 +102,15 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
           data: err.data,
           stack: err.stack
         });
+        console.error('❌ Full error object:', err);
         return done(new require('passport-oauth2').InternalOAuthError('failed to fetch user profile', err));
       }
 
       try {
+        console.log('🔍 Attempting to parse LinkedIn response body...');
         const json = JSON.parse(body);
-        console.log('📋 LinkedIn userinfo response:', json);
+        console.log('📋 LinkedIn userinfo response parsed successfully:', json);
+        console.log('🔑 Available fields in response:', Object.keys(json));
         
         // Parse OpenID Connect userinfo format
         const profile = {
@@ -122,9 +127,18 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
           _json: json
         };
         
+        console.log('✅ Profile object created:', {
+          id: profile.id,
+          displayName: profile.displayName,
+          name: profile.name,
+          emails: profile.emails,
+          photos: profile.photos?.length || 0
+        });
+        
         return done(null, profile);
       } catch(e) {
         console.error('❌ Failed to parse LinkedIn response:', e);
+        console.error('❌ Raw body that failed to parse:', body);
         return done(new require('passport-oauth2').InternalOAuthError('failed to parse profile response', e));
       }
     });
@@ -247,8 +261,15 @@ const requireAuth = (req, res, next) => {
 // LinkedIn login (only if OAuth is configured)
 app.get('/auth/linkedin', (req, res) => {
   if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+    console.log('🚀 Starting LinkedIn OAuth login process');
+    console.log('📋 OAuth Configuration:', {
+      clientId: !!process.env.LINKEDIN_CLIENT_ID,
+      clientSecret: !!process.env.LINKEDIN_CLIENT_SECRET,
+      callbackUrl: process.env.LINKEDIN_CALLBACK_URL
+    });
     passport.authenticate('linkedin')(req, res);
   } else {
+    console.log('❌ LinkedIn OAuth not configured - missing credentials');
     res.status(400).json({ error: 'LinkedIn OAuth not configured' });
   }
 });
@@ -256,12 +277,25 @@ app.get('/auth/linkedin', (req, res) => {
 // LinkedIn callback (only if OAuth is configured)
 app.get('/auth/linkedin/callback', (req, res) => {
   if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
-    console.log('🔗 LinkedIn callback received with query:', req.query);
+    console.log('🔗 LinkedIn callback received');
+    console.log('📄 Query parameters:', req.query);
+    console.log('📄 Request headers:', req.headers);
+    console.log('🍪 Session before auth:', req.session);
     
     // Use custom callback handling for better debugging
     passport.authenticate('linkedin', async (err, user, info) => {
+      console.log('🔄 Passport authenticate callback invoked');
+      console.log('❓ Error present:', !!err);
+      console.log('❓ User present:', !!user);
+      console.log('❓ Info present:', !!info);
+      
       if (err) {
         console.error('❌ LinkedIn authentication error:', err);
+        console.error('❌ Error details:', {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
         
         // Detailed error display for debugging
         const errorDetails = {
@@ -315,6 +349,8 @@ ${JSON.stringify(errorDetails, null, 2)}
       
       if (!user) {
         console.warn('⚠️ No user returned from LinkedIn');
+        console.warn('⚠️ Info parameter:', info);
+        console.warn('⚠️ This suggests the strategy completed but profile fetch failed');
         return res.send(`
           <html>
             <head><title>No User Data</title></head>
@@ -420,6 +456,20 @@ app.get('/api/session-debug', (req, res) => {
     sessionID: req.sessionID,
     user: req.user ? { id: req.user.id, name: req.user.name } : null,
     session: req.session
+  });
+});
+
+// Debug endpoint to check LinkedIn strategy configuration
+app.get('/api/linkedin-debug', (req, res) => {
+  const strategy = passport._strategy('linkedin');
+  res.json({
+    strategyExists: !!strategy,
+    strategyName: strategy?.name,
+    profileUrl: strategy?.profileUrl,
+    emailUrl: strategy?.emailUrl,
+    clientID: !!process.env.LINKEDIN_CLIENT_ID,
+    clientSecret: !!process.env.LINKEDIN_CLIENT_SECRET,
+    callbackURL: process.env.LINKEDIN_CALLBACK_URL
   });
 });
 
