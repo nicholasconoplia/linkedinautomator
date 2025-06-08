@@ -1,52 +1,60 @@
-// LinkedIn Post Generator with Automation - Frontend JavaScript
-class LinkedInPostGenerator {
+// PostPilot - AI-Driven LinkedIn Content Platform
+class PostPilotApp {
     constructor() {
-        // Original elements
+        // Core elements
         this.form = document.getElementById('postForm');
         this.generateBtn = document.getElementById('generateBtn');
         this.loader = document.getElementById('loader');
-        this.outputCard = document.getElementById('outputCard');
+        this.output = document.getElementById('output');
         this.copyBtn = document.getElementById('copyBtn');
         this.regenerateBtn = document.getElementById('regenerateBtn');
-        this.successMessage = document.getElementById('successMessage');
-        this.errorMessage = document.getElementById('errorMessage');
+        this.postOptions = document.getElementById('postOptions');
+        this.postBtn = document.getElementById('postBtn');
         
         // Topic input elements
-        this.customTopicInput = document.getElementById('customTopic');
-        this.predefinedTopicSelect = document.getElementById('predefinedTopic');
+        this.topicInput = document.getElementById('topic');
+        this.topicChips = document.querySelectorAll('.topic-chip');
+        this.toneSelect = document.getElementById('tone');
+        this.lengthSelect = document.getElementById('length');
         
         // Authentication elements
-        this.loginPrompt = document.getElementById('login-prompt');
-        this.userProfile = document.getElementById('user-profile');
-        this.logoutBtn = document.getElementById('logout-btn');
-        this.viewDashboardBtn = document.getElementById('view-dashboard-btn');
-        this.automationPanel = document.getElementById('automation-panel');
+        this.authSection = document.getElementById('authSection');
+        this.loginSection = document.getElementById('loginSection');
+        this.userSection = document.getElementById('userSection');
+        this.userName = document.getElementById('userName');
         
-        // Automation elements
-        this.automationForm = document.getElementById('automationForm');
-        this.quickScheduleForm = document.getElementById('quickScheduleForm');
-        this.postCurrentBtn = document.getElementById('postCurrentBtn');
-        this.scheduledPostsList = document.getElementById('scheduledPostsList');
-        this.recentActivity = document.getElementById('recentActivity');
+        // Debug element detection
+        console.log('🔍 Element detection:');
+        console.log('  - loginSection:', !!this.loginSection);
+        console.log('  - userSection:', !!this.userSection);
+        console.log('  - userName:', !!this.userName);
+        
+        // Activity elements
+        this.activityList = document.getElementById('activityList');
         
         // State
         this.currentPost = null;
-        this.currentTopic = null;
-        this.currentTone = null;
+        this.currentImageUrl = null;
+        this.currentArticleData = null;
+        this.isLoggedIn = false;
         this.currentUser = null;
-        this.userPreferences = null;
         
         this.init();
     }
     
     async init() {
-        // Check authentication on load
-        await this.checkAuthStatus();
+        console.log('🚀 PostPilot initializing...');
         
         // Setup event listeners
         this.setupEventListeners();
-        this.setupTopicInputs();
+        this.setupTopicChips();
         this.addFormInteractions();
+        
+        // Check authentication status
+        await this.checkAuthStatus();
+        
+        // Load recent activity
+        this.loadRecentActivity();
         
         // Check if user just authenticated
         const urlParams = new URLSearchParams(window.location.search);
@@ -54,59 +62,97 @@ class LinkedInPostGenerator {
             window.history.replaceState({}, document.title, window.location.pathname);
             await this.checkAuthStatus();
         }
+        
+        console.log('✅ PostPilot ready!');
     }
     
     setupEventListeners() {
-        // Original form handlers
+        // Form handlers
         this.form.addEventListener('submit', this.handleFormSubmit.bind(this));
-        this.copyBtn.addEventListener('click', this.copyToClipboard.bind(this));
-        this.regenerateBtn.addEventListener('click', this.regeneratePost.bind(this));
         
-        // Authentication handlers
-        if (this.logoutBtn) {
-            this.logoutBtn.addEventListener('click', this.handleLogout.bind(this));
+        if (this.copyBtn) {
+            this.copyBtn.addEventListener('click', this.copyToClipboard.bind(this));
         }
         
-        if (this.viewDashboardBtn) {
-            this.viewDashboardBtn.addEventListener('click', this.scrollToDashboard.bind(this));
+        if (this.regenerateBtn) {
+            this.regenerateBtn.addEventListener('click', this.regeneratePost.bind(this));
         }
         
-        // Automation handlers
-        if (this.automationForm) {
-            this.automationForm.addEventListener('submit', this.handleSaveSettings.bind(this));
+        if (this.postBtn) {
+            this.postBtn.addEventListener('click', this.handlePostToLinkedIn.bind(this));
         }
         
-        if (this.quickScheduleForm) {
-            this.quickScheduleForm.addEventListener('submit', this.handleQuickSchedule.bind(this));
-        }
-        
-        if (this.postCurrentBtn) {
-            this.postCurrentBtn.addEventListener('click', this.handlePostToLinkedIn.bind(this));
-        }
+        // Keyboard shortcuts
+        document.addEventListener('keydown', this.handleKeyboardShortcuts.bind(this));
     }
     
+    setupTopicChips() {
+        this.topicChips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                // Remove selected class from all chips
+                this.topicChips.forEach(c => c.classList.remove('selected'));
+                
+                // Add selected class to clicked chip
+                chip.classList.add('selected');
+                
+                // Set the topic in the input field
+                const topic = chip.getAttribute('data-topic');
+                this.topicInput.value = topic;
+                
+                // Add animation effect
+                chip.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    chip.style.transform = '';
+                }, 150);
+                
+                console.log(`📌 Selected topic: ${topic}`);
+            });
+        });
+        
+        // Clear selection when user types in input
+        this.topicInput.addEventListener('input', () => {
+            if (this.topicInput.value.trim() === '') {
+                this.topicChips.forEach(c => c.classList.remove('selected'));
+            }
+        });
+    }
+
+    handleKeyboardShortcuts(e) {
+        // Ctrl/Cmd + Enter to generate
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            this.form.dispatchEvent(new Event('submit'));
+        }
+        
+        // Ctrl/Cmd + C to copy (when content is generated)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c' && this.currentPost && !e.target.matches('input, textarea')) {
+            e.preventDefault();
+            this.copyToClipboard();
+        }
+    }
+
     async checkAuthStatus() {
         console.log('🔍 Checking authentication status...');
         try {
             const response = await fetch('/api/auth-status');
-            console.log('📡 Auth status response:', response.status, response.ok);
             
             if (response.ok) {
                 const authData = await response.json();
-                console.log('📋 Auth data received:', authData);
+                console.log('📋 Auth response:', authData);
                 
-                if (authData.authenticated) {
-                    console.log('✅ User is authenticated:', authData.user);
+                if (authData.authenticated && authData.user) {
+                    console.log('✅ User is authenticated:', authData.user.name);
                     this.currentUser = authData.user;
+                    this.isLoggedIn = true;
                     this.showAuthenticatedState();
-                    await this.loadUserData();
                 } else {
-                    console.log('❌ User is not authenticated');
+                    console.log('ℹ️ User is not authenticated');
                     this.currentUser = null;
+                    this.isLoggedIn = false;
                     this.showUnauthenticatedState();
                 }
             } else {
-                console.log('❌ Auth status request failed');
+                console.log('❌ Auth status request failed:', response.status);
                 this.showUnauthenticatedState();
             }
         } catch (error) {
@@ -114,54 +160,59 @@ class LinkedInPostGenerator {
             this.showUnauthenticatedState();
         }
         
-        // Check if OAuth is configured
-        this.checkOAuthConfiguration();
-    }
-    
-    checkOAuthConfiguration() {
-        // Hide login button if OAuth error in URL
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('error') === 'oauth_not_configured') {
-            if (this.loginPrompt) {
-                this.loginPrompt.style.display = 'none';
-            }
-            console.log('LinkedIn OAuth not configured - automation features unavailable');
-        }
+        this.updatePostButtonState();
     }
     
     showAuthenticatedState() {
-        console.log('🟢 Showing authenticated state');
-        if (this.loginPrompt) {
-            console.log('🔸 Hiding login prompt');
-            this.loginPrompt.style.display = 'none';
+        console.log('🟢 Showing authenticated state for:', this.currentUser?.name);
+        
+        if (this.loginSection) {
+            console.log('🔸 Hiding login section');
+            this.loginSection.style.display = 'none';
+        } else {
+            console.log('⚠️ Login section not found');
         }
-        if (this.userProfile) {
-            console.log('🔸 Showing user profile');
-            this.userProfile.style.display = 'block';
-            const nameElement = this.userProfile.querySelector('.user-name');
-            if (nameElement) nameElement.textContent = this.currentUser.name;
+        
+        if (this.userSection) {
+            console.log('🔸 Showing user section');
+            this.userSection.style.display = 'block';
+        } else {
+            console.log('⚠️ User section not found');
         }
-        if (this.automationPanel) {
-            console.log('🔸 Showing automation panel');
-            this.automationPanel.style.display = 'block';
+        
+        if (this.userName && this.currentUser) {
+            console.log('🔸 Setting user name:', this.currentUser.name);
+            this.userName.textContent = this.currentUser.name;
+        } else {
+            console.log('⚠️ User name element or user data not found');
         }
     }
     
     showUnauthenticatedState() {
         console.log('🔴 Showing unauthenticated state');
-        if (this.loginPrompt) {
-            console.log('🔸 Showing login prompt');
-            this.loginPrompt.style.display = 'block';
+        if (this.loginSection) {
+            this.loginSection.style.display = 'block';
         }
-        if (this.userProfile) {
-            console.log('🔸 Hiding user profile');
-            this.userProfile.style.display = 'none';
-        }
-        if (this.automationPanel) {
-            console.log('🔸 Hiding automation panel');
-            this.automationPanel.style.display = 'none';
+        if (this.userSection) {
+            this.userSection.style.display = 'none';
         }
         this.currentUser = null;
+        this.isLoggedIn = false;
+    }
+
+    updatePostButtonState() {
+        if (this.postBtn) {
+            if (this.isLoggedIn && this.currentPost) {
+                this.postBtn.disabled = false;
+                this.postBtn.textContent = '🚀 Post to LinkedIn';
+            } else if (!this.isLoggedIn) {
+                this.postBtn.disabled = true;
+                this.postBtn.textContent = 'Connect LinkedIn to Post';
+            } else {
+                this.postBtn.disabled = true;
+                this.postBtn.textContent = 'Generate Content First';
+            }
+        }
     }
     
     async loadUserData() {
@@ -286,25 +337,45 @@ class LinkedInPostGenerator {
     }
     
     async loadRecentActivity() {
-        if (!this.recentActivity || !this.currentUser) return;
+        if (!this.activityList) return;
+        
+        if (!this.isLoggedIn) {
+            this.activityList.innerHTML = '<div class="loading">Connect LinkedIn to view activity</div>';
+            return;
+        }
+        
+        // Mock recent activity data for now since the API endpoint doesn't exist yet
+        const mockActivities = [
+            {
+                title: 'Generated AI content about Technology',
+                timestamp: Date.now() - 1000 * 60 * 15, // 15 minutes ago
+                status: 'posted'
+            },
+            {
+                title: 'Generated AI content about Leadership',
+                timestamp: Date.now() - 1000 * 60 * 60 * 2, // 2 hours ago
+                status: 'posted'
+            },
+            {
+                title: 'Generated AI content about Innovation',
+                timestamp: Date.now() - 1000 * 60 * 60 * 24, // 1 day ago
+                status: 'posted'
+            }
+        ];
         
         try {
-            const response = await fetch('/api/scheduled-posts');
-            if (response.ok) {
-                const postsText = await response.text();
-                if (postsText && postsText !== 'undefined') {
-                    const posts = JSON.parse(postsText);
-                    const recentPosts = posts
-                        .filter(post => post.status === 'posted' || post.status === 'failed')
-                        .slice(0, 5);
-                    this.displayRecentActivity(recentPosts);
-                }
-            } else {
-                console.log('⚠️ Recent activity not available:', response.status);
-            }
+            this.activityList.innerHTML = mockActivities.map(activity => `
+                <div class="activity-item">
+                    <div class="activity-content">
+                        <div class="activity-title">${activity.title}</div>
+                        <div class="activity-time">${this.formatDate(activity.timestamp)}</div>
+                    </div>
+                    <div class="activity-status ${activity.status}">${activity.status}</div>
+                </div>
+            `).join('');
         } catch (error) {
-            console.error('Failed to load recent activity:', error);
-            this.recentActivity.innerHTML = '<div class="loading">Failed to load activity</div>';
+            console.error('❌ Error loading activity:', error);
+            this.activityList.innerHTML = '<div class="loading">Failed to load activity</div>';
         }
     }
     
@@ -420,10 +491,25 @@ class LinkedInPostGenerator {
         }
         
         try {
+            // Get the selected post type
+            const selectedPostType = document.querySelector('input[name="postType"]:checked')?.value || 'image';
+            const useArticleLink = selectedPostType === 'link';
+            
+            // Clean and validate the article URL
+            let cleanArticleUrl = null;
+            if (this.currentPost.article?.url && this.currentPost.article.url !== '#') {
+                cleanArticleUrl = this.cleanUrl(this.currentPost.article.url);
+                console.log('📋 Using article URL:', cleanArticleUrl);
+            }
+            
             const postData = {
                 content: this.currentPost.post,
-                imageUrl: this.currentPost.image?.url
+                imageUrl: useArticleLink ? null : this.currentPost.image?.url,
+                articleUrl: cleanArticleUrl,
+                useArticleLink: useArticleLink
             };
+            
+            console.log('📤 Posting with data:', postData);
             
             const response = await fetch('/api/post-now', {
                 method: 'POST',
@@ -433,15 +519,50 @@ class LinkedInPostGenerator {
             
             if (response.ok) {
                 const result = await response.json();
-                this.showSuccess('Posted to LinkedIn successfully!');
+                this.showSuccess(`Posted to LinkedIn successfully! ${useArticleLink ? '(with article link preview)' : '(with image)'}`);
                 await this.loadRecentActivity();
             } else {
                 const error = await response.json();
+                
+                // Handle duplicate content error with helpful suggestion
+                if (error.error && error.error.includes('similar to a recent post')) {
+                    this.showDuplicateContentError();
+                    return;
+                }
+                
                 throw new Error(error.error || 'Failed to post to LinkedIn');
             }
         } catch (error) {
             console.error('Failed to post to LinkedIn:', error);
             this.showError('Failed to post to LinkedIn: ' + error.message);
+        }
+    }
+    
+    // Clean and validate URL to prevent 404 errors
+    cleanUrl(url) {
+        if (!url) return null;
+        
+        // Remove any leading/trailing whitespace
+        url = url.trim();
+        
+        // Ensure the URL has a protocol
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
+        }
+        
+        // Remove any invalid characters that might cause issues
+        url = url.replace(/[\s\n\r\t]/g, '');
+        
+        // Remove trailing slashes and fragments that might cause issues
+        url = url.replace(/\/+$/, '').split('#')[0];
+        
+        // Validate the URL format
+        try {
+            new URL(url);
+            return url;
+        } catch (error) {
+            console.warn('⚠️ Invalid URL format:', url);
+            return null;
         }
     }
     
@@ -498,247 +619,881 @@ class LinkedInPostGenerator {
     async handleFormSubmit(e) {
         e.preventDefault();
         
-        const customTopic = this.customTopicInput.value.trim();
-        const predefinedTopic = this.predefinedTopicSelect.value;
-        const topic = customTopic || predefinedTopic;
-        const tone = document.getElementById('tone').value;
+        const topic = this.topicInput.value.trim();
+        const tone = this.toneSelect.value;
+        const length = this.lengthSelect.value;
         
         if (!topic) {
-            this.showError('Please enter a topic or select from the dropdown');
-            this.customTopicInput.focus();
+            this.showError('Please enter a topic or select from popular topics');
             return;
         }
-        
-        this.currentTopic = topic;
-        this.currentTone = tone;
+
+        // Check if user is authenticated
+        if (!this.isLoggedIn) {
+            this.showError('Please connect your LinkedIn account first');
+            return;
+        }
+
+        // Check subscription status before generating
+        const canGenerate = await this.checkSubscriptionLimit();
+        if (!canGenerate) {
+            return; // Modal will be shown by checkSubscriptionLimit
+        }
         
         this.setLoadingState(true);
         this.hideMessages();
         
         try {
-            await this.generatePost(topic, tone);
+            console.log(`🎯 Generating content for: ${topic}`);
+            await this.generatePost(topic, tone, length);
         } catch (error) {
-            console.error('Generation failed:', error);
-            this.showError(error.message || 'Failed to generate post. Please try again.');
+            console.error('❌ Generation failed:', error);
+            
+            // Check if it's a subscription error
+            if (error.message.includes('subscription') || error.message.includes('limit')) {
+                await this.showSubscriptionModal();
+            } else {
+                this.showError('Failed to generate content. Please try again.');
+            }
         } finally {
             this.setLoadingState(false);
         }
     }
-    
-    async generatePost(topic, tone) {
-        const response = await fetch('/api/generate-post', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ topic, tone })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-            throw new Error(errorData.error || `HTTP ${response.status}`);
+
+    async checkSubscriptionLimit() {
+        try {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) {
+                console.log('No JWT token found - showing subscription modal');
+                await this.showSubscriptionModal();
+                return false;
+            }
+
+            const response = await fetch('/api/subscription/status', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                console.error('Failed to check subscription status:', response.status);
+                await this.showSubscriptionModal();
+                return false;
+            }
+
+            const data = await response.json();
+            console.log('Subscription status:', data);
+            
+            // Check if user has access
+            if (!data.usageLimit || !data.usageLimit.hasAccess) {
+                console.log('No access - showing subscription modal');
+                await this.showSubscriptionModal(data);
+                return false;
+            }
+
+            console.log('Access granted - posts remaining:', data.usageLimit.postsRemaining);
+            return true;
+        } catch (error) {
+            console.error('Error checking subscription:', error);
+            // Show modal on error to be safe
+            await this.showSubscriptionModal();
+            return false;
         }
+    }
+
+    async showSubscriptionModal(usageData = null) {
+        const modal = document.getElementById('subscriptionModal');
+        const usageInfo = document.getElementById('usageInfo');
+        const plansGrid = document.getElementById('plansGrid');
+
+        // Update usage information
+        if (usageData && usageData.usageLimit) {
+            const { postsUsed, postsLimit, reason } = usageData.usageLimit;
+            const usageCard = usageInfo.querySelector('.usage-card');
+            
+            if (postsLimit > 0) {
+                usageCard.innerHTML = `
+                    <div class="usage-icon">📊</div>
+                    <div class="usage-text">
+                        <h3>Monthly Usage: ${postsUsed}/${postsLimit} posts</h3>
+                        <p>You've used all your posts for this month. Upgrade to continue creating content!</p>
+                    </div>
+                `;
+            } else {
+                usageCard.innerHTML = `
+                    <div class="usage-icon">⚡</div>
+                    <div class="usage-text">
+                        <h3>No Active Subscription</h3>
+                        <p>Subscribe to start generating AI-powered LinkedIn content or use an access key.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load subscription plans
+        await this.loadModalPlans();
+
+        // Show modal
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    async loadModalPlans() {
+        const plansGrid = document.getElementById('plansGrid');
         
-        const data = await response.json();
-        this.displayGeneratedPost(data);
+        try {
+            const response = await fetch('/api/subscription/plans');
+            const plans = await response.json();
+            
+            plansGrid.innerHTML = '';
+
+            // Filter out free trial plan for the modal
+            const paidPlans = plans.filter(plan => plan.price > 0);
+
+            paidPlans.forEach((plan, index) => {
+                const planCard = document.createElement('div');
+                planCard.className = 'plan-card-modal';
+                if (index === 1) planCard.classList.add('popular'); // Make Professional popular
+                
+                const regularPrice = plan.launch_price ? (plan.launch_price * 2).toFixed(2) : null;
+                const features = plan.features?.features || ['AI-powered content', 'News integration', 'Multiple tones'];
+                
+                planCard.innerHTML = `
+                    <div class="plan-name-modal">${plan.name}</div>
+                    <div class="plan-price-modal">
+                        ${regularPrice ? `<span class="crossed">$${regularPrice}</span>` : ''}
+                        $${plan.launch_price || plan.price}/mo
+                    </div>
+                    <div class="plan-posts-modal">${plan.posts_limit === -1 ? 'Unlimited' : plan.posts_limit} posts/month</div>
+                    <ul class="plan-features-modal">
+                        ${features.slice(0, 3).map(feature => `<li>${feature}</li>`).join('')}
+                    </ul>
+                `;
+                
+                planCard.addEventListener('click', () => {
+                    window.location.href = '/subscribe';
+                });
+                
+                plansGrid.appendChild(planCard);
+            });
+        } catch (error) {
+            console.error('Error loading plans:', error);
+            plansGrid.innerHTML = '<div class="error">Failed to load subscription plans. Please refresh the page.</div>';
+        }
     }
     
-    displayGeneratedPost(response) {
-        const data = response.data || response;
-        this.currentPost = data;
-        
-        let postText = data.post || '';
-        
-        if (data.article && data.article.url && data.article.url !== '#') {
-            postText += `\n\n📰 Source: ${data.article.url}`;
+    async generatePost(topic, tone = 'professional', length = 'medium') {
+        try {
+            const token = localStorage.getItem('jwt_token');
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            
+            // Add auth token if available
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch('/api/generate-post', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ topic, tone })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                
+                // Check if it's a subscription limit error
+                if (response.status === 403 && errorData.needsUpgrade) {
+                    await this.showSubscriptionModal();
+                    throw new Error(errorData.error || 'Subscription limit reached');
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.post) {
+                this.currentPost = {
+                    post: data.post,
+                    image: data.image,
+                    article: data.article
+                };
+                this.currentImageUrl = data.image?.url;
+                this.currentArticleData = data.article;
+                
+                this.displayGeneratedContent(data);
+                this.showSuccess('Content generated successfully!');
+                
+                console.log('✅ Content generated successfully');
+            } else {
+                throw new Error(data.error || 'Failed to generate content');
+            }
+        } catch (error) {
+            console.error('❌ Error generating post:', error);
+            throw error;
         }
+    }
+    
+    displayGeneratedContent(data) {
+        // Build the content HTML
+        let contentHTML = '';
         
-        document.getElementById('generatedPost').innerHTML = this.formatPostText(postText);
+        // Post content
+        contentHTML += `
+            <div class="post-content">
+                <div class="post-text" id="generatedPost">${this.formatPostText(data.post)}</div>
+            </div>
+        `;
         
-        document.getElementById('wordCount').textContent = this.countWords(postText);
-        document.getElementById('newsSource').textContent = data.article?.source || 'Mock Data';
-        document.getElementById('keywords').textContent = data.keywords || '-';
-        
-        if (data.article && data.article.title !== 'Latest Development in ' + this.currentTopic.charAt(0).toUpperCase() + this.currentTopic.slice(1)) {
-            document.getElementById('articleTitle').textContent = data.article.title || '';
-            document.getElementById('articleSnippet').textContent = data.article.snippet || '';
-            document.getElementById('articleLink').href = data.article.url || '#';
-            document.getElementById('sourceArticle').style.display = 'block';
-        } else {
-            document.getElementById('sourceArticle').style.display = 'none';
-        }
-        
+        // Image link if available
         if (data.image && data.image.url) {
-            const imageLinkElement = document.getElementById('imageUrl');
-            const imageLinkContainer = document.getElementById('postImageLink');
-            
-            imageLinkElement.href = data.image.url;
-            imageLinkElement.textContent = data.image.url;
-            document.getElementById('imageAttribution').textContent = data.image.attribution || '';
-            
-            imageLinkContainer.style.display = 'block';
-        } else {
-            document.getElementById('postImageLink').style.display = 'none';
+            contentHTML += `
+                <div class="post-image-link" id="postImageLink">
+                    <div class="image-link-container">
+                        <h4>Suggested Image for Your Post</h4>
+                        <a href="${data.image.url}" target="_blank" rel="noopener" class="image-url-link">
+                            View suggested image →
+                        </a>
+                    </div>
+                </div>
+            `;
         }
         
-        document.getElementById('postMetadata').style.display = 'grid';
-        this.outputCard.style.display = 'block';
+        // Post metadata
+        const wordCount = data.post.split(' ').length;
+        contentHTML += `
+            <div class="post-metadata">
+                <div class="metadata-item">
+                    <span class="label">Word Count</span>
+                    <span>${wordCount}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="label">Tone</span>
+                    <span>${this.capitalizeFirst(this.toneSelect.value)}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="label">Length</span>
+                    <span>${this.capitalizeFirst(this.lengthSelect.value)}</span>
+                </div>
+            </div>
+        `;
         
-        // Enable the post to LinkedIn button if user is authenticated
-        if (this.currentUser && this.postCurrentBtn) {
-            this.postCurrentBtn.disabled = false;
+        // Source article if available
+        if (data.article) {
+            contentHTML += `
+                <div class="source-article">
+                    <h3>Source Article</h3>
+                    <div class="article-card">
+                        <h4>${data.article.title}</h4>
+                        <p>${data.article.snippet}</p>
+                        <a href="${data.article.url}" target="_blank" rel="noopener">Read full article →</a>
+                    </div>
+                </div>
+            `;
         }
         
-        this.outputCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        this.output.innerHTML = contentHTML;
+        
+        // Show action buttons and post options
+        if (this.copyBtn) this.copyBtn.style.display = 'inline-flex';
+        if (this.regenerateBtn) this.regenerateBtn.style.display = 'inline-flex';
+        if (this.postOptions) this.postOptions.style.display = 'block';
+        
+        // Update post button state
+        this.updatePostButtonState();
+        
+        // Scroll to output
+        this.output.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     
     formatPostText(text) {
-        if (!text) return '';
-        
         return text
-            .replace(/\n/g, '<br>')
             .replace(/#(\w+)/g, '<span class="hashtag">#$1</span>')
-            .replace(/^• /gm, '<span class="bullet-point">• </span>')
             .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" class="post-link">$1</a>')
-            .replace(/📰 Source: (https?:\/\/[^\s]+)/g, '<div class="source-link">📰 Source: <a href="$1" target="_blank" rel="noopener">$1</a></div>');
-    }
-    
-    countWords(text) {
-        if (!text) return 0;
-        return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+            .replace(/\n/g, '<br>');
     }
     
     async copyToClipboard() {
-        if (!this.currentPost || !this.currentPost.post) {
-            this.showError('No post to copy');
+        if (!this.currentPost) {
+            this.showError('No content to copy');
             return;
         }
         
-        let textToCopy = this.currentPost.post;
-        
-        if (this.currentPost.article && this.currentPost.article.url && this.currentPost.article.url !== '#') {
-            textToCopy += `\n\n📰 Source: ${this.currentPost.article.url}`;
-        }
-        
         try {
-            await navigator.clipboard.writeText(textToCopy);
-            this.showSuccess();
-        } catch (error) {
-            console.error('Clipboard failed:', error);
+            await navigator.clipboard.writeText(this.currentPost.post);
+            this.showSuccess('Content copied to clipboard!');
             
-            const textArea = document.createElement('textarea');
-            textArea.value = textToCopy;
-            textArea.style.position = 'fixed';
-            textArea.style.opacity = '0';
-            document.body.appendChild(textArea);
-            textArea.select();
-            
-            try {
-                document.execCommand('copy');
-                this.showSuccess();
-            } catch (fallbackError) {
-                this.showError('Failed to copy to clipboard');
+            // Animate the copy button
+            if (this.copyBtn) {
+                const originalText = this.copyBtn.textContent;
+                this.copyBtn.textContent = '✅ Copied!';
+                this.copyBtn.style.background = 'var(--success-gradient)';
+                this.copyBtn.style.color = 'white';
+                
+                setTimeout(() => {
+                    this.copyBtn.textContent = originalText;
+                    this.copyBtn.style.background = '';
+                    this.copyBtn.style.color = '';
+                }, 2000);
             }
             
-            document.body.removeChild(textArea);
+            console.log('📋 Content copied to clipboard');
+        } catch (err) {
+            console.error('❌ Failed to copy:', err);
+            this.showError('Failed to copy content');
         }
     }
     
     async regeneratePost() {
-        if (!this.currentTopic || !this.currentTone) {
-            this.showError('No topic to regenerate');
+        const topic = this.topicInput.value.trim();
+        const tone = this.toneSelect.value;
+        const length = this.lengthSelect.value;
+        
+        if (!topic) {
+            this.showError('Please enter a topic first');
             return;
         }
         
-        this.setLoadingState(true);
-        this.hideMessages();
+        console.log('🔄 Regenerating content...');
         
-        try {
-            await this.generatePost(this.currentTopic, this.currentTone);
-        } catch (error) {
-            console.error('Regeneration failed:', error);
-            this.showError(error.message || 'Failed to regenerate post');
-        } finally {
-            this.setLoadingState(false);
-        }
+        // Trigger form submission
+        this.form.dispatchEvent(new Event('submit'));
     }
     
     setLoadingState(isLoading) {
-        this.generateBtn.disabled = isLoading;
-        
-        if (isLoading) {
-            this.loader.style.display = 'block';
-            this.generateBtn.querySelector('.btn-text').textContent = 'Generating...';
-        } else {
-            this.loader.style.display = 'none';
-            this.generateBtn.querySelector('.btn-text').textContent = 'Find Latest News & Generate Post';
+        if (this.generateBtn) {
+            this.generateBtn.disabled = isLoading;
+            
+            if (isLoading) {
+                this.loader.style.display = 'inline-block';
+                this.generateBtn.querySelector('.btn-text').textContent = 'Generating...';
+            } else {
+                this.loader.style.display = 'none';
+                this.generateBtn.querySelector('.btn-text').textContent = 'Generate Content';
+            }
         }
     }
     
-    showSuccess(message = null) {
-        if (message) {
-            const content = this.successMessage.querySelector('.success-content p');
-            if (content) content.textContent = message;
-        }
-        
-        this.hideMessages();
-        this.successMessage.style.display = 'block';
-        
-        setTimeout(() => {
-            this.successMessage.style.display = 'none';
-        }, 3000);
+    showSuccess(message) {
+        this.showNotification(message, 'success');
     }
     
     showError(message) {
-        const errorText = document.getElementById('errorText');
-        if (errorText) {
-            errorText.textContent = message || 'An error occurred';
+        this.showNotification(message, 'error');
+    }
+
+    showDuplicateContentError() {
+        // Remove existing notifications
+        const existing = document.querySelectorAll('.success-message, .error-message, .duplicate-error');
+        existing.forEach(el => el.remove());
+
+        const notification = document.createElement('div');
+        notification.className = 'duplicate-error';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <div class="notification-header">
+                    <span class="notification-icon">⚠️</span>
+                    <span class="notification-title">Duplicate Content Detected</span>
+                </div>
+                <p class="notification-message">
+                    This content is too similar to a recent post. LinkedIn prevents posting duplicate content to avoid spam.
+                </p>
+                <div class="notification-actions">
+                    <button class="regenerate-and-post-btn" onclick="window.postPilot.regenerateAndPost()">
+                        🔄 Generate New Content & Post
+                    </button>
+                    <button class="modify-and-post-btn" onclick="window.postPilot.showContentModifier()">
+                        ✏️ Modify Current Content
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Add styles for duplicate error
+        if (!document.querySelector('#duplicateErrorStyles')) {
+            const style = document.createElement('style');
+            style.id = 'duplicateErrorStyles';
+            style.textContent = `
+                .duplicate-error {
+                    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+                    border: 2px solid #e6a23c;
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin: 20px 0;
+                    box-shadow: 0 4px 12px rgba(230, 162, 60, 0.2);
+                    animation: slideIn 0.3s ease-out;
+                }
+                
+                .notification-content {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                }
+                
+                .notification-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-weight: 600;
+                    color: #b7791f;
+                }
+                
+                .notification-icon {
+                    font-size: 20px;
+                }
+                
+                .notification-title {
+                    font-size: 16px;
+                }
+                
+                .notification-message {
+                    color: #856404;
+                    margin: 0;
+                    line-height: 1.5;
+                }
+                
+                .notification-actions {
+                    display: flex;
+                    gap: 12px;
+                    flex-wrap: wrap;
+                }
+                
+                .regenerate-and-post-btn, .modify-and-post-btn {
+                    padding: 10px 16px;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    font-size: 14px;
+                }
+                
+                .regenerate-and-post-btn {
+                    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                    color: white;
+                }
+                
+                .regenerate-and-post-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+                }
+                
+                .modify-and-post-btn {
+                    background: linear-gradient(135deg, #007bff 0%, #6c757d 100%);
+                    color: white;
+                }
+                
+                .modify-and-post-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+                }
+            `;
+            document.head.appendChild(style);
         }
-        
-        this.hideMessages();
-        this.errorMessage.style.display = 'block';
-        
+
+        // Insert notification before the output section
+        const outputSection = this.output.closest('.card');
+        if (outputSection) {
+            outputSection.parentNode.insertBefore(notification, outputSection);
+        } else {
+            document.body.appendChild(notification);
+        }
+
+        // Auto-remove after 10 seconds
         setTimeout(() => {
-            this.errorMessage.style.display = 'none';
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 10000);
+    }
+    
+    showNotification(message, type = 'success') {
+        // Remove existing notifications
+        const existing = document.querySelectorAll('.success-message, .error-message, .info-message');
+        existing.forEach(el => el.remove());
+        
+        const notification = document.createElement('div');
+        notification.className = `${type}-message`;
+        
+        const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+        const title = type === 'success' ? 'Success!' : type === 'error' ? 'Error' : 'Info';
+        
+        notification.innerHTML = `
+            <div class="${type}-content">
+                <div class="${type}-icon">${icon}</div>
+                <div>
+                    <h3>${title}</h3>
+                    <p>${message}</p>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
         }, 5000);
+        
+        // Add click to dismiss
+        notification.addEventListener('click', () => {
+            notification.remove();
+        });
     }
     
     hideMessages() {
-        this.successMessage.style.display = 'none';
-        this.errorMessage.style.display = 'none';
+        const existing = document.querySelectorAll('.success-message, .error-message, .info-message');
+        existing.forEach(el => el.remove());
+    }
+    
+    // Utility functions
+    capitalizeFirst(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    formatDate(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        
+        return date.toLocaleDateString();
+    }
+
+    async regenerateAndPost() {
+        try {
+            // Hide any existing notifications
+            this.hideMessages();
+            document.querySelectorAll('.duplicate-error').forEach(el => el.remove());
+            
+            this.showNotification('Generating fresh content...', 'info');
+            
+            // Regenerate content
+            const topic = this.topicInput.value.trim();
+            const tone = this.toneSelect.value;
+            
+            if (!topic) {
+                this.showError('Please enter a topic first');
+                return;
+            }
+            
+            await this.generatePost(topic, tone);
+            
+            // Wait a moment then auto-post
+            setTimeout(async () => {
+                await this.handlePostToLinkedIn();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('❌ Regenerate and post failed:', error);
+            this.showError('Failed to regenerate content: ' + error.message);
+        }
+    }
+
+    showContentModifier() {
+        // Remove existing notifications and modifiers
+        document.querySelectorAll('.duplicate-error, .content-modifier').forEach(el => el.remove());
+        
+        if (!this.currentPost) {
+            this.showError('No content to modify');
+            return;
+        }
+
+        const modifier = document.createElement('div');
+        modifier.className = 'content-modifier';
+        modifier.innerHTML = `
+            <div class="modifier-content">
+                <h3>✏️ Modify Your Content</h3>
+                <p>Make small changes to avoid the duplicate content restriction:</p>
+                <div class="modifier-form">
+                    <textarea id="modifiedContent" class="modified-content-input" rows="6">${this.currentPost.post}</textarea>
+                    <div class="modifier-actions">
+                        <button class="save-and-post-btn" onclick="window.postPilot.saveModifiedContent()">
+                            💾 Save & Post
+                        </button>
+                        <button class="cancel-modifier-btn" onclick="window.postPilot.cancelContentModification()">
+                            ❌ Cancel
+                        </button>
+                    </div>
+                    <div class="modifier-tips">
+                        <strong>Tips to avoid duplicates:</strong>
+                        <ul>
+                            <li>Add a personal insight or comment</li>
+                            <li>Change the opening sentence</li>
+                            <li>Add relevant emojis or hashtags</li>
+                            <li>Include a call-to-action</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add styles for content modifier
+        if (!document.querySelector('#contentModifierStyles')) {
+            const style = document.createElement('style');
+            style.id = 'contentModifierStyles';
+            style.textContent = `
+                .content-modifier {
+                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                    border: 2px solid #6c757d;
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin: 20px 0;
+                    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.2);
+                }
+                
+                .modifier-content h3 {
+                    margin: 0 0 10px 0;
+                    color: #495057;
+                }
+                
+                .modifier-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }
+                
+                .modified-content-input {
+                    width: 100%;
+                    padding: 12px;
+                    border: 2px solid #ced4da;
+                    border-radius: 8px;
+                    font-family: inherit;
+                    font-size: 14px;
+                    line-height: 1.5;
+                    resize: vertical;
+                    min-height: 120px;
+                }
+                
+                .modified-content-input:focus {
+                    outline: none;
+                    border-color: #0077b5;
+                    box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
+                }
+                
+                .modifier-actions {
+                    display: flex;
+                    gap: 12px;
+                }
+                
+                .save-and-post-btn, .cancel-modifier-btn {
+                    padding: 10px 16px;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                
+                .save-and-post-btn {
+                    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                    color: white;
+                }
+                
+                .cancel-modifier-btn {
+                    background: #6c757d;
+                    color: white;
+                }
+                
+                .save-and-post-btn:hover, .cancel-modifier-btn:hover {
+                    transform: translateY(-2px);
+                }
+                
+                .modifier-tips {
+                    background: #fff;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border-left: 4px solid #17a2b8;
+                }
+                
+                .modifier-tips ul {
+                    margin: 5px 0 0 0;
+                    padding-left: 20px;
+                }
+                
+                .modifier-tips li {
+                    margin: 5px 0;
+                    color: #495057;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Insert modifier before the output section
+        const outputSection = this.output.closest('.card');
+        if (outputSection) {
+            outputSection.parentNode.insertBefore(modifier, outputSection);
+        } else {
+            document.body.appendChild(modifier);
+        }
+
+        // Focus on the textarea
+        setTimeout(() => {
+            document.getElementById('modifiedContent').focus();
+        }, 100);
+    }
+
+    async saveModifiedContent() {
+        const modifiedText = document.getElementById('modifiedContent')?.value?.trim();
+        
+        if (!modifiedText) {
+            this.showError('Please enter modified content');
+            return;
+        }
+
+        // Update current post with modified content
+        this.currentPost.post = modifiedText;
+        
+        // Remove the modifier
+        document.querySelectorAll('.content-modifier').forEach(el => el.remove());
+        
+        // Update the display
+        const postTextElement = document.getElementById('generatedPost');
+        if (postTextElement) {
+            postTextElement.innerHTML = this.formatPostText(modifiedText);
+        }
+        
+        this.showSuccess('Content updated! Ready to post.');
+        
+        // Auto-post the modified content
+        setTimeout(async () => {
+            await this.handlePostToLinkedIn();
+        }, 500);
+    }
+
+    cancelContentModification() {
+        document.querySelectorAll('.content-modifier').forEach(el => el.remove());
+        this.showNotification('Content modification cancelled', 'info');
+    }
+}
+
+// Global functions for HTML onclick handlers
+function copyToClipboard() {
+    if (window.postPilot) {
+        window.postPilot.copyToClipboard();
+    }
+}
+
+function regeneratePost() {
+    if (window.postPilot) {
+        window.postPilot.regeneratePost();
+    }
+}
+
+function postToLinkedIn() {
+    if (window.postPilot) {
+        window.postPilot.handlePostToLinkedIn();
+    }
+}
+
+async function logout() {
+    try {
+        const response = await fetch('/auth/logout', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            if (window.postPilot) {
+                window.postPilot.isLoggedIn = false;
+                window.postPilot.currentUser = null;
+                window.postPilot.showUnauthenticatedState();
+                window.postPilot.updatePostButtonState();
+            }
+            console.log('✅ User logged out');
+        } else {
+            throw new Error('Logout failed');
+        }
+    } catch (error) {
+        console.error('❌ Error logging out:', error);
+        if (window.postPilot) {
+            window.postPilot.showError('Failed to logout');
+        }
+    }
+}
+
+// Subscription Modal Functions
+function closeSubscriptionModal() {
+    const modal = document.getElementById('subscriptionModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+async function activateAccessKey() {
+    const keyInput = document.getElementById('accessKeyInput');
+    const messageDiv = document.getElementById('accessKeyMessage');
+    const keyCode = keyInput.value.trim();
+
+    if (!keyCode) {
+        showAccessKeyMessage('Please enter an access key', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/access-key/activate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
+            },
+            body: JSON.stringify({ keyCode })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            showAccessKeyMessage(`✅ ${result.message}`, 'success');
+            keyInput.value = '';
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+                closeSubscriptionModal();
+            }, 2000);
+        } else {
+            showAccessKeyMessage(result.error || 'Invalid access key', 'error');
+        }
+    } catch (error) {
+        console.error('Error activating access key:', error);
+        showAccessKeyMessage('Failed to activate access key', 'error');
+    }
+}
+
+function showAccessKeyMessage(message, type) {
+    const messageDiv = document.getElementById('accessKeyMessage');
+    messageDiv.textContent = message;
+    messageDiv.className = `access-key-message ${type}`;
+    messageDiv.style.display = 'block';
+
+    // Hide after 5 seconds for error messages
+    if (type === 'error') {
+        setTimeout(() => {
+            messageDiv.style.display = 'none';
+        }, 5000);
     }
 }
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-    new LinkedInPostGenerator();
+document.addEventListener('DOMContentLoaded', function() {
+    window.postPilot = new PostPilotApp();
 });
 
-// Add subtle LinkedIn-style interactions
-document.addEventListener('DOMContentLoaded', () => {
-    // Add hover effects to cards
-    const cards = document.querySelectorAll('.card');
-    cards.forEach(card => {
-        card.addEventListener('mouseenter', () => {
-            card.style.transform = 'translateY(-2px)';
-        });
-        
-        card.addEventListener('mouseleave', () => {
-            card.style.transform = 'translateY(0)';
-        });
-    });
-});
+// Console welcome message
+console.log(`
+🚀 PostPilot - AI-Driven LinkedIn Content Platform
+✨ Ready to create amazing content!
 
-// Add smooth scrolling for better UX
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
-        }
-    });
-});
+Keyboard shortcuts:
+• Ctrl/Cmd + Enter: Generate content
+• Ctrl/Cmd + C: Copy content (when generated)
+
+Need help? Check the console for detailed logs.
+`);

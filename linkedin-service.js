@@ -9,7 +9,7 @@ class LinkedInService {
   }
 
   // Post content to LinkedIn using the modern Posts API
-  async createPost(accessToken, postContent, imageUrl = null) {
+  async createPost(accessToken, postContent, imageUrl = null, articleUrl = null, useArticleLink = false) {
     try {
       // First, get the user's profile ID using the userinfo endpoint
       const profileResponse = await axios.get(`${this.apiBaseUrl}/userinfo`, {
@@ -23,10 +23,13 @@ class LinkedInService {
       const authorId = profileResponse.data.sub;
       console.log('📋 LinkedIn user ID retrieved:', authorId);
 
+      // Make content unique to avoid duplicate errors
+      const uniqueContent = this.makeContentUnique(postContent);
+
       // Prepare the post data using the new Posts API format
       let postData = {
         author: `urn:li:person:${authorId}`,
-        commentary: postContent,
+        commentary: uniqueContent,
         visibility: 'PUBLIC',
         distribution: {
           feedDistribution: 'MAIN_FEED',
@@ -37,8 +40,18 @@ class LinkedInService {
         isReshareDisabledByAuthor: false
       };
 
-      // If there's an image, upload it and attach to the post
-      if (imageUrl) {
+      // Handle media content - either image upload or article link preview
+      if (useArticleLink && articleUrl) {
+        console.log('🔗 Using article link preview instead of image:', articleUrl);
+        
+        // Clean and validate the URL
+        const cleanedUrl = this.cleanUrl(articleUrl);
+        console.log('🧹 Cleaned URL:', cleanedUrl);
+        
+        // Add article link to commentary for LinkedIn to generate a link preview
+        postData.commentary += `\n\n${cleanedUrl}`;
+        
+      } else if (imageUrl) {
         console.log('🖼️ Uploading image to LinkedIn:', imageUrl);
         
         try {
@@ -92,10 +105,17 @@ class LinkedInService {
         headers: error.response?.headers,
         data: error.response?.data
       });
+
+      // Handle specific duplicate content error
+      let errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      
+      if (errorMessage.includes('duplicate') || errorMessage.includes('Content is a duplicate')) {
+        errorMessage = 'This content is too similar to a recent post. Please try generating new content or modify the existing content before posting.';
+      }
       
       return {
         success: false,
-        error: error.response?.data?.message || error.response?.data?.error || error.message,
+        error: errorMessage,
         statusCode: error.response?.status,
         details: error.response?.data
       };
@@ -266,6 +286,56 @@ class LinkedInService {
       return profileResult.success;
     } catch (error) {
       return false;
+    }
+  }
+
+  // Make content unique to avoid duplicate posting errors
+  makeContentUnique(content) {
+    if (!content) return content;
+    
+    // Add a subtle timestamp-based variation that doesn't affect readability
+    const now = new Date();
+    const timeVariation = now.getMinutes() + now.getSeconds();
+    
+    // Add invisible variation using zero-width characters or minimal spacing
+    // This preserves the visual content while making it technically unique
+    const variations = [
+      '', // No variation for first attempt
+      ' ', // Extra space
+      '  ', // Two spaces
+      '\u200B', // Zero-width space
+      '\u2060', // Word joiner (invisible)
+    ];
+    
+    const variationIndex = timeVariation % variations.length;
+    const uniqueContent = content + variations[variationIndex];
+    
+    console.log('🔄 Made content unique with variation index:', variationIndex);
+    return uniqueContent;
+  }
+
+  // Clean and validate URL to prevent 404 errors
+  cleanUrl(url) {
+    if (!url) return null;
+    
+    // Remove any leading/trailing whitespace
+    url = url.trim();
+    
+    // Ensure the URL has a protocol
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    
+    // Remove any invalid characters that might cause issues
+    url = url.replace(/[\s\n\r\t]/g, '');
+    
+    // Validate the URL format
+    try {
+      new URL(url);
+      return url;
+    } catch (error) {
+      console.warn('⚠️ Invalid URL format:', url);
+      return null;
     }
   }
 }

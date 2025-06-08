@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostPilot Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .admin-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .admin-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #E94560 0%, #0F3460 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .admin-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #E94560;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #E94560;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #E94560 0%, #0F3460 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.3);
+        }
+
+        .access-keys-list {
+            grid-column: 1 / -1;
+        }
+
+        .access-key-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .key-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .key-code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: rgba(233, 69, 96, 0.2);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            border: 1px solid #E94560;
+        }
+
+        .key-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #E94560;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .success-message {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid #28a745;
+            color: #28a745;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .admin-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .key-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🔑 PostPilot Admin Dashboard</h1>
+            <p>Manage access keys and monitor system usage</p>
+        </div>
+
+        <div id="messages"></div>
+
+        <div class="admin-grid">
+            <!-- Create Access Key Form -->
+            <div class="admin-card">
+                <h2 class="card-title">Create Access Key</h2>
+                <form id="createKeyForm">
+                    <div class="form-group">
+                        <label for="keyName">Key Name/Description</label>
+                        <input type="text" id="keyName" required placeholder="e.g., Beta Tester Key, Influencer Access">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="postsLimit">Posts Limit</label>
+                        <select id="postsLimit">
+                            <option value="5">5 posts</option>
+                            <option value="10" selected>10 posts</option>
+                            <option value="25">25 posts</option>
+                            <option value="50">50 posts</option>
+                            <option value="100">100 posts</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="validUntil">Valid Until (Optional)</label>
+                        <input type="date" id="validUntil">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Create Access Key</button>
+                </form>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="admin-card">
+                <h2 class="card-title">System Overview</h2>
+                <div id="systemStats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalKeys">-</div>
+                        <div class="stat-label">Total Keys</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="activeKeys">-</div>
+                        <div class="stat-label">Active Keys</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalUsers">-</div>
+                        <div class="stat-label">Users</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalPosts">-</div>
+                        <div class="stat-label">Posts Used</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Access Keys List -->
+        <div class="admin-card access-keys-list">
+            <h2 class="card-title">Access Keys Management</h2>
+            <div id="accessKeysList"></div>
+        </div>
+    </div>
+
+    <script>
+        class AdminDashboard {
+            constructor() {
+                this.init();
+            }
+
+            async init() {
+                this.setupEventListeners();
+                await this.loadAccessKeys();
+            }
+
+            setupEventListeners() {
+                document.getElementById('createKeyForm').addEventListener('submit', this.handleCreateKey.bind(this));
+                
+                // Auto-refresh every 30 seconds
+                setInterval(() => {
+                    this.loadAccessKeys();
+                }, 30000);
+            }
+
+            async handleCreateKey(e) {
+                e.preventDefault();
+                
+                const form = e.target;
+                const formData = new FormData(form);
+                
+                const keyData = {
+                    name: document.getElementById('keyName').value,
+                    postsLimit: parseInt(document.getElementById('postsLimit').value),
+                    validUntil: document.getElementById('validUntil').value || null
+                };
+
+                try {
+                    this.showLoading(true);
+                    
+                    const response = await fetch('/api/admin/access-key/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(keyData)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        this.showMessage(`Access key created successfully! Key: ${result.accessKey.key_code}`, 'success');
+                        form.reset();
+                        await this.loadAccessKeys();
+                    } else {
+                        throw new Error(result.error || 'Failed to create access key');
+                    }
+                } catch (error) {
+                    this.showMessage('Error: ' + error.message, 'error');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            async loadAccessKeys() {
+                try {
+                    const response = await fetch('/api/admin/access-keys');
+                    const accessKeys = await response.json();
+
+                    this.displayAccessKeys(accessKeys);
+                    this.updateStats(accessKeys);
+                } catch (error) {
+                    console.error('Error loading access keys:', error);
+                    this.showMessage('Failed to load access keys', 'error');
+                }
+            }
+
+            displayAccessKeys(accessKeys) {
+                const container = document.getElementById('accessKeysList');
+                
+                if (accessKeys.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; opacity: 0.7;">No access keys created yet.</p>';
+                    return;
+                }
+
+                container.innerHTML = accessKeys.map(key => {
+                    const isExpired = key.valid_until && new Date(key.valid_until) < new Date();
+                    const isExhausted = key.posts_used >= key.posts_limit;
+                    const status = isExpired ? 'Expired' : isExhausted ? 'Exhausted' : key.status;
+                    
+                    return `
+                        <div class="access-key-item">
+                            <div class="key-header">
+                                <div>
+                                    <h3>${key.name || 'Unnamed Key'}</h3>
+                                    <div class="key-code">${key.key_code}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.9rem; opacity: 0.8;">Status: ${status}</div>
+                                    <div style="font-size: 0.8rem; opacity: 0.6;">Created: ${new Date(key.created_at).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="key-stats">
+                                <div class="stat-item">
+                                    <div class="stat-value">${key.posts_used}</div>
+                                    <div class="stat-label">Posts Used</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">${key.posts_limit}</div>
+                                    <div class="stat-label">Posts Limit</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">${key.total_users || 0}</div>
+                                    <div class="stat-label">Users</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">${key.valid_until ? new Date(key.valid_until).toLocaleDateString() : 'Never'}</div>
+                                    <div class="stat-label">Expires</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            updateStats(accessKeys) {
+                const totalKeys = accessKeys.length;
+                const activeKeys = accessKeys.filter(key => key.status === 'active').length;
+                const totalUsers = accessKeys.reduce((sum, key) => sum + (parseInt(key.total_users) || 0), 0);
+                const totalPosts = accessKeys.reduce((sum, key) => sum + (parseInt(key.total_posts_used) || 0), 0);
+
+                document.getElementById('totalKeys').textContent = totalKeys;
+                document.getElementById('activeKeys').textContent = activeKeys;
+                document.getElementById('totalUsers').textContent = totalUsers;
+                document.getElementById('totalPosts').textContent = totalPosts;
+            }
+
+            showMessage(message, type) {
+                const messagesContainer = document.getElementById('messages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `${type}-message`;
+                messageDiv.textContent = message;
+                
+                messagesContainer.innerHTML = '';
+                messagesContainer.appendChild(messageDiv);
+                
+                setTimeout(() => {
+                    messageDiv.remove();
+                }, 5000);
+            }
+
+            showLoading(isLoading) {
+                const form = document.getElementById('createKeyForm');
+                if (isLoading) {
+                    form.classList.add('loading');
+                } else {
+                    form.classList.remove('loading');
+                }
+            }
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new AdminDashboard();
+        });
+
+        // Console welcome message
+        console.log(`
+🔑 PostPilot Admin Dashboard
+✨ Manage access keys and monitor usage
+
+Available API endpoints:
+• GET /api/admin/access-keys - List all keys
+• POST /api/admin/access-key/create - Create new key
+• GET /api/subscription/plans - View plans
+• GET /api/subscription/status - User subscription
+
+Need help? Check the STRIPE_SETUP.md guide.
+        `);
+    </script>
+</body>
+</html> 

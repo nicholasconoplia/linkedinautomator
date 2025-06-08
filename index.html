@@ -3,332 +3,227 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LinkedIn Post Generator - AI-Powered Content Creation</title>
-    <link rel="stylesheet" href="styles.css?v=1.2">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230077B5'><path d='M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z'/></svg>">
+    <title>PostPilot - AI-Driven LinkedIn Content That Resonates</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <meta name="description" content="PostPilot - Transform your LinkedIn presence with AI-powered content creation. Generate engaging posts with real-time news insights and automated scheduling.">
+    <meta name="keywords" content="LinkedIn, AI content, social media automation, post generator, professional networking">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
+        <!-- Header Section -->
         <header class="header">
             <div class="header-content">
-                <div class="logo">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="#0077B5">
-                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                <a href="#" class="logo">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+                        <path d="M12 16L13.09 22.26L22 23L13.09 23.74L12 30L10.91 23.74L2 23L10.91 22.26L12 16Z" opacity="0.6"/>
                     </svg>
-                    <h1>LinkedIn Post Generator</h1>
+                    <h1>PostPilot</h1>
+                </a>
+                <p class="tagline">AI-Driven LinkedIn Content That Resonates</p>
+            </div>
+        </header>
+
+        <!-- Authentication Section -->
+        <div class="auth-section" id="authSection">
+            <div class="auth-card">
+                <div id="loginSection">
+                    <h2>🚀 Ready to Transform Your LinkedIn Presence?</h2>
+                    <p>Connect your LinkedIn account to start generating AI-powered content that drives engagement and builds your professional brand.</p>
+                    <a href="/auth/linkedin" class="linkedin-login-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
+                        Connect LinkedIn Account
+                    </a>
                 </div>
-                <div class="tagline">AI-Powered Content Creation with Real News</div>
-                
-                <!-- User Authentication -->
-                <div class="auth-section">
-                    <div id="login-prompt" class="auth-card">
-                        <a href="/auth/linkedin" class="linkedin-login-btn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                            </svg>
-                            Login with LinkedIn for Auto-Posting
-                        </a>
+                <div id="userSection" style="display: none;">
+                    <div style="text-align: center; margin-bottom: var(--spacing-lg);">
+                        <h2>🎯 Welcome to Your Content Command Center</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+                            Your LinkedIn account is connected and ready to amplify your professional voice.
+                        </p>
                     </div>
-                    
-                    <div id="user-profile" class="auth-card" style="display: none;">
-                        <div class="user-info">
-                            <div class="user-welcome">
-                                <span class="welcome-text">Welcome back,</span>
-                                <span class="user-name"></span>
-                                <div class="auth-status">✅ LinkedIn Connected</div>
+                    <div class="user-info">
+                        <div class="user-welcome">
+                            <div class="welcome-text">Welcome back,</div>
+                            <div class="user-name" id="userName"></div>
+                            <div style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: var(--spacing-xs); display: flex; align-items: center; gap: var(--spacing-xs);">
+                                <span style="color: #00C851;">●</span> LinkedIn Connected
                             </div>
-                            <div class="user-actions">
-                                <button id="view-dashboard-btn" class="view-dashboard-btn">🤖 View Automation Dashboard</button>
-                                <button id="logout-btn" class="logout-btn">Logout</button>
-                            </div>
+                        </div>
+                        <div class="user-actions">
+                            <a href="/dashboard" class="view-dashboard-btn">📊 Dashboard</a>
+                            <button onclick="logout()" class="logout-btn">Sign Out</button>
                         </div>
                     </div>
                 </div>
             </div>
-        </header>
+        </div>
 
         <!-- Main Content -->
         <main class="main">
             <div class="content-grid">
-                <!-- Input Panel -->
-                <div class="input-panel">
-                    <div class="card">
-                        <h2>Generate Your Next LinkedIn Post</h2>
-                        <p class="description">Create engaging LinkedIn content based on the latest news and trends in your industry.</p>
-                        
-                        <form id="postForm" class="form">
-                            <div class="form-group">
-                                <label for="customTopic">Topic</label>
-                                <div class="topic-input-container">
-                                    <input type="text" id="customTopic" placeholder="Enter your topic (e.g., Artificial Intelligence, Leadership, etc.)" />
-                                    <div class="topic-divider">
-                                        <span>or choose from popular topics</span>
-                                    </div>
-                                    <select id="predefinedTopic">
-                                        <option value="">Select a popular topic...</option>
-                                        <option value="Artificial Intelligence">🤖 Artificial Intelligence</option>
-                                        <option value="Cybersecurity">🔒 Cybersecurity</option>
-                                        <option value="Digital Marketing">📊 Digital Marketing</option>
-                                        <option value="Remote Work">🏠 Remote Work</option>
-                                        <option value="Sustainability">🌱 Sustainability</option>
-                                        <option value="Financial Technology">💳 Financial Technology</option>
-                                        <option value="Healthcare Innovation">🏥 Healthcare Innovation</option>
-                                        <option value="E-commerce">🛒 E-commerce</option>
-                                        <option value="Data Science">📈 Data Science</option>
-                                        <option value="Leadership">👥 Leadership</option>
-                                        <option value="Startup">🚀 Startup</option>
-                                        <option value="Blockchain">⛓️ Blockchain</option>
-                                        <option value="Cloud Computing">☁️ Cloud Computing</option>
-                                        <option value="Social Media">📱 Social Media</option>
-                                        <option value="Project Management">📋 Project Management</option>
-                                        <option value="Software Development">💻 Software Development</option>
-                                        <option value="Sales">💼 Sales</option>
-                                        <option value="Human Resources">👥 Human Resources</option>
-                                        <option value="Marketing Strategy">🎯 Marketing Strategy</option>
-                                        <option value="Customer Experience">⭐ Customer Experience</option>
-                                    </select>
-                                </div>
+                <!-- Post Generation Card -->
+                <div class="card">
+                    <h2>Content Generator</h2>
+                    <p class="description">
+                        Create compelling LinkedIn posts with AI-powered insights from real-time news and trending topics. 
+                        Choose your approach and let PostPilot craft content that resonates with your audience.
+                    </p>
+
+                    <form id="postForm">
+                        <div class="form-group">
+                            <label for="topic">What's on your mind?</label>
+                            <div class="topic-input-container">
+                                <input type="text" id="topic" name="topic" placeholder="Enter your topic, industry, or area of interest..." />
                             </div>
-
-                            <div class="form-group">
-                                <label for="tone">Post Tone</label>
-                                <select id="tone">
-                                    <option value="professional">Professional</option>
-                                    <option value="thought-leadership">Thought Leadership</option>
-                                    <option value="conversational">Conversational</option>
-                                    <option value="analytical">Analytical</option>
-                                    <option value="motivational">Motivational</option>
-                                </select>
-                            </div>
-
-                            <button type="submit" class="generate-btn" id="generateBtn">
-                                <span class="btn-text">Find Latest News & Generate Post</span>
-                                <div class="loader" id="loader"></div>
-                            </button>
-                        </form>
-
-                        <div class="features">
-                            <h3>✨ Features</h3>
-                            <ul>
-                                <li data-icon="📰">Real-time news integration</li>
-                                <li data-icon="🎯">AI-optimized for LinkedIn engagement</li>
-                                <li data-icon="🖼️">Automatic relevant image selection</li>
-                                <li data-icon="📝">Professional copywriting templates</li>
-                                <li data-icon="⚡">One-click copy to clipboard</li>
-                            </ul>
                         </div>
+
+                        <div class="topic-divider">
+                            <span>Or Choose from Popular Topics</span>
+                        </div>
+
+                        <div class="popular-topics">
+                            <div class="topic-chip" data-topic="Artificial Intelligence">🤖 AI & Tech</div>
+                            <div class="topic-chip" data-topic="Leadership">👑 Leadership</div>
+                            <div class="topic-chip" data-topic="Entrepreneurship">🚀 Startup Life</div>
+                            <div class="topic-chip" data-topic="Digital Marketing">📱 Marketing</div>
+                            <div class="topic-chip" data-topic="Remote Work">🏠 Remote Work</div>
+                            <div class="topic-chip" data-topic="Career Development">📈 Career Growth</div>
+                            <div class="topic-chip" data-topic="Innovation">💡 Innovation</div>
+                            <div class="topic-chip" data-topic="Productivity">⚡ Productivity</div>
+                            <div class="topic-chip" data-topic="Networking">🤝 Networking</div>
+                            <div class="topic-chip" data-topic="Industry Trends">📊 Trends</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tone">Content Tone</label>
+                            <select id="tone" name="tone">
+                                <option value="professional">🎯 Professional & Authoritative</option>
+                                <option value="conversational">💬 Conversational & Friendly</option>
+                                <option value="inspirational">✨ Inspirational & Motivating</option>
+                                <option value="educational">📚 Educational & Informative</option>
+                                <option value="thought-provoking">🤔 Thought-Provoking</option>
+                                <option value="humorous">😄 Light & Engaging</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="length">Post Length</label>
+                            <select id="length" name="length">
+                                <option value="short">📝 Short & Punchy (50-100 words)</option>
+                                <option value="medium" selected>📄 Medium Length (100-200 words)</option>
+                                <option value="long">📖 Detailed & Comprehensive (200+ words)</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="generate-btn" id="generateBtn">
+                            <span class="btn-text">Generate Content</span>
+                            <div class="loader" id="loader"></div>
+                        </button>
+                    </form>
+
+                    <div class="features">
+                        <h3>Platform Features</h3>
+                        <ul>
+                            <li>Real-time news integration for timely content</li>
+                            <li>AI-powered hashtag suggestions</li>
+                            <li>Multiple tone and style options</li>
+                            <li>Image attachment or article link embedding</li>
+                            <li>One-click posting to LinkedIn</li>
+                            <li>Content performance analytics</li>
+                            <li>Automated scheduling capabilities</li>
+                            <li>Professional brand voice consistency</li>
+                        </ul>
                     </div>
                 </div>
 
-                <!-- Output Panel -->
-                <div class="output-panel">
-                    <div class="card" id="outputCard" style="display: none;">
-                        <div class="output-header">
-                            <h2>Your LinkedIn Post</h2>
-                            <div class="output-actions">
-                                <button class="action-btn" id="copyBtn" title="Copy to Clipboard">
-                                    📋 Copy Post
-                                </button>
-                                <button class="action-btn" id="regenerateBtn" title="Generate New Version">
-                                    🔄 Regenerate
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Generated Image Link -->
-                        <div class="post-image-link" id="postImageLink" style="display: none;">
-                            <div class="image-link-container">
-                                <h4>📸 Suggested Image for Your Post:</h4>
-                                <a id="imageUrl" href="#" target="_blank" rel="noopener" class="image-url-link">
-                                    Click to view suggested image
-                                </a>
-                                <div class="image-attribution" id="imageAttribution"></div>
-                            </div>
-                        </div>
-
-                        <!-- Generated Post -->
-                        <div class="post-content">
-                            <div class="post-text" id="generatedPost"></div>
-                        </div>
-
-                        <!-- Post Metadata -->
-                        <div class="post-metadata" id="postMetadata" style="display: none;">
-                            <div class="metadata-item">
-                                <span class="label">Word Count:</span>
-                                <span id="wordCount">-</span>
-                            </div>
-                            <div class="metadata-item">
-                                <span class="label">Source:</span>
-                                <span id="newsSource">-</span>
-                            </div>
-                            <div class="metadata-item">
-                                <span class="label">Keywords:</span>
-                                <span id="keywords">-</span>
-                            </div>
-                        </div>
-
-                        <!-- Source Article -->
-                        <div class="source-article" id="sourceArticle" style="display: none;">
-                            <h3>📰 Source Article</h3>
-                            <div class="article-card">
-                                <h4 id="articleTitle"></h4>
-                                <p id="articleSnippet"></p>
-                                <a id="articleLink" href="#" target="_blank" rel="noopener">Read full article →</a>
-                            </div>
+                <!-- Output Card -->
+                <div class="card">
+                    <div class="output-header">
+                        <h2>Generated Content</h2>
+                        <div class="output-actions">
+                            <button class="action-btn" onclick="copyToClipboard()" id="copyBtn" style="display: none;">
+                                📋 Copy
+                            </button>
+                            <button class="action-btn" onclick="regeneratePost()" id="regenerateBtn" style="display: none;">
+                                🔄 Regenerate
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Success Message -->
-                    <div class="success-message" id="successMessage" style="display: none;">
-                        <div class="success-content">
-                            <div class="success-icon">✅</div>
-                            <h3>Post Copied to Clipboard!</h3>
-                            <p>Your LinkedIn post is ready to paste. Don't forget to add the image when posting!</p>
+                    <div id="output">
+                        <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                            <div style="font-size: 48px; margin-bottom: 20px;">✨</div>
+                            <h3 style="margin-bottom: 10px; color: var(--text-primary);">Ready to Create Amazing Content?</h3>
+                            <p>Enter a topic above and let PostPilot generate engaging LinkedIn content tailored to your professional voice.</p>
                         </div>
                     </div>
 
-                    <!-- Error Message -->
-                    <div class="error-message" id="errorMessage" style="display: none;">
-                        <div class="error-content">
-                            <div class="error-icon">❌</div>
-                            <h3>Oops! Something went wrong</h3>
-                            <p id="errorText">Please try again in a moment.</p>
+                    <div id="postOptions" style="display: none;">
+                        <div class="post-options">
+                            <label class="option-toggle">
+                                <input type="radio" name="postType" value="image" checked>
+                                <span class="option-label">🖼️ With Image</span>
+                            </label>
+                            <label class="option-toggle">
+                                <input type="radio" name="postType" value="link">
+                                <span class="option-label">🔗 Article Link</span>
+                            </label>
                         </div>
+
+                        <button class="post-now-btn" onclick="postToLinkedIn()" id="postBtn">
+                            Post to LinkedIn
+                        </button>
+                        <p class="post-note">
+                            Your content will be posted directly to your LinkedIn profile. 
+                            Make sure to review before posting!
+                        </p>
                     </div>
                 </div>
             </div>
         </main>
 
-        <!-- Automation Panel (shown when logged in) -->
-        <section id="automation-panel" class="automation-panel" style="display: none;">
+        <!-- Automation Panel -->
+        <section class="automation-panel">
             <div class="automation-container">
                 <div class="automation-header">
-                    <h2>🤖 LinkedIn Automation Dashboard</h2>
-                    <p>Welcome to your automated posting hub! Set up your posting frequency, schedule content, and let AI handle your LinkedIn presence.</p>
-                    <div class="dashboard-highlights">
-                        <div class="highlight-item">
-                            <span class="highlight-number" id="postsPerWeekDisplay">3</span>
-                            <span class="highlight-label">Posts per Week</span>
-                        </div>
-                        <div class="highlight-item">
-                            <span class="highlight-number" id="scheduledPostsCount">0</span>
-                            <span class="highlight-label">Scheduled Posts</span>
-                        </div>
-                        <div class="highlight-item">
-                            <span class="highlight-status" id="automationStatus">🔴 Disabled</span>
-                            <span class="highlight-label">Auto-Posting</span>
-                        </div>
-                    </div>
+                    <h2>Automation Dashboard</h2>
+                    <p>Set up automated posting schedules and manage your content pipeline with intelligent AI assistance.</p>
                 </div>
-                
+
                 <div class="automation-grid">
-                    <!-- Settings Panel -->
                     <div class="automation-card">
-                        <h3>⚙️ Automation Settings</h3>
-                        <form id="automationForm" class="automation-form">
-                            <div class="form-group">
-                                <label for="autoPosting">
-                                    <input type="checkbox" id="autoPosting" />
-                                    Enable Automatic Posting
-                                </label>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="postsPerWeek">Posts per Week</label>
-                                <select id="postsPerWeek">
-                                    <option value="1">1 post per week</option>
-                                    <option value="2">2 posts per week</option>
-                                    <option value="3" selected>3 posts per week</option>
-                                    <option value="5">5 posts per week</option>
-                                    <option value="7">Daily posts</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Posting Days</label>
-                                <div class="days-selector">
-                                    <label><input type="checkbox" value="1" checked> Monday</label>
-                                    <label><input type="checkbox" value="2"> Tuesday</label>
-                                    <label><input type="checkbox" value="3" checked> Wednesday</label>
-                                    <label><input type="checkbox" value="4"> Thursday</label>
-                                    <label><input type="checkbox" value="5" checked> Friday</label>
-                                    <label><input type="checkbox" value="6"> Saturday</label>
-                                    <label><input type="checkbox" value="0"> Sunday</label>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="postingTime">Posting Time</label>
-                                <input type="time" id="postingTime" value="09:00" />
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="defaultTopics">Default Topics</label>
-                                <input type="text" id="defaultTopics" placeholder="Artificial Intelligence, Technology, Leadership" />
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="defaultTone">Default Tone</label>
-                                <select id="defaultTone">
-                                    <option value="professional">Professional</option>
-                                    <option value="thought-leadership">Thought Leadership</option>
-                                    <option value="conversational">Conversational</option>
-                                    <option value="analytical">Analytical</option>
-                                    <option value="motivational">Motivational</option>
-                                </select>
-                            </div>
-                            
-                            <button type="submit" class="save-settings-btn">💾 Save Settings</button>
-                        </form>
-                    </div>
-                    
-                    <!-- Scheduled Posts Panel -->
-                    <div class="automation-card">
-                        <h3>📅 Scheduled Posts</h3>
-                        <div class="scheduled-posts-list" id="scheduledPostsList">
-                            <div class="loading">Loading scheduled posts...</div>
-                        </div>
-                        
-                        <!-- Quick Schedule -->
-                        <div class="quick-schedule">
-                            <h4>🚀 Quick Schedule</h4>
-                            <form id="quickScheduleForm" class="quick-schedule-form">
-                                <div class="form-row">
-                                    <input type="text" id="quickTopic" placeholder="Topic" required />
-                                    <select id="quickTone">
-                                        <option value="professional">Professional</option>
-                                        <option value="thought-leadership">Thought Leadership</option>
-                                        <option value="conversational">Conversational</option>
-                                        <option value="analytical">Analytical</option>
-                                        <option value="motivational">Motivational</option>
-                                    </select>
-                                </div>
-                                <div class="form-row">
-                                    <input type="datetime-local" id="quickDateTime" required />
-                                    <button type="submit" class="schedule-btn">Schedule</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    
-                    <!-- Manual Posting Panel -->
-                    <div class="automation-card">
-                        <h3>📤 Post Now to LinkedIn</h3>
-                        <div class="manual-post-section">
-                            <button id="postCurrentBtn" class="post-now-btn" disabled>
-                                📝 Post Current Content to LinkedIn
-                            </button>
-                            <p class="post-note">Generate a post first, then click to post directly to your LinkedIn profile</p>
-                        </div>
-                        
-                        <!-- Recent Activity -->
+                        <h3>📅 Smart Scheduling</h3>
+                        <p>Schedule posts for optimal engagement times based on your audience analytics and LinkedIn best practices.</p>
                         <div class="recent-activity">
-                            <h4>📊 Recent Activity</h4>
-                            <div id="recentActivity" class="activity-list">
-                                <div class="loading">Loading recent posts...</div>
+                            <h4>Recent Activity</h4>
+                            <div class="activity-list" id="activityList">
+                                <div class="loading">Loading recent activity...</div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="automation-card">
+                        <h3>📊 Performance Analytics</h3>
+                        <p>Track engagement metrics, audience growth, and content performance to optimize your LinkedIn strategy.</p>
+                        <div style="margin-top: 20px; padding: 20px; background: var(--bg-secondary); border-radius: var(--radius-md); text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--sunset-orange);">Coming Soon</div>
+                            <div style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">Advanced analytics dashboard</div>
+                        </div>
+                    </div>
+
+                    <div class="automation-card">
+                        <h3>🎯 Content Strategy</h3>
+                        <p>AI-powered content recommendations based on trending topics in your industry and network engagement patterns.</p>
+                        <div style="margin-top: 20px; padding: 20px; background: var(--bg-secondary); border-radius: var(--radius-md); text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--sunset-orange);">Coming Soon</div>
+                            <div style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">Strategic content planning</div>
                         </div>
                     </div>
                 </div>
@@ -338,14 +233,368 @@
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-content">
-                <p>© 2025 LinkedIn Post Generator. Powered by OpenAI & Real News APIs.</p>
+                <p>&copy; 2024 PostPilot. Navigating Your LinkedIn Content Journey with Precision.</p>
                 <div class="footer-links">
-                    <span>Made with ❤️ for content creators</span>
+                    <span>AI-Driven LinkedIn Content That Resonates</span>
                 </div>
             </div>
         </footer>
     </div>
 
-    <script src="script.js?v=5.1"></script>
+    <!-- Subscription Modal -->
+    <div id="subscriptionModal" class="subscription-modal" style="display: none;">
+        <div class="modal-backdrop" onclick="closeSubscriptionModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🚀 Upgrade to Continue Creating</h2>
+                <button class="modal-close" onclick="closeSubscriptionModal()">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="usage-info" id="usageInfo">
+                    <div class="usage-card">
+                        <div class="usage-icon">⚡</div>
+                        <div class="usage-text">
+                            <h3>You've reached your limit!</h3>
+                            <p>Upgrade to continue generating AI-powered LinkedIn content.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Access Key Section -->
+                <div class="access-key-section">
+                    <div class="access-key-header">
+                        <h3>🗝️ Have an Access Key?</h3>
+                        <p>Enter your promotional access key to unlock free posts</p>
+                    </div>
+                    <div class="access-key-form">
+                        <input type="text" id="accessKeyInput" placeholder="Enter access key (e.g., PK-SPECIAL-CODE)" maxlength="50">
+                        <button onclick="activateAccessKey()" class="access-key-btn">Activate Key</button>
+                    </div>
+                    <div id="accessKeyMessage" class="access-key-message"></div>
+                </div>
+
+                <div class="modal-divider">
+                    <span>Or Choose a Subscription Plan</span>
+                </div>
+
+                <!-- Plans Grid -->
+                <div class="plans-grid" id="plansGrid">
+                    <div class="loading">Loading subscription plans...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .subscription-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            position: relative;
+            background: white;
+            border-radius: 16px;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 30px 30px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 24px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 5px;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 20px 30px 30px;
+        }
+
+        .usage-info {
+            margin-bottom: 30px;
+        }
+
+        .usage-card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border-radius: 12px;
+            border-left: 4px solid #f39c12;
+        }
+
+        .usage-icon {
+            font-size: 32px;
+        }
+
+        .usage-text h3 {
+            margin: 0 0 5px 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .usage-text p {
+            margin: 0;
+            color: #666;
+        }
+
+        .access-key-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .access-key-header h3 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+
+        .access-key-header p {
+            margin: 0 0 15px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .access-key-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .access-key-form input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .access-key-form input:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        .access-key-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .access-key-btn:hover {
+            background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+        }
+
+        .access-key-message {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .access-key-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .access-key-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .modal-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+            color: #666;
+        }
+
+        .modal-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #ddd;
+            z-index: 1;
+        }
+
+        .modal-divider span {
+            background: white;
+            padding: 0 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .plan-card-modal {
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: white;
+        }
+
+        .plan-card-modal:hover {
+            border-color: #0066cc;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,102,204,0.15);
+        }
+
+        .plan-card-modal.popular {
+            border-color: #ff6b35;
+        }
+
+        .plan-card-modal.popular::before {
+            content: "MOST POPULAR";
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff6b35;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .plan-name-modal {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .plan-price-modal {
+            font-size: 24px;
+            font-weight: 900;
+            color: #0066cc;
+            margin-bottom: 5px;
+        }
+
+        .plan-price-modal .crossed {
+            text-decoration: line-through;
+            color: #999;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+
+        .plan-posts-modal {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .plan-features-modal {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 11px;
+            color: #555;
+        }
+
+        .plan-features-modal li {
+            padding: 2px 0;
+        }
+
+        .plan-features-modal li::before {
+            content: "✓";
+            color: #4CAF50;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 20px;
+                max-height: calc(100vh - 40px);
+            }
+
+            .modal-header, .modal-body {
+                padding: 20px;
+            }
+
+            .plans-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .access-key-form {
+                flex-direction: column;
+            }
+        }
+    </style>
+
+    <script src="script.js"></script>
 </body>
 </html> 

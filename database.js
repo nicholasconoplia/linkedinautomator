@@ -127,6 +127,119 @@ function initializeDatabase() {
           )
         `);
 
+        // Subscription plans table
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS subscription_plans (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            price DECIMAL(10,2) NOT NULL,
+            posts_limit INTEGER,
+            features JSONB DEFAULT '{}',
+            stripe_price_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+
+        // User subscriptions table
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS user_subscriptions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL UNIQUE,
+            plan_id INTEGER REFERENCES subscription_plans(id),
+            stripe_customer_id TEXT,
+            stripe_subscription_id TEXT,
+            status TEXT DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'past_due', 'unpaid', 'incomplete')),
+            current_period_start TIMESTAMP,
+            current_period_end TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `);
+
+        // Add unique constraint if it doesn't exist (for existing databases)
+        try {
+          await client.query(`
+            ALTER TABLE user_subscriptions 
+            ADD CONSTRAINT user_subscriptions_user_id_unique UNIQUE (user_id)
+          `);
+          console.log('✅ Added unique constraint to user_subscriptions.user_id');
+        } catch (error) {
+          // Constraint already exists, which is fine
+          if (!error.message.includes('already exists')) {
+            console.log('ℹ️ Unique constraint on user_subscriptions.user_id already exists');
+          }
+        }
+
+        // Usage tracking table
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS usage_tracking (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            action_type TEXT NOT NULL CHECK (action_type IN ('post_generation', 'post_publish', 'image_fetch')),
+            cost DECIMAL(10,6) DEFAULT 0,
+            tokens_used INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            metadata JSONB DEFAULT '{}',
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `);
+
+        // Access keys table
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS access_keys (
+            id SERIAL PRIMARY KEY,
+            key_code TEXT NOT NULL UNIQUE,
+            name TEXT,
+            posts_limit INTEGER DEFAULT 10,
+            posts_used INTEGER DEFAULT 0,
+            valid_until TIMESTAMP,
+            created_by TEXT,
+            status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expired', 'exhausted', 'disabled')),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_used_at TIMESTAMP,
+            used_by_users TEXT[] DEFAULT '{}'
+          )
+        `);
+
+        // User access keys (many-to-many)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS user_access_keys (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            access_key_id INTEGER REFERENCES access_keys(id),
+            posts_used INTEGER DEFAULT 0,
+            activated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, access_key_id),
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `);
+
+        // Add unique constraint if it doesn't exist (for existing databases)
+        try {
+          await client.query(`
+            ALTER TABLE subscription_plans 
+            ADD CONSTRAINT subscription_plans_name_unique UNIQUE (name)
+          `);
+          console.log('✅ Added unique constraint to subscription_plans.name');
+        } catch (error) {
+          // Constraint already exists, which is fine
+          if (!error.message.includes('already exists')) {
+            console.log('ℹ️ Unique constraint on subscription_plans.name already exists');
+          }
+        }
+
+        // Insert default subscription plans
+        await client.query(`
+          INSERT INTO subscription_plans (name, price, posts_limit, features, stripe_price_id) VALUES
+          ('Free Trial', 0.00, 5, '{"description": "Try PostPilot with 5 free posts", "promotion": "Always Free"}', null),
+          ('Starter', 0.49, 30, '{"description": "Perfect for individuals", "features": ["30 posts/month", "Basic templates", "Email support"], "original_price": 0.99, "promotion": "🔥 50% OFF Launch Special"}', null),
+          ('Professional', 1.49, 100, '{"description": "For active professionals", "features": ["100 posts/month", "All templates", "Priority support", "Automation"], "original_price": 2.99, "promotion": "🔥 50% OFF Launch Special"}', null),
+          ('Business', 2.49, 300, '{"description": "For businesses and teams", "features": ["300 posts/month", "Advanced analytics", "Custom branding", "API access"], "original_price": 4.99, "promotion": "🔥 50% OFF Launch Special"}', null),
+          ('Enterprise', 4.99, -1, '{"description": "Unlimited posting", "features": ["Unlimited posts", "White-label", "Dedicated support", "Custom integrations"], "original_price": 9.99, "promotion": "🔥 50% OFF Launch Special"}', null)
+          ON CONFLICT (name) DO NOTHING
+        `);
+
         console.log('✅ Database initialized successfully');
         resolve();
       } finally {
@@ -395,10 +508,349 @@ const PostsDB = {
   }
 };
 
+// Subscription operations
+const SubscriptionDB = {
+  // Get all subscription plans
+  getPlans: async () => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query('SELECT * FROM subscription_plans ORDER BY price ASC');
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user's current subscription
+  getUserSubscription: async (userId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT us.*, sp.name as plan_name, sp.price, sp.posts_limit, sp.features
+        FROM user_subscriptions us
+        JOIN subscription_plans sp ON us.plan_id = sp.id
+        WHERE us.user_id = $1
+      `, [userId]);
+      return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Create or update user subscription
+  upsertSubscription: async (userId, subscriptionData) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        INSERT INTO user_subscriptions 
+        (user_id, plan_id, stripe_customer_id, stripe_subscription_id, status, current_period_start, current_period_end)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (user_id) 
+        DO UPDATE SET 
+          plan_id = EXCLUDED.plan_id,
+          stripe_customer_id = EXCLUDED.stripe_customer_id,
+          stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+          status = EXCLUDED.status,
+          current_period_start = EXCLUDED.current_period_start,
+          current_period_end = EXCLUDED.current_period_end,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING *
+      `, [
+        userId,
+        subscriptionData.plan_id,
+        subscriptionData.stripe_customer_id,
+        subscriptionData.stripe_subscription_id,
+        subscriptionData.status,
+        subscriptionData.current_period_start,
+        subscriptionData.current_period_end
+      ]);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  },
+
+  // Update subscription status
+  updateSubscriptionStatus: async (userId, status) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        UPDATE user_subscriptions 
+        SET status = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $2
+        RETURNING *
+      `, [status, userId]);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user subscription by Stripe customer ID
+  getUserSubscriptionByCustomer: async (stripeCustomerId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT us.*, sp.name as plan_name, sp.price, sp.posts_limit, sp.features
+        FROM user_subscriptions us
+        JOIN subscription_plans sp ON us.plan_id = sp.id
+        WHERE us.stripe_customer_id = $1
+      `, [stripeCustomerId]);
+      return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  }
+};
+
+// Usage tracking operations
+const UsageDB = {
+  // Track an action (post generation, publishing, etc.)
+  trackUsage: async (userId, actionType, cost = 0, tokensUsed = 0, metadata = {}) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        INSERT INTO usage_tracking (user_id, action_type, cost, tokens_used, metadata)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `, [userId, actionType, cost, tokensUsed, metadata]);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user's usage for current month
+  getMonthlyUsage: async (userId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT 
+          COUNT(*) FILTER (WHERE action_type = 'post_generation') as posts_generated,
+          COUNT(*) FILTER (WHERE action_type = 'post_publish') as posts_published,
+          SUM(cost) as total_cost,
+          SUM(tokens_used) as total_tokens
+        FROM usage_tracking 
+        WHERE user_id = $1 
+        AND created_at >= date_trunc('month', CURRENT_TIMESTAMP)
+      `, [userId]);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  },
+
+  // Check if user has remaining posts in their plan
+  checkUsageLimit: async (userId) => {
+    const client = await pool.connect();
+    try {
+      // First check if user has an active subscription
+      const result = await client.query(`
+        SELECT 
+          sp.posts_limit,
+          COUNT(ut.id) FILTER (WHERE ut.action_type = 'post_generation' 
+                               AND ut.created_at >= date_trunc('month', CURRENT_TIMESTAMP)) as posts_used,
+          us.status as subscription_status
+        FROM user_subscriptions us
+        JOIN subscription_plans sp ON us.plan_id = sp.id
+        LEFT JOIN usage_tracking ut ON ut.user_id = us.user_id
+        WHERE us.user_id = $1 AND us.status IN ('active', 'incomplete')
+        GROUP BY sp.posts_limit, us.status
+      `, [userId]);
+      
+      const usage = result.rows[0];
+      if (usage) {
+        const postsUsed = parseInt(usage.posts_used) || 0;
+        const postsLimit = usage.posts_limit;
+        
+        if (postsLimit === -1) { // Unlimited plan
+          return { hasAccess: true, postsRemaining: -1, postsUsed };
+        }
+
+        const postsRemaining = Math.max(0, postsLimit - postsUsed);
+        return { 
+          hasAccess: postsRemaining > 0, 
+          postsRemaining, 
+          postsUsed,
+          postsLimit 
+        };
+      }
+
+      // No subscription, check for access keys
+      const accessKeyResult = await client.query(`
+        SELECT 
+          SUM(ak.posts_limit - uak.posts_used) as total_posts_remaining,
+          COUNT(ak.id) as active_keys
+        FROM user_access_keys uak
+        JOIN access_keys ak ON uak.access_key_id = ak.id
+        WHERE uak.user_id = $1 
+        AND ak.status = 'active'
+        AND (ak.valid_until IS NULL OR ak.valid_until > CURRENT_TIMESTAMP)
+        AND uak.posts_used < ak.posts_limit
+      `, [userId]);
+
+      const accessKeyData = accessKeyResult.rows[0];
+      const totalPostsRemaining = parseInt(accessKeyData.total_posts_remaining) || 0;
+      const activeKeys = parseInt(accessKeyData.active_keys) || 0;
+
+      if (activeKeys > 0 && totalPostsRemaining > 0) {
+        return { 
+          hasAccess: true, 
+          postsRemaining: totalPostsRemaining, 
+          postsUsed: 0,
+          accessType: 'access_key',
+          activeKeys 
+        };
+      }
+
+      // No subscription or access keys
+      return { hasAccess: false, postsRemaining: 0, reason: 'No active subscription or access keys' };
+    } finally {
+      client.release();
+    }
+  }
+};
+
+// Access keys operations
+const AccessKeysDB = {
+  // Create a new access key
+  createAccessKey: async (keyData) => {
+    const client = await pool.connect();
+    try {
+      const keyCode = keyData.key_code || `PK-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+      const result = await client.query(`
+        INSERT INTO access_keys (key_code, name, posts_limit, valid_until, created_by)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `, [
+        keyCode,
+        keyData.name,
+        keyData.posts_limit || 10,
+        keyData.valid_until,
+        keyData.created_by
+      ]);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  },
+
+  // Validate and use an access key
+  useAccessKey: async (userId, keyCode) => {
+    const client = await pool.connect();
+    try {
+      // Start transaction
+      await client.query('BEGIN');
+
+      // Check if key exists and is valid
+      const keyResult = await client.query(`
+        SELECT * FROM access_keys 
+        WHERE key_code = $1 
+        AND status = 'active'
+        AND (valid_until IS NULL OR valid_until > CURRENT_TIMESTAMP)
+        AND posts_used < posts_limit
+      `, [keyCode]);
+
+      if (keyResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return { success: false, error: 'Invalid or expired access key' };
+      }
+
+      const accessKey = keyResult.rows[0];
+
+      // Check if user already used this key
+      const userKeyResult = await client.query(`
+        SELECT * FROM user_access_keys 
+        WHERE user_id = $1 AND access_key_id = $2
+      `, [userId, accessKey.id]);
+
+      let userAccessKey;
+      if (userKeyResult.rows.length === 0) {
+        // First time using this key
+        const insertResult = await client.query(`
+          INSERT INTO user_access_keys (user_id, access_key_id)
+          VALUES ($1, $2)
+          RETURNING *
+        `, [userId, accessKey.id]);
+        userAccessKey = insertResult.rows[0];
+      } else {
+        userAccessKey = userKeyResult.rows[0];
+      }
+
+      // Increment usage
+      await client.query(`
+        UPDATE access_keys 
+        SET posts_used = posts_used + 1, last_used_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [accessKey.id]);
+
+      await client.query(`
+        UPDATE user_access_keys 
+        SET posts_used = posts_used + 1
+        WHERE id = $1
+      `, [userAccessKey.id]);
+
+      await client.query('COMMIT');
+      
+      return { 
+        success: true, 
+        postsRemaining: accessKey.posts_limit - accessKey.posts_used - 1,
+        keyName: accessKey.name 
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user's active access keys
+  getUserAccessKeys: async (userId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT ak.*, uak.posts_used as user_posts_used, uak.activated_at
+        FROM user_access_keys uak
+        JOIN access_keys ak ON uak.access_key_id = ak.id
+        WHERE uak.user_id = $1
+        AND ak.status = 'active'
+        AND (ak.valid_until IS NULL OR ak.valid_until > CURRENT_TIMESTAMP)
+        ORDER BY uak.activated_at DESC
+      `, [userId]);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Admin: Get all access keys
+  getAllAccessKeys: async () => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT ak.*, 
+               COUNT(uak.id) as total_users,
+               SUM(uak.posts_used) as total_posts_used
+        FROM access_keys ak
+        LEFT JOIN user_access_keys uak ON ak.id = uak.access_key_id
+        GROUP BY ak.id
+        ORDER BY ak.created_at DESC
+      `);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  }
+};
+
 module.exports = {
   initializeDatabase,
   UserDB,
   PreferencesDB,
   PostsDB,
+  SubscriptionDB,
+  UsageDB,
+  AccessKeysDB,
   pool
 }; 

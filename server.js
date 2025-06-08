@@ -11,9 +11,10 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 
 // Import our modules
-const { initializeDatabase, UserDB, PreferencesDB, PostsDB } = require('./database');
+const { initializeDatabase, UserDB, PreferencesDB, PostsDB, SubscriptionDB, UsageDB, AccessKeysDB } = require('./database');
 const LinkedInService = require('./linkedin-service');
 const PostScheduler = require('./scheduler');
+const StripeService = require('./stripe-service');
 
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
@@ -848,15 +849,15 @@ app.delete('/api/scheduled-posts/:postId', requireAuth, async (req, res) => {
 
 // Post immediately to LinkedIn
 app.post('/api/post-now', requireAuth, rateLimitMiddleware, async (req, res) => {
-  try {
-    const { content, imageUrl } = req.body;
+      try {
+      const { content, imageUrl, articleUrl, useArticleLink } = req.body;
     
     if (!content) {
       return res.status(400).json({ error: 'Post content is required' });
     }
 
     const accessToken = await LinkedInService.ensureValidToken(req.user.id);
-    const result = await LinkedInService.createPost(accessToken, content, imageUrl);
+    const result = await LinkedInService.createPost(accessToken, content, imageUrl, articleUrl, useArticleLink);
 
     if (result.success) {
       res.json({ success: true, postId: result.postId });
@@ -866,6 +867,274 @@ app.post('/api/post-now', requireAuth, rateLimitMiddleware, async (req, res) => 
   } catch (error) {
     console.error('❌ Error posting to LinkedIn:', error);
     res.status(500).json({ error: 'Failed to post to LinkedIn' });
+  }
+});
+
+// ====================
+// SUBSCRIPTION AND PAYMENT ROUTES
+// ====================
+
+// Initialize Stripe service
+const stripeService = new StripeService();
+
+// Get subscription plans
+app.get('/api/subscription/plans', async (req, res) => {
+  try {
+    const plans = await SubscriptionDB.getPlans();
+    res.json(plans);
+  } catch (error) {
+    console.error('❌ Error fetching plans:', error);
+    res.status(500).json({ error: 'Failed to fetch subscription plans' });
+  }
+});
+
+// Get user's current subscription and usage
+app.get('/api/subscription/status', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const [subscription, usage] = await Promise.all([
+      SubscriptionDB.getUserSubscription(userId),
+      UsageDB.getMonthlyUsage(userId)
+    ]);
+
+    const usageLimit = await UsageDB.checkUsageLimit(userId);
+    
+    res.json({
+      subscription,
+      usage,
+      usageLimit
+    });
+  } catch (error) {
+    console.error('❌ Error fetching subscription status:', error);
+    res.status(500).json({ error: 'Failed to fetch subscription status' });
+  }
+});
+
+// Create customer endpoint (following Stripe guide)
+app.post('/api/subscription/create-customer', requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // Check if customer already exists
+    const existingSubscription = await SubscriptionDB.getUserSubscription(user.id);
+    if (existingSubscription && existingSubscription.stripe_customer_id) {
+      return res.json({ 
+        customerId: existingSubscription.stripe_customer_id 
+      });
+    }
+
+    const customer = await stripeService.createCustomer(user);
+    res.json({ customerId: customer.id });
+  } catch (error) {
+    console.error('❌ Error creating customer:', error);
+    res.status(500).json({ error: 'Failed to create customer' });
+  }
+});
+
+// Create subscription endpoint (following Stripe guide)
+app.post('/api/subscription/create-subscription', requireAuth, async (req, res) => {
+  try {
+    const { priceId, customerId } = req.body;
+    const userId = req.user.id;
+    
+    if (!priceId || !customerId) {
+      return res.status(400).json({ error: 'Price ID and Customer ID are required' });
+    }
+
+    const subscription = await stripeService.createSubscription(customerId, priceId);
+    
+    // Get the plan from the price ID for database storage
+    const plans = await SubscriptionDB.getPlans();
+    const plan = plans.find(p => p.stripe_price_id === priceId);
+    
+    if (plan) {
+      // Store incomplete subscription in database
+      await SubscriptionDB.upsertSubscription(userId, {
+        plan_id: plan.id,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscription.id,
+        status: 'incomplete',
+        current_period_start: new Date(subscription.current_period_start * 1000),
+        current_period_end: new Date(subscription.current_period_end * 1000)
+      });
+    }
+
+    res.json({
+      subscriptionId: subscription.id,
+      clientSecret: subscription.latest_invoice.payment_intent.client_secret
+    });
+  } catch (error) {
+    console.error('❌ Error creating subscription:', error);
+    res.status(500).json({ error: 'Failed to create subscription' });
+  }
+});
+
+// Cancel subscription endpoint (following Stripe guide)
+app.post('/api/subscription/cancel-subscription', requireAuth, async (req, res) => {
+  try {
+    const { subscriptionId } = req.body;
+    const userId = req.user.id;
+    
+    if (!subscriptionId) {
+      return res.status(400).json({ error: 'Subscription ID is required' });
+    }
+
+    // Verify user owns this subscription
+    const userSubscription = await SubscriptionDB.getUserSubscription(userId);
+    if (!userSubscription || userSubscription.stripe_subscription_id !== subscriptionId) {
+      return res.status(403).json({ error: 'Unauthorized to cancel this subscription' });
+    }
+
+    const cancelledSubscription = await stripeService.cancelSubscription(subscriptionId);
+    res.json(cancelledSubscription);
+  } catch (error) {
+    console.error('❌ Error cancelling subscription:', error);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+// Create checkout session (keep existing for backward compatibility)
+app.post('/api/subscription/checkout', requireAuth, async (req, res) => {
+  try {
+    const { priceId } = req.body;
+    const userId = req.user.id;
+    
+    if (!priceId) {
+      return res.status(400).json({ error: 'Price ID is required' });
+    }
+
+    const session = await stripeService.createCheckoutSession(
+      userId,
+      priceId,
+      `${req.headers.origin}/subscription/success`,
+      `${req.headers.origin}/subscription/cancel`
+    );
+
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (error) {
+    console.error('❌ Error creating checkout session:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// Create billing portal session
+app.post('/api/subscription/billing-portal', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const session = await stripeService.createBillingPortalSession(
+      userId,
+      `${req.headers.origin}/dashboard`
+    );
+
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('❌ Error creating billing portal session:', error);
+    res.status(500).json({ error: 'Failed to create billing portal session' });
+  }
+});
+
+// Stripe webhook endpoint
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['stripe-signature'];
+    
+    if (!signature) {
+      return res.status(400).json({ error: 'Missing Stripe signature' });
+    }
+
+    await stripeService.handleWebhook(req.body, signature);
+    res.json({ received: true });
+  } catch (error) {
+    console.error('❌ Stripe webhook error:', error);
+    res.status(400).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// ====================
+// ACCESS KEY ROUTES
+// ====================
+
+// Activate an access key
+app.post('/api/access-key/activate', requireAuth, async (req, res) => {
+  try {
+    const { keyCode } = req.body;
+    const userId = req.user.id;
+    
+    if (!keyCode) {
+      return res.status(400).json({ error: 'Access key code is required' });
+    }
+
+    const result = await AccessKeysDB.useAccessKey(userId, keyCode);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: `Access key activated! ${result.postsRemaining} posts remaining.`,
+        postsRemaining: result.postsRemaining,
+        keyName: result.keyName
+      });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('❌ Error activating access key:', error);
+    res.status(500).json({ error: 'Failed to activate access key' });
+  }
+});
+
+// Get user's access keys
+app.get('/api/access-key/list', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const accessKeys = await AccessKeysDB.getUserAccessKeys(userId);
+    res.json(accessKeys);
+  } catch (error) {
+    console.error('❌ Error fetching access keys:', error);
+    res.status(500).json({ error: 'Failed to fetch access keys' });
+  }
+});
+
+// Admin: Create access key (requires admin privileges)
+app.post('/api/admin/access-key/create', requireAuth, async (req, res) => {
+  try {
+    // Note: Add admin role check here in production
+    const { name, postsLimit, validUntil } = req.body;
+    const createdBy = req.user.email || req.user.name;
+    
+    const accessKey = await AccessKeysDB.createAccessKey({
+      name,
+      posts_limit: postsLimit || 10,
+      valid_until: validUntil ? new Date(validUntil) : null,
+      created_by: createdBy
+    });
+
+    res.json({
+      success: true,
+      accessKey: {
+        id: accessKey.id,
+        key_code: accessKey.key_code,
+        name: accessKey.name,
+        posts_limit: accessKey.posts_limit,
+        valid_until: accessKey.valid_until
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error creating access key:', error);
+    res.status(500).json({ error: 'Failed to create access key' });
+  }
+});
+
+// Admin: Get all access keys
+app.get('/api/admin/access-keys', requireAuth, async (req, res) => {
+  try {
+    // Note: Add admin role check here in production
+    const accessKeys = await AccessKeysDB.getAllAccessKeys();
+    res.json(accessKeys);
+  } catch (error) {
+    console.error('❌ Error fetching all access keys:', error);
+    res.status(500).json({ error: 'Failed to fetch access keys' });
   }
 });
 
@@ -1165,7 +1434,52 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
       });
     }
 
+    // Check user authentication and usage limits
+    const token = extractJWTFromRequest(req);
+    if (!token) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        needsAuth: true
+      });
+    }
+
+    const decoded = verifyJWT(token);
+    if (!decoded) {
+      return res.status(401).json({
+        error: 'Invalid authentication token',
+        needsAuth: true
+      });
+    }
+
+    const userId = decoded.id;
+    
+    // Check usage limits for authenticated users
+    const usageCheck = await UsageDB.checkUsageLimit(userId);
+    if (!usageCheck.hasAccess) {
+      return res.status(403).json({
+        error: 'Usage limit exceeded',
+        reason: usageCheck.reason,
+        postsRemaining: usageCheck.postsRemaining,
+        needsUpgrade: true
+      });
+    }
+
+    // Calculate cost before generation
+    const estimatedCost = 0.00136; // $0.00136 per post as calculated
+    const estimatedTokens = 1200; // ~800 input + 400 output tokens
+
     const result = await generatePost(topic, tone);
+
+    // Track usage for the authenticated user
+    await UsageDB.trackUsage(userId, 'post_generation', estimatedCost, estimatedTokens, {
+      topic,
+      tone,
+      article_source: result.article?.source,
+      timestamp: new Date().toISOString()
+    });
+    
+    console.log(`💰 Tracked usage for user ${userId}: $${estimatedCost}`);
+
     res.json(result);
   } catch (error) {
     console.error('❌ Error generating post:', error);
@@ -1205,7 +1519,7 @@ async function generatePost(topic, tone) {
       post: post,
       article: {
         title: selectedArticle.title,
-        url: selectedArticle.url,
+        url: cleanUrl(selectedArticle.url) || selectedArticle.url,
         source: selectedArticle.source?.name || 'News Source',
         publishedAt: selectedArticle.publishedAt
       },
@@ -1359,15 +1673,44 @@ Format the response as just the LinkedIn post text, nothing else.`;
 
     let post = response.data.choices[0].message.content.trim();
     
-    // Ensure the article URL is included
-    if (!post.includes(article.url)) {
-      post += `\n\nRead more: ${article.url}`;
+    // Clean and validate the article URL before including it
+    const cleanedUrl = cleanUrl(article.url);
+    if (cleanedUrl && !post.includes(cleanedUrl)) {
+      post += `\n\nRead more: ${cleanedUrl}`;
     }
 
     return post;
   } catch (error) {
     console.error('❌ OpenAI API error:', error.response?.data || error.message);
     throw new Error('Failed to generate LinkedIn post');
+  }
+}
+
+// Clean and validate URL to prevent 404 errors
+function cleanUrl(url) {
+  if (!url) return null;
+  
+  // Remove any leading/trailing whitespace
+  url = url.trim();
+  
+  // Ensure the URL has a protocol
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+  
+  // Remove any invalid characters that might cause issues
+  url = url.replace(/[\s\n\r\t]/g, '');
+  
+  // Remove trailing slashes and fragments that might cause issues
+  url = url.replace(/\/+$/, '').split('#')[0];
+  
+  // Validate the URL format
+  try {
+    new URL(url);
+    return url;
+  } catch (error) {
+    console.warn('⚠️ Invalid URL format:', url);
+    return null;
   }
 }
 
