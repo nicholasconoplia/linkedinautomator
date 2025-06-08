@@ -5,7 +5,7 @@ class LinkedInService {
   constructor() {
     this.apiBaseUrl = 'https://api.linkedin.com/v2';
     this.postsApiBaseUrl = 'https://api.linkedin.com/rest';
-    this.linkedinVersion = '202411'; // Current active API version (November 2024)
+    // Removed linkedinVersion - using default LinkedIn API without version header
   }
 
   // Post content to LinkedIn using the modern Posts API
@@ -50,8 +50,8 @@ class LinkedInService {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-          'X-Restli-Protocol-Version': '2.0.0',
-          'LinkedIn-Version': this.linkedinVersion
+          'X-Restli-Protocol-Version': '2.0.0'
+          // Removed LinkedIn-Version header - using default API version
         }
       });
 
