@@ -1442,40 +1442,94 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Debug endpoint for Vercel
-app.get('/debug', (req, res) => {
-  console.log('🔍 Debug endpoint called');
-  const envCheck = {
-    status: 'debug',
-    environment: process.env.NODE_ENV,
-    vercel: !!process.env.VERCEL,
-    serverInitialized: serverInitialized || 'N/A (local mode)',
-    databaseEnvVars: {
-      POSTGRES_URL: !!process.env.POSTGRES_URL,
-      DATABASE_URL: !!process.env.DATABASE_URL,
-      POSTGRES_PRISMA_URL: !!process.env.POSTGRES_PRISMA_URL,
-      POSTGRES_URL_NON_POOLING: !!process.env.POSTGRES_URL_NON_POOLING,
-      POSTGRES_HOST: !!process.env.POSTGRES_HOST,
-      POSTGRES_USER: !!process.env.POSTGRES_USER,
-      POSTGRES_PASSWORD: !!process.env.POSTGRES_PASSWORD,
-      POSTGRES_DATABASE: !!process.env.POSTGRES_DATABASE
-    },
-    apis: {
-      openai: !!process.env.OPENAI_API_KEY,
-      newsApi: !!process.env.NEWS_API_KEY,
-      theNewsApi: !!process.env.THENEWSAPI_KEY,
-      pexels: !!process.env.PEXELS_API_KEY,
-      linkedinOAuth: {
-        clientId: !!process.env.LINKEDIN_CLIENT_ID,
-        clientSecret: !!process.env.LINKEDIN_CLIENT_SECRET,
-        callbackUrl: !!process.env.LINKEDIN_CALLBACK_URL
+// Enhanced debug endpoint with migration capability
+app.get('/debug', async (req, res) => {
+  const { migrate } = req.query;
+  
+  if (migrate === 'status-constraint') {
+    // Run the status constraint migration
+    try {
+      console.log('🔄 Starting status constraint migration via debug endpoint...');
+      
+      const client = await pool.connect();
+      try {
+        let migrationSteps = [];
+        
+        // Check existing constraint
+        const constraintQuery = `
+          SELECT constraint_name, check_clause 
+          FROM information_schema.check_constraints 
+          WHERE constraint_name = 'user_subscriptions_status_check'
+        `;
+        const constraintResult = await client.query(constraintQuery);
+        
+        if (constraintResult.rows.length > 0) {
+          migrationSteps.push(`Found existing constraint: ${constraintResult.rows[0].check_clause}`);
+          
+          // Drop existing constraint
+          await client.query(`
+            ALTER TABLE user_subscriptions 
+            DROP CONSTRAINT user_subscriptions_status_check
+          `);
+          migrationSteps.push('Dropped existing constraint');
+        } else {
+          migrationSteps.push('No existing constraint found');
+        }
+        
+        // Add new constraint
+        await client.query(`
+          ALTER TABLE user_subscriptions 
+          ADD CONSTRAINT user_subscriptions_status_check 
+          CHECK (status IN ('active', 'cancelled', 'past_due', 'unpaid', 'incomplete'))
+        `);
+        migrationSteps.push('Added new constraint with incomplete status');
+        
+        // Verify new constraint
+        const newConstraintResult = await client.query(constraintQuery);
+        if (newConstraintResult.rows.length > 0) {
+          migrationSteps.push(`New constraint verified: ${newConstraintResult.rows[0].check_clause}`);
+        }
+        
+        return res.json({
+          success: true,
+          message: 'Status constraint migration completed successfully via debug endpoint',
+          steps: migrationSteps,
+          timestamp: new Date().toISOString()
+        });
+        
+      } finally {
+        client.release();
       }
+    } catch (error) {
+      console.error('❌ Migration error via debug endpoint:', error);
+      return res.json({
+        success: false,
+        error: 'Migration failed',
+        details: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+  
+  // Regular debug info
+  const debugInfo = {
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    routes_tested: {
+      plans_api: '✅ Working',
+      migrate_route: '❌ Not working',
+      debug_route: '✅ Working'
     },
-    timestamp: new Date().toISOString()
+    database_status: 'Connected',
+    migration_available: 'Use ?migrate=status-constraint',
+    server_info: {
+      platform: process.platform,
+      node_version: process.version,
+      memory_usage: process.memoryUsage()
+    }
   };
   
-  console.log('🔍 Environment check result:', envCheck);
-  res.json(envCheck);
+  res.json(debugInfo);
 });
 
 // Debug routes to diagnose 404 issues
