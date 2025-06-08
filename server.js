@@ -82,34 +82,54 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
   
   // Override the userProfile method to use the new endpoint
   LinkedInOIDCStrategy.prototype.userProfile = function(accessToken, done) {
-    console.log('🔍 LinkedIn userProfile method called');
+    console.log('🔍 ===== LinkedIn userProfile method called =====');
     console.log('🔑 Access token for profile fetch:', !!accessToken);
-    console.log('🌐 Profile URL:', this.profileUrl);
+    console.log('🔑 Access token length:', accessToken?.length);
+    console.log('🔑 Access token preview:', accessToken?.substring(0, 30) + '...');
+    console.log('🌐 Profile URL being called:', this.profileUrl);
+    console.log('🌐 Email URL (should be null):', this.emailUrl);
+    console.log('🔧 OAuth2 client configured:', !!this._oauth2);
     
     this._oauth2.setAccessTokenName("oauth2_access_token");
+    console.log('🔧 OAuth2 access token name set to: oauth2_access_token');
     
     this._oauth2.get(this.profileUrl, accessToken, function (err, body, res) {
-      console.log('📡 LinkedIn API call completed');
+      console.log('📡 ===== LinkedIn API Response Received =====');
       console.log('📊 Response status:', res?.statusCode);
+      console.log('📊 Response status message:', res?.statusMessage);
+      console.log('📄 Response body type:', typeof body);
       console.log('📄 Response body length:', body?.length);
-      console.log('📄 Response headers:', res?.headers);
-      console.log('🔍 Full response body:', body);
+      console.log('📄 Response body is null/undefined:', body === null || body === undefined);
+      console.log('📄 Response headers (content-type):', res?.headers?.['content-type']);
+      console.log('📄 Response headers (all):', res?.headers);
+      console.log('🔍 Full response body (raw):', body);
+      console.log('🔍 Response body stringified:', JSON.stringify(body));
       
       if (err) {
-        console.error('❌ LinkedIn API Error:', {
+        console.error('❌ ===== LinkedIn API Error =====');
+        console.error('❌ Error type:', typeof err);
+        console.error('❌ Error constructor:', err?.constructor?.name);
+        console.error('❌ Error details:', {
           message: err.message,
           statusCode: err.statusCode,
           data: err.data,
           stack: err.stack
         });
-        console.error('❌ Full error object:', err);
+        console.error('❌ Full error object:', JSON.stringify(err, null, 2));
         return done(new require('passport-oauth2').InternalOAuthError('failed to fetch user profile', err));
       }
 
       try {
-        console.log('🔍 Attempting to parse LinkedIn response body...');
+        console.log('🔍 ===== Attempting to parse LinkedIn response =====');
+        console.log('🔍 Body before parsing:', body);
+        console.log('🔍 Body type before parsing:', typeof body);
+        console.log('🔍 Body length before parsing:', body?.length);
+        
         const json = JSON.parse(body);
-        console.log('📋 LinkedIn userinfo response parsed successfully:', json);
+        console.log('📋 ===== LinkedIn userinfo response parsed successfully =====');
+        console.log('📋 Parsed JSON type:', typeof json);
+        console.log('📋 Parsed JSON constructor:', json?.constructor?.name);
+        console.log('📋 Parsed JSON (full):', JSON.stringify(json, null, 2));
         console.log('🔑 Available fields in response:', Object.keys(json));
         
         // Parse OpenID Connect userinfo format
@@ -127,18 +147,31 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
           _json: json
         };
         
-        console.log('✅ Profile object created:', {
+        console.log('✅ ===== Profile object created successfully =====');
+        console.log('✅ Profile ID (json.sub):', json.sub);
+        console.log('✅ Profile name (json.name):', json.name);
+        console.log('✅ Profile email (json.email):', json.email);
+        console.log('✅ Profile picture (json.picture):', json.picture);
+        console.log('✅ Complete profile object:', {
           id: profile.id,
           displayName: profile.displayName,
           name: profile.name,
           emails: profile.emails,
-          photos: profile.photos?.length || 0
+          photos: profile.photos?.length || 0,
+          provider: profile.provider
         });
         
+        console.log('🎯 ===== Calling done(null, profile) =====');
         return done(null, profile);
       } catch(e) {
-        console.error('❌ Failed to parse LinkedIn response:', e);
+        console.error('❌ ===== Failed to parse LinkedIn response =====');
+        console.error('❌ Parse error type:', typeof e);
+        console.error('❌ Parse error constructor:', e?.constructor?.name);
+        console.error('❌ Parse error message:', e.message);
+        console.error('❌ Parse error stack:', e.stack);
         console.error('❌ Raw body that failed to parse:', body);
+        console.error('❌ Raw body type:', typeof body);
+        console.error('❌ Raw body length:', body?.length);
         return done(new require('passport-oauth2').InternalOAuthError('failed to parse profile response', e));
       }
     });
@@ -152,24 +185,42 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     state: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
-      console.log('🔑 LinkedIn OAuth Strategy - Processing user profile');
+      console.log('🔑 ===== LinkedIn OAuth Strategy Callback Started =====');
       console.log('🔑 Access token received:', !!accessToken);
+      console.log('🔑 Access token length:', accessToken?.length);
+      console.log('🔑 Access token preview:', accessToken?.substring(0, 20) + '...');
       console.log('🔑 Refresh token received:', !!refreshToken);
-      console.log('📋 Raw profile object:', profile);
-      console.log('📋 Profile data received:', {
+      console.log('📋 Profile object type:', typeof profile);
+      console.log('📋 Profile is null/undefined:', profile === null || profile === undefined);
+      console.log('📋 Profile constructor:', profile?.constructor?.name);
+      console.log('📋 Raw profile object (full):', JSON.stringify(profile, null, 2));
+      console.log('📋 Profile keys:', profile ? Object.keys(profile) : 'NO PROFILE');
+      console.log('📋 Profile data structure:', {
         id: profile?.id,
         displayName: profile?.displayName,
         name: profile?.name,
         emails: profile?.emails,
         photos: profile?.photos,
         provider: profile?.provider,
-        _json: profile?._json
+        _json: profile?._json,
+        _raw: profile?._raw ? 'Present' : 'Missing'
       });
 
+      console.log('🔍 ===== Profile Validation =====');
+      console.log('🔍 Profile exists:', !!profile);
+      console.log('🔍 Profile.id exists:', !!profile?.id);
+      console.log('🔍 Profile.id value:', profile?.id);
+      console.log('🔍 Profile.id type:', typeof profile?.id);
+      
       if (!profile || !profile.id) {
-        console.error('❌ No profile or profile.id received from LinkedIn');
+        console.error('❌ ===== PROFILE VALIDATION FAILED =====');
+        console.error('❌ Profile object:', profile);
+        console.error('❌ Profile ID:', profile?.id);
+        console.error('❌ This is where the "no user profile" error originates');
         return done(new Error('No user profile returned from LinkedIn. Check app permissions.'));
       }
+      
+      console.log('✅ ===== Profile validation passed =====');
 
       // Check if user already exists
       let user = await UserDB.getUserByLinkedInId(profile.id);
