@@ -243,7 +243,7 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     clientID: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
     callbackURL: process.env.LINKEDIN_CALLBACK_URL || "http://localhost:3000/auth/linkedin/callback",
-    scope: ['openid', 'profile', 'email'], // Official OpenID Connect scopes per LinkedIn docs
+    scope: ['openid', 'profile', 'email', 'w_member_social'], // Added w_member_social for posting
     state: false // Disable state verification for Vercel serverless compatibility
   }, async (accessToken, refreshToken, profile, done) => {
     try {

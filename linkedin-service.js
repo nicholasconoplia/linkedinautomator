@@ -4,68 +4,79 @@ const { UserDB } = require('./database');
 class LinkedInService {
   constructor() {
     this.apiBaseUrl = 'https://api.linkedin.com/v2';
+    this.postsApiBaseUrl = 'https://api.linkedin.com/rest';
+    this.linkedinVersion = '202412'; // Latest API version
   }
 
-  // Post content to LinkedIn
+  // Post content to LinkedIn using the modern Posts API
   async createPost(accessToken, postContent, imageUrl = null) {
     try {
-      // First, get the user's profile ID
-      const profileResponse = await axios.get(`${this.apiBaseUrl}/people/~`, {
+      // First, get the user's profile ID using the userinfo endpoint
+      const profileResponse = await axios.get(`${this.apiBaseUrl}/userinfo`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         }
       });
 
-      const authorId = profileResponse.data.id;
+      // The userinfo endpoint returns 'sub' as the user ID
+      const authorId = profileResponse.data.sub;
+      console.log('📋 LinkedIn user ID retrieved:', authorId);
 
-      // Prepare the post data
-      const postData = {
+      // Prepare the post data using the new Posts API format
+      let postData = {
         author: `urn:li:person:${authorId}`,
-        lifecycleState: 'PUBLISHED',
-        specificContent: {
-          'com.linkedin.ugc.ShareContent': {
-            shareCommentary: {
-              text: postContent
-            },
-            shareMediaCategory: 'NONE'
-          }
+        commentary: postContent,
+        visibility: 'PUBLIC',
+        distribution: {
+          feedDistribution: 'MAIN_FEED',
+          targetEntities: [],
+          thirdPartyDistributionChannels: []
         },
-        visibility: {
-          'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
-        }
+        lifecycleState: 'PUBLISHED',
+        isReshareDisabledByAuthor: false
       };
 
-      // If there's an image, add it to the post
+      // If there's an image, include it in the text for now
+      // LinkedIn's image upload process requires separate API calls
       if (imageUrl) {
-        // For now, we'll include the image URL in the text
-        // LinkedIn's image upload process is more complex and requires additional steps
-        postData.specificContent['com.linkedin.ugc.ShareContent'].shareCommentary.text += 
-          `\n\n🖼️ Image: ${imageUrl}`;
+        postData.commentary += `\n\n🖼️ Image: ${imageUrl}`;
       }
 
-      // Create the post
-      const response = await axios.post(`${this.apiBaseUrl}/ugcPosts`, postData, {
+      console.log('📤 Posting to LinkedIn with data:', JSON.stringify(postData, null, 2));
+
+      // Create the post using the modern Posts API
+      const response = await axios.post(`${this.postsApiBaseUrl}/posts`, postData, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-          'X-Restli-Protocol-Version': '2.0.0'
+          'X-Restli-Protocol-Version': '2.0.0',
+          'LinkedIn-Version': this.linkedinVersion
         }
       });
 
+      console.log('✅ LinkedIn post created successfully:', response.data);
+
       return {
         success: true,
-        postId: response.data.id,
+        postId: response.headers['x-restli-id'] || response.data.id,
         data: response.data
       };
 
     } catch (error) {
       console.error('❌ LinkedIn posting error:', error.response?.data || error.message);
+      console.error('❌ Full error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        headers: error.response?.headers,
+        data: error.response?.data
+      });
       
       return {
         success: false,
-        error: error.response?.data?.message || error.message,
-        statusCode: error.response?.status
+        error: error.response?.data?.message || error.response?.data?.error || error.message,
+        statusCode: error.response?.status,
+        details: error.response?.data
       };
     }
   }
@@ -73,7 +84,7 @@ class LinkedInService {
   // Get user profile information
   async getUserProfile(accessToken) {
     try {
-      const response = await axios.get(`${this.apiBaseUrl}/people/~`, {
+      const response = await axios.get(`${this.apiBaseUrl}/userinfo`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
