@@ -48,10 +48,10 @@ const getDatabaseConfig = () => {
   }
 
   // TEMPORARY FALLBACK: Use a hardcoded connection string for testing
-  // **IMPORTANT: Replace this with your actual Neon database URL**
-  if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
-    console.log('🔧 Using temporary fallback connection string - REPLACE WITH YOUR NEON DATABASE URL');
-    console.log('⚠️ WARNING: Update this connection string with your actual database credentials!');
+  // **IMPORTANT: This should be replaced with proper environment variables**
+  if (process.env.NODE_ENV === 'production') {
+    console.log('🔧 Using temporary fallback connection string for production');
+    console.log('⚠️ WARNING: Add DATABASE_URL environment variable in Vercel Dashboard!');
     
     // **TEMPORARY FALLBACK - Using your actual Neon database connection string**
     const fallbackConnectionString = 'postgres://neondb_owner:npg_kVOCzay4Sq5R@ep-wandering-silence-a7gb5y2o-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require';
