@@ -42,14 +42,14 @@ class LinkedInService {
         console.log('🖼️ Uploading image to LinkedIn:', imageUrl);
         
         try {
-          const mediaUrn = await this.uploadImage(accessToken, imageUrl, authorId);
-          console.log('✅ Image uploaded successfully, media URN:', mediaUrn);
+          const imageUrn = await this.uploadImage(accessToken, imageUrl, authorId);
+          console.log('✅ Image uploaded successfully, image URN:', imageUrn);
           
-          // Add the image to the post content
+          // Add the image to the post content using correct Posts API format
           postData.content = {
             media: {
-              title: 'Uploaded Image',
-              id: mediaUrn
+              altText: 'AI Generated Image',
+              id: imageUrn
             }
           };
         } catch (imageError) {
@@ -68,6 +68,12 @@ class LinkedInService {
           'X-Restli-Protocol-Version': '2.0.0',
           'LinkedIn-Version': this.linkedinVersion // Using known stable version
         }
+      });
+
+      console.log('✅ LinkedIn API Response:', {
+        status: response.status,
+        headers: response.headers,
+        data: response.data
       });
 
       console.log('✅ LinkedIn post created successfully:', response.data);
@@ -114,22 +120,15 @@ class LinkedInService {
         contentType: contentType
       });
 
-      // Step 2: Register the upload with LinkedIn
+      // Step 2: Register the upload with LinkedIn to get proper image URN
       const registerUploadRequest = {
-        registerUploadRequest: {
-          recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
-          owner: `urn:li:person:${authorId}`,
-          serviceRelationships: [
-            {
-              relationshipType: 'OWNER',
-              identifier: 'urn:li:userGeneratedContent'
-            }
-          ]
+        initializeUploadRequest: {
+          owner: `urn:li:person:${authorId}`
         }
       };
 
-      console.log('📝 Registering upload with LinkedIn...');
-      const registerResponse = await axios.post(`${this.apiBaseUrl}/assets?action=registerUpload`, registerUploadRequest, {
+      console.log('📝 Registering image upload with LinkedIn...');
+      const registerResponse = await axios.post(`${this.postsApiBaseUrl}/images?action=initializeUpload`, registerUploadRequest, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
@@ -137,24 +136,26 @@ class LinkedInService {
         }
       });
 
-      const uploadMechanism = registerResponse.data.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'];
-      const asset = registerResponse.data.value.asset;
+      const uploadUrl = registerResponse.data.value.uploadUrl;
+      const imageUrn = registerResponse.data.value.image;
       
-      console.log('✅ Upload registered, asset:', asset);
+      console.log('✅ Image upload registered:', {
+        imageUrn: imageUrn,
+        uploadUrl: uploadUrl
+      });
 
       // Step 3: Upload the actual image binary data
       console.log('⬆️ Uploading image binary data...');
-      await axios.put(uploadMechanism.uploadUrl, imageBuffer, {
+      await axios.put(uploadUrl, imageBuffer, {
         headers: {
-          'Content-Type': contentType,
-          ...uploadMechanism.headers
+          'Content-Type': contentType
         },
         maxBodyLength: Infinity,
         maxContentLength: Infinity
       });
 
-      console.log('✅ Image binary upload completed');
-      return asset;
+      console.log('✅ Image binary upload completed, returning URN:', imageUrn);
+      return imageUrn;
 
     } catch (error) {
       console.error('❌ Image upload error:', {
