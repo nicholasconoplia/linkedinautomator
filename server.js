@@ -1465,6 +1465,27 @@ app.get('/subscription/success', (req, res) => {
   }
 });
 
+// Dashboard route - serves main page
+app.get('/dashboard', (req, res) => {
+  console.log('📊 Dashboard route hit - serving main page');
+  
+  // Try root directory first
+  const rootIndexPath = path.join(__dirname, 'index.html');
+  // Then try public directory
+  const publicIndexPath = path.join(__dirname, 'public', 'index.html');
+  
+  if (fs.existsSync(rootIndexPath)) {
+    console.log('✅ Serving index.html from root directory for dashboard');
+    res.sendFile(rootIndexPath);
+  } else if (fs.existsSync(publicIndexPath)) {
+    console.log('✅ Serving index.html from public directory for dashboard');
+    res.sendFile(publicIndexPath);
+  } else {
+    console.log('⚠️ index.html not found for dashboard route');
+    res.status(404).send('Dashboard page not found');
+  }
+});
+
 // ====================
 // EXISTING GENERATE POST ROUTE (Updated)
 // ====================
