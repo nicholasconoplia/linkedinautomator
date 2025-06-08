@@ -34,15 +34,19 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Session configuration
+// Session configuration - Vercel compatible
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  },
+  // For Vercel serverless functions, we need to handle sessions differently
+  // In production, sessions will be stateless (JWT-based would be better)
+  name: 'linkedin-session'
 }));
 
 // Passport configuration
@@ -522,15 +526,37 @@ app.get('/api/health', (req, res) => {
 // Debug endpoint for Vercel
 app.get('/debug', (req, res) => {
   console.log('🔍 Debug endpoint called');
-  res.json({
+  const envCheck = {
     status: 'debug',
     environment: process.env.NODE_ENV,
-    hasDatabase: !!(process.env.POSTGRES_URL || process.env.DATABASE_URL),
-    hasOpenAI: !!process.env.OPENAI_API_KEY,
-    hasLinkedIn: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET),
-    timestamp: new Date().toISOString(),
-    platform: 'vercel'
-  });
+    vercel: !!process.env.VERCEL,
+    serverInitialized: serverInitialized || 'N/A (local mode)',
+    databaseEnvVars: {
+      POSTGRES_URL: !!process.env.POSTGRES_URL,
+      DATABASE_URL: !!process.env.DATABASE_URL,
+      POSTGRES_PRISMA_URL: !!process.env.POSTGRES_PRISMA_URL,
+      POSTGRES_URL_NON_POOLING: !!process.env.POSTGRES_URL_NON_POOLING,
+      POSTGRES_HOST: !!process.env.POSTGRES_HOST,
+      POSTGRES_USER: !!process.env.POSTGRES_USER,
+      POSTGRES_PASSWORD: !!process.env.POSTGRES_PASSWORD,
+      POSTGRES_DATABASE: !!process.env.POSTGRES_DATABASE
+    },
+    apis: {
+      openai: !!process.env.OPENAI_API_KEY,
+      newsApi: !!process.env.NEWS_API_KEY,
+      theNewsApi: !!process.env.THENEWSAPI_KEY,
+      pexels: !!process.env.PEXELS_API_KEY,
+      linkedinOAuth: {
+        clientId: !!process.env.LINKEDIN_CLIENT_ID,
+        clientSecret: !!process.env.LINKEDIN_CLIENT_SECRET,
+        callbackUrl: !!process.env.LINKEDIN_CALLBACK_URL
+      }
+    },
+    timestamp: new Date().toISOString()
+  };
+  
+  console.log('🔍 Environment check result:', envCheck);
+  res.json(envCheck);
 });
 
 // ====================
@@ -815,7 +841,17 @@ async function startServer() {
   try {
     console.log('🔧 Starting server initialization...');
     console.log('🔧 Environment:', process.env.NODE_ENV);
-    console.log('🔧 Database URL available:', !!process.env.POSTGRES_URL || !!process.env.DATABASE_URL);
+    
+    // Debug environment variables
+    console.log('🔧 Environment variables check:');
+    console.log('  NODE_ENV:', process.env.NODE_ENV);
+    console.log('  VERCEL:', !!process.env.VERCEL);
+    console.log('  POSTGRES_URL:', !!process.env.POSTGRES_URL);
+    console.log('  DATABASE_URL:', !!process.env.DATABASE_URL);
+    console.log('  POSTGRES_PRISMA_URL:', !!process.env.POSTGRES_PRISMA_URL);
+    console.log('  POSTGRES_URL_NON_POOLING:', !!process.env.POSTGRES_URL_NON_POOLING);
+    console.log('  LINKEDIN_CLIENT_ID:', !!process.env.LINKEDIN_CLIENT_ID);
+    console.log('  OPENAI_API_KEY:', !!process.env.OPENAI_API_KEY);
     
     // Initialize database
     console.log('🔧 Initializing database...');

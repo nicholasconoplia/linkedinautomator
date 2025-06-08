@@ -1,10 +1,65 @@
 const { Pool } = require('pg');
 
-// Create PostgreSQL connection pool
-const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL || process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+// Create PostgreSQL connection pool with Vercel compatibility
+const getDatabaseConfig = () => {
+  // List all possible database environment variables for debugging
+  const dbEnvVars = {
+    POSTGRES_URL: process.env.POSTGRES_URL,
+    DATABASE_URL: process.env.DATABASE_URL,
+    POSTGRES_PRISMA_URL: process.env.POSTGRES_PRISMA_URL,
+    POSTGRES_URL_NON_POOLING: process.env.POSTGRES_URL_NON_POOLING,
+    POSTGRES_HOST: process.env.POSTGRES_HOST,
+    POSTGRES_USER: process.env.POSTGRES_USER,
+    POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD,
+    POSTGRES_DATABASE: process.env.POSTGRES_DATABASE
+  };
+
+  console.log('🔧 Available database environment variables:');
+  Object.entries(dbEnvVars).forEach(([key, value]) => {
+    console.log(`  ${key}: ${value ? '✅ Available' : '❌ Not set'}`);
+  });
+
+  // Try different connection string options in order of preference
+  const connectionString = 
+    process.env.POSTGRES_URL || 
+    process.env.DATABASE_URL || 
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING;
+
+  if (connectionString) {
+    console.log('🔧 Using connection string from environment');
+    return {
+      connectionString,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    };
+  }
+
+  // Fallback to individual environment variables
+  if (process.env.POSTGRES_HOST) {
+    console.log('🔧 Using individual PostgreSQL environment variables');
+    return {
+      host: process.env.POSTGRES_HOST,
+      port: process.env.POSTGRES_PORT || 5432,
+      user: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_PASSWORD,
+      database: process.env.POSTGRES_DATABASE,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    };
+  }
+
+  // Default local development fallback (this will fail in Vercel)
+  console.log('⚠️ No database environment variables found, using localhost fallback');
+  return {
+    host: 'localhost',
+    port: 5432,
+    user: 'postgres',
+    password: 'password',
+    database: 'linkedin_posts',
+    ssl: false
+  };
+};
+
+const pool = new Pool(getDatabaseConfig());
 
 // Initialize database tables
 function initializeDatabase() {
