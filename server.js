@@ -2556,3 +2556,12 @@ app.get('/migrate', (req, res) => {
   
   res.send(html);
 });
+
+// Test route for debugging
+app.get('/test-migrate', (req, res) => {
+  res.json({ 
+    message: 'Migration endpoint test successful',
+    timestamp: new Date().toISOString(),
+    routes_working: true
+  });
+});
