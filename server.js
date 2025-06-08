@@ -72,8 +72,8 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
     LinkedInStrategy.call(this, options, verify);
     
-    // Use the modern OpenID Connect userinfo endpoint
-    this.profileUrl = 'https://api.linkedin.com/v2/userinfo';
+    // Use the legacy profile endpoint that's more reliable
+    this.profileUrl = 'https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))';
     this.emailUrl = null; // Email is included in userinfo response
   };
   
@@ -126,32 +126,32 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
         console.log('🔍 Body length before parsing:', body?.length);
         
         const json = JSON.parse(body);
-        console.log('📋 ===== LinkedIn userinfo response parsed successfully =====');
+        console.log('📋 ===== LinkedIn profile response parsed successfully =====');
         console.log('📋 Parsed JSON type:', typeof json);
         console.log('📋 Parsed JSON constructor:', json?.constructor?.name);
         console.log('📋 Parsed JSON (full):', JSON.stringify(json, null, 2));
         console.log('🔑 Available fields in response:', Object.keys(json));
         
-        // Parse OpenID Connect userinfo format
+        // Parse legacy LinkedIn profile format
         const profile = {
           provider: 'linkedin',
-          id: json.sub,
-          displayName: json.name,
+          id: json.id,
+          displayName: `${json.firstName?.localized?.en_US || json.firstName?.preferredLocale?.language || ''} ${json.lastName?.localized?.en_US || json.lastName?.preferredLocale?.language || ''}`.trim(),
           name: {
-            givenName: json.given_name,
-            familyName: json.family_name
+            givenName: json.firstName?.localized?.en_US || json.firstName?.preferredLocale?.language || '',
+            familyName: json.lastName?.localized?.en_US || json.lastName?.preferredLocale?.language || ''
           },
-          emails: json.email ? [{ value: json.email }] : [],
-          photos: json.picture ? [{ value: json.picture }] : [],
+          emails: [], // Will fetch separately with email endpoint if needed
+          photos: json.profilePicture?.displayImage ? [{ value: json.profilePicture.displayImage }] : [],
           _raw: body,
           _json: json
         };
         
         console.log('✅ ===== Profile object created successfully =====');
-        console.log('✅ Profile ID (json.sub):', json.sub);
-        console.log('✅ Profile name (json.name):', json.name);
-        console.log('✅ Profile email (json.email):', json.email);
-        console.log('✅ Profile picture (json.picture):', json.picture);
+        console.log('✅ Profile ID (json.id):', json.id);
+        console.log('✅ Profile firstName:', json.firstName);
+        console.log('✅ Profile lastName:', json.lastName);
+        console.log('✅ Profile picture:', json.profilePicture);
         console.log('✅ Complete profile object:', {
           id: profile.id,
           displayName: profile.displayName,
@@ -181,7 +181,7 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     clientID: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
     callbackURL: process.env.LINKEDIN_CALLBACK_URL || "http://localhost:3000/auth/linkedin/callback",
-    scope: ['openid', 'profile', 'email'], // OpenID Connect scopes (now approved)
+    scope: ['r_liteprofile', 'r_emailaddress'], // Using legacy scopes that are more reliable
     state: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
@@ -565,6 +565,72 @@ app.get('/api/linkedin-debug', (req, res) => {
     clientSecret: !!process.env.LINKEDIN_CLIENT_SECRET,
     callbackURL: process.env.LINKEDIN_CALLBACK_URL
   });
+});
+
+// Test endpoint to check what happens with a real LinkedIn API call
+app.get('/api/test-linkedin-api', async (req, res) => {
+  const accessToken = req.query.token;
+  if (!accessToken) {
+    return res.json({ error: 'Please provide access token in query parameter: ?token=YOUR_TOKEN' });
+  }
+  
+  try {
+    console.log('🧪 Testing LinkedIn API call with token:', accessToken.substring(0, 20) + '...');
+    
+    const https = require('https');
+    const url = 'https://api.linkedin.com/v2/userinfo';
+    
+    const response = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api.linkedin.com',
+        path: '/v2/userinfo',
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'User-Agent': 'LinkedIn-Post-Generator/1.0'
+        }
+      };
+      
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          resolve({
+            statusCode: res.statusCode,
+            headers: res.headers,
+            body: data
+          });
+        });
+      });
+      
+      req.on('error', reject);
+      req.end();
+    });
+    
+    console.log('🧪 LinkedIn API test response:', response);
+    
+    let parsedBody;
+    try {
+      parsedBody = JSON.parse(response.body);
+    } catch (e) {
+      parsedBody = response.body;
+    }
+    
+    res.json({
+      statusCode: response.statusCode,
+      headers: response.headers,
+      bodyRaw: response.body,
+      bodyParsed: parsedBody,
+      success: response.statusCode === 200
+    });
+    
+  } catch (error) {
+    console.error('🧪 LinkedIn API test error:', error);
+    res.json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
 });
 
 // ====================
