@@ -1140,8 +1140,51 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
       UsageDB.getMonthlyUsage(userId)
     ]);
 
-    // Auto-activate incomplete subscriptions if requested
-    console.log('🔧 Activation check:', { activateIncomplete, hasSubscription: !!subscription, status: subscription?.status });
+    // AUTO-ACTIVATE ALL INCOMPLETE SUBSCRIPTIONS (no parameters needed)
+    console.log('🔧 Auto-activation check for user:', userId);
+    console.log('🔧 Subscription status:', subscription?.status);
+    
+    if (subscription && subscription.status === 'incomplete') {
+      console.log('🚀 AUTO-ACTIVATING INCOMPLETE SUBSCRIPTION!');
+      
+      try {
+        // Direct SQL update to force activation
+        const client = await pool.connect();
+        
+        const updateResult = await client.query(
+          'UPDATE user_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = $2 RETURNING *',
+          ['active', userId]
+        );
+        
+        client.release();
+        
+        if (updateResult.rows.length > 0) {
+          console.log('✅ AUTO-ACTIVATION SUCCESSFUL!');
+          console.log('✅ Updated status to active');
+          
+          // Fetch complete updated subscription data
+          const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
+          const usageLimit = await UsageDB.checkUsageLimit(userId);
+          
+          return res.json({
+            subscription: updatedSubscription,
+            usage,
+            usageLimit,
+            auto_activated: true,
+            message: '🎉 SUBSCRIPTION AUTO-ACTIVATED!',
+            old_status: 'incomplete',
+            new_status: 'active',
+            success: true
+          });
+        }
+      } catch (activationError) {
+        console.error('❌ Auto-activation error:', activationError);
+        // Continue with original response if activation fails
+      }
+    }
+
+    // LEGACY: Also check for manual activation parameters
+    console.log('🔧 Manual activation check:', { activateIncomplete, hasSubscription: !!subscription, status: subscription?.status });
     
     // FORCE ACTIVATION - if any activation parameter is present, activate regardless of status
     if (activateIncomplete || req.query.force === 'true' || req.query.activate) {
