@@ -259,7 +259,7 @@ app.get('/auth/linkedin/callback', (req, res) => {
     console.log('🔗 LinkedIn callback received with query:', req.query);
     
     // Use custom callback handling for better debugging
-    passport.authenticate('linkedin-oauth2', async (err, user, info) => {
+    passport.authenticate('linkedin', async (err, user, info) => {
       if (err) {
         console.error('❌ LinkedIn authentication error:', err);
         
