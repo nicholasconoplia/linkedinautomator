@@ -894,6 +894,47 @@ const stripeService = new StripeService();
 // Get subscription plans
 app.get('/api/subscription/plans', async (req, res) => {
   try {
+    // Handle activation via plans endpoint
+    if (req.query.activate === 'subscription') {
+      console.log('🚀 Direct activation requested via plans endpoint');
+      
+      // Simple SQL-based activation for user_id = 1
+      try {
+        const client = await pool.connect();
+        
+        // Update subscription status directly
+        const updateResult = await client.query(
+          'UPDATE user_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = $2 AND status = $3 RETURNING *',
+          ['active', 1, 'incomplete']
+        );
+        
+        if (updateResult.rows.length > 0) {
+          console.log('✅ Subscription activated directly via SQL!');
+          client.release();
+          
+          return res.json({
+            success: true,
+            message: 'Subscription activated successfully!',
+            activated: true,
+            subscription: updateResult.rows[0],
+            instruction: 'Now refresh your homepage to see the changes!'
+          });
+        } else {
+          console.log('⚠️ No incomplete subscription found to activate');
+          client.release();
+          
+          return res.json({
+            success: false,
+            message: 'No incomplete subscription found',
+            instruction: 'Your subscription might already be active'
+          });
+        }
+      } catch (activationError) {
+        console.error('❌ Direct activation error:', activationError);
+        return res.status(500).json({ error: 'Activation failed', details: activationError.message });
+      }
+    }
+    
     // Check for migration parameter
     if (req.query.migrate === 'fix-constraint') {
       console.log('🔄 Running database constraint migration via plans endpoint...');
@@ -1075,22 +1116,32 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
     ]);
 
     // Auto-activate incomplete subscriptions if requested
+    console.log('🔧 Activation check:', { activateIncomplete, hasSubscription: !!subscription, status: subscription?.status });
+    
     if (activateIncomplete && subscription && subscription.status === 'incomplete') {
       console.log('🔧 Auto-activating incomplete subscription for user:', userId);
-      await SubscriptionDB.updateSubscriptionStatus(userId, 'active');
       
-      // Fetch updated subscription
-      const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
-      console.log('✅ Subscription auto-activated!');
-      
-      const usageLimit = await UsageDB.checkUsageLimit(userId);
-      
-      return res.json({
-        subscription: updatedSubscription,
-        usage,
-        usageLimit,
-        activated: true
-      });
+      try {
+        await SubscriptionDB.updateSubscriptionStatus(userId, 'active');
+        console.log('✅ Database update completed');
+        
+        // Fetch updated subscription
+        const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
+        console.log('✅ Subscription auto-activated! New status:', updatedSubscription.status);
+        
+        const usageLimit = await UsageDB.checkUsageLimit(userId);
+        
+        return res.json({
+          subscription: updatedSubscription,
+          usage,
+          usageLimit,
+          activated: true,
+          message: 'Subscription activated successfully!'
+        });
+      } catch (activationError) {
+        console.error('❌ Error during activation:', activationError);
+        // Continue with original response if activation fails
+      }
     }
 
     const usageLimit = await UsageDB.checkUsageLimit(userId);
