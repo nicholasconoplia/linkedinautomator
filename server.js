@@ -11,7 +11,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 
 // Import our modules
-const { initializeDatabase, UserDB, PreferencesDB, PostsDB, SubscriptionDB, UsageDB, AccessKeysDB } = require('./database');
+const { initializeDatabase, UserDB, PreferencesDB, PostsDB, SubscriptionDB, UsageDB, AccessKeysDB, pool } = require('./database');
 const LinkedInService = require('./linkedin-service');
 const PostScheduler = require('./scheduler');
 const StripeService = require('./stripe-service');
@@ -2305,3 +2305,76 @@ module.exports = async (req, res) => {
     });
   }
 }; 
+
+// Admin endpoint to migrate status constraint
+app.post('/api/admin/migrate-status-constraint', async (req, res) => {
+  try {
+    console.log('🔄 Starting status constraint migration...');
+    
+    const client = await pool.connect();
+    try {
+      // First, check if the constraint exists
+      console.log('🔍 Checking existing constraint...');
+      const constraintQuery = `
+        SELECT constraint_name, check_clause 
+        FROM information_schema.check_constraints 
+        WHERE constraint_name = 'user_subscriptions_status_check'
+      `;
+      const constraintResult = await client.query(constraintQuery);
+      
+      let migrationSteps = [];
+      
+      if (constraintResult.rows.length > 0) {
+        console.log('📋 Current constraint:', constraintResult.rows[0]);
+        migrationSteps.push(`Current constraint: ${constraintResult.rows[0].check_clause}`);
+        
+        // Drop the existing constraint
+        console.log('🗑️ Dropping existing constraint...');
+        await client.query(`
+          ALTER TABLE user_subscriptions 
+          DROP CONSTRAINT user_subscriptions_status_check
+        `);
+        console.log('✅ Existing constraint dropped');
+        migrationSteps.push('Dropped existing constraint');
+      } else {
+        console.log('ℹ️ No existing constraint found');
+        migrationSteps.push('No existing constraint found');
+      }
+      
+      // Add the new constraint with all required statuses
+      console.log('➕ Adding new constraint...');
+      await client.query(`
+        ALTER TABLE user_subscriptions 
+        ADD CONSTRAINT user_subscriptions_status_check 
+        CHECK (status IN ('active', 'cancelled', 'past_due', 'unpaid', 'incomplete'))
+      `);
+      console.log('✅ New constraint added with incomplete status');
+      migrationSteps.push('Added new constraint with incomplete status');
+      
+      // Verify the new constraint
+      const newConstraintResult = await client.query(constraintQuery);
+      if (newConstraintResult.rows.length > 0) {
+        console.log('✅ New constraint verified:', newConstraintResult.rows[0]);
+        migrationSteps.push(`New constraint verified: ${newConstraintResult.rows[0].check_clause}`);
+      }
+      
+      console.log('🎉 Status constraint migration completed successfully!');
+      
+      res.json({
+        success: true,
+        message: 'Status constraint migration completed successfully',
+        steps: migrationSteps
+      });
+      
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('❌ Migration error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Migration failed',
+      details: error.message
+    });
+  }
+});
