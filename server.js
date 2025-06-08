@@ -190,7 +190,7 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
     callbackURL: process.env.LINKEDIN_CALLBACK_URL || "http://localhost:3000/auth/linkedin/callback",
     scope: ['openid', 'profile', 'email'], // Official OpenID Connect scopes per LinkedIn docs
-    state: true
+    state: false // Disable state verification for Vercel serverless compatibility
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       console.log('🔑 ===== LinkedIn OAuth Strategy Callback Started =====');
