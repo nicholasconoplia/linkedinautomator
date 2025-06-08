@@ -238,43 +238,81 @@
         // Check payment status
         async function checkPaymentStatus() {
             const clientSecret = getUrlParameter('payment_intent_client_secret');
+            const paymentIntentId = getUrlParameter('payment_intent');
             
-            if (!clientSecret) {
+            if (!clientSecret && !paymentIntentId) {
                 // No payment intent, redirect to dashboard
                 window.location.href = '/dashboard';
                 return;
             }
 
             try {
-                // Retrieve the PaymentIntent
-                const { paymentIntent } = await stripe.retrievePaymentIntent(clientSecret);
+                let paymentIntent;
                 
-                console.log('Payment Intent Status:', paymentIntent.status);
+                if (clientSecret) {
+                    // Retrieve the PaymentIntent using client secret
+                    const result = await stripe.retrievePaymentIntent(clientSecret);
+                    paymentIntent = result.paymentIntent;
+                } else if (paymentIntentId) {
+                    // Try to get payment status from server
+                    try {
+                        const response = await fetch(`/api/subscription/payment-status/${paymentIntentId}`, {
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            paymentIntent = { status: data.status };
+                        }
+                    } catch (error) {
+                        console.error('Error fetching payment status from server:', error);
+                        // Show manual activation option
+                        showManualActivation();
+                        return;
+                    }
+                }
+                
+                console.log('Payment Intent Status:', paymentIntent?.status);
 
                 // Hide loading
                 document.getElementById('loadingSection').style.display = 'none';
+
+                if (!paymentIntent) {
+                    showManualActivation();
+                    return;
+                }
 
                 switch (paymentIntent.status) {
                     case 'succeeded':
                         // Payment successful - get subscription details
                         try {
                             const response = await fetch('/api/subscription/status', {
-                                credentials: 'include' // Use cookies for authentication
+                                credentials: 'include'
                             });
                             
                             if (response.ok) {
                                 const data = await response.json();
-                                displaySubscriptionDetails(data.subscription);
+                                if (data.subscription && data.subscription.status === 'active') {
+                                    displaySubscriptionDetails(data.subscription);
+                                    document.getElementById('successSection').style.display = 'block';
+                                } else {
+                                    // Subscription not active yet, try to activate
+                                    await attemptSubscriptionActivation();
+                                }
+                            } else {
+                                await attemptSubscriptionActivation();
                             }
                         } catch (error) {
                             console.error('Error fetching subscription details:', error);
+                            await attemptSubscriptionActivation();
                         }
-
-                        document.getElementById('successSection').style.display = 'block';
                         break;
 
                     case 'processing':
                         document.getElementById('processingSection').style.display = 'block';
+                        // Check status again in 5 seconds
+                        setTimeout(() => {
+                            checkPaymentStatus();
+                        }, 5000);
                         break;
 
                     case 'requires_payment_method':
@@ -284,17 +322,74 @@
                         break;
 
                     default:
-                        document.getElementById('errorMessage').textContent = 
-                            'Something went wrong with your payment. Please contact support.';
-                        document.getElementById('failedSection').style.display = 'block';
+                        showManualActivation();
                         break;
                 }
             } catch (error) {
                 console.error('Error checking payment status:', error);
-                document.getElementById('loadingSection').style.display = 'none';
-                document.getElementById('errorMessage').textContent = 
-                    'Unable to verify payment status. Please contact support.';
-                document.getElementById('failedSection').style.display = 'block';
+                showManualActivation();
+            }
+        }
+
+        // Show manual activation option
+        function showManualActivation() {
+            document.getElementById('loadingSection').style.display = 'none';
+            
+            // Update failed section to show manual activation
+            document.getElementById('errorMessage').innerHTML = `
+                <strong>Payment Processing Issue</strong><br>
+                We're having trouble verifying your payment status automatically. 
+                If your payment went through, click the button below to activate your subscription manually.
+            `;
+            
+            // Add manual activation button
+            const actionsDiv = document.querySelector('#failedSection .action-buttons');
+            actionsDiv.innerHTML = `
+                <button class="btn btn-primary" onclick="attemptSubscriptionActivation()">Activate My Subscription</button>
+                <a href="/subscribe" class="btn btn-secondary">Try Payment Again</a>
+                <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+            `;
+            
+            document.getElementById('failedSection').style.display = 'block';
+        }
+
+        // Attempt to activate subscription manually
+        async function attemptSubscriptionActivation() {
+            try {
+                const response = await fetch('/api/subscription/activate-manual', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Hide all sections
+                    document.getElementById('loadingSection').style.display = 'none';
+                    document.getElementById('processingSection').style.display = 'none';
+                    document.getElementById('failedSection').style.display = 'none';
+                    
+                    // Show success
+                    displaySubscriptionDetails(data.subscription);
+                    document.getElementById('successSection').style.display = 'block';
+                } else {
+                    const errorData = await response.json();
+                    console.error('Manual activation failed:', errorData);
+                    
+                    document.getElementById('errorMessage').innerHTML = `
+                        <strong>Unable to activate subscription</strong><br>
+                        ${errorData.error || 'Please contact support for assistance.'}
+                    `;
+                }
+            } catch (error) {
+                console.error('Error attempting manual activation:', error);
+                document.getElementById('errorMessage').innerHTML = `
+                    <strong>Activation Error</strong><br>
+                    Unable to activate subscription automatically. Please contact support.
+                `;
             }
         }
 

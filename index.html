@@ -62,6 +62,35 @@
                             <button data-action="logout" class="logout-btn">Sign Out</button>
                         </div>
                     </div>
+                    
+                    <!-- Subscription Status Section -->
+                    <div class="subscription-status-section" id="subscriptionStatusSection" style="display: none;">
+                        <div class="subscription-status-card">
+                            <h3>📋 Your Subscription</h3>
+                            <div class="subscription-details" id="subscriptionDetails">
+                                <div class="detail-row">
+                                    <span class="detail-label">Plan:</span>
+                                    <span class="detail-value" id="currentPlan">Loading...</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Status:</span>
+                                    <span class="detail-value" id="subscriptionStatus">Loading...</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Posts This Month:</span>
+                                    <span class="detail-value" id="postsRemaining">Loading...</span>
+                                </div>
+                                <div class="detail-row" id="nextBillingRow" style="display: none;">
+                                    <span class="detail-label">Next Billing:</span>
+                                    <span class="detail-value" id="nextBilling">Loading...</span>
+                                </div>
+                            </div>
+                            <div class="subscription-actions">
+                                <button class="btn btn-secondary btn-sm" id="manageBillingBtn" style="display: none;">Manage Billing</button>
+                                <button class="btn btn-primary btn-sm" id="upgradeBtn">Upgrade Plan</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

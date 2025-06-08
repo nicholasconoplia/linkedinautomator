@@ -261,6 +261,9 @@ class PostPilotApp {
         } else {
             console.log('⚠️ User name element or user data not found');
         }
+        
+        // Load and display subscription status
+        this.loadSubscriptionStatus();
     }
     
     showUnauthenticatedState() {
@@ -273,6 +276,157 @@ class PostPilotApp {
         }
         this.currentUser = null;
         this.isLoggedIn = false;
+    }
+
+    async loadSubscriptionStatus() {
+        console.log('📋 Loading subscription status...');
+        try {
+            const response = await fetch('/api/subscription/status', {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📋 Subscription data:', data);
+                this.displaySubscriptionStatus(data);
+            } else {
+                console.log('⚠️ Subscription status not available:', response.status);
+                this.hideSubscriptionStatus();
+            }
+        } catch (error) {
+            console.error('❌ Failed to load subscription status:', error);
+            this.hideSubscriptionStatus();
+        }
+    }
+
+    displaySubscriptionStatus(data) {
+        const subscriptionSection = document.getElementById('subscriptionStatusSection');
+        const currentPlan = document.getElementById('currentPlan');
+        const subscriptionStatus = document.getElementById('subscriptionStatus');
+        const postsRemaining = document.getElementById('postsRemaining');
+        const nextBilling = document.getElementById('nextBilling');
+        const nextBillingRow = document.getElementById('nextBillingRow');
+        const manageBillingBtn = document.getElementById('manageBillingBtn');
+        const upgradeBtn = document.getElementById('upgradeBtn');
+
+        if (!subscriptionSection) {
+            console.log('⚠️ Subscription section not found');
+            return;
+        }
+
+        // Show subscription section
+        subscriptionSection.style.display = 'block';
+
+        // Update plan information
+        if (data.subscription) {
+            const subscription = data.subscription;
+            
+            // Plan name
+            if (currentPlan) {
+                currentPlan.textContent = subscription.plan_name || 'Unknown Plan';
+            }
+            
+            // Status with color coding
+            if (subscriptionStatus) {
+                const status = subscription.status;
+                let statusText = status.charAt(0).toUpperCase() + status.slice(1);
+                let statusColor = '#28a745'; // green for active
+                
+                if (status === 'cancelled') {
+                    statusColor = '#dc3545'; // red
+                } else if (status === 'past_due' || status === 'incomplete') {
+                    statusColor = '#ffc107'; // yellow
+                }
+                
+                subscriptionStatus.textContent = statusText;
+                subscriptionStatus.style.color = statusColor;
+            }
+            
+            // Next billing date
+            if (subscription.current_period_end && nextBilling && nextBillingRow) {
+                const billingDate = new Date(subscription.current_period_end).toLocaleDateString();
+                nextBilling.textContent = billingDate;
+                nextBillingRow.style.display = 'flex';
+            }
+            
+            // Show manage billing button for active subscriptions
+            if (manageBillingBtn && subscription.status === 'active') {
+                manageBillingBtn.style.display = 'inline-block';
+            }
+        } else {
+            // No subscription - show free plan
+            if (currentPlan) {
+                currentPlan.textContent = 'Free Plan';
+            }
+            if (subscriptionStatus) {
+                subscriptionStatus.textContent = 'Active';
+                subscriptionStatus.style.color = '#28a745';
+            }
+            if (nextBillingRow) {
+                nextBillingRow.style.display = 'none';
+            }
+        }
+
+        // Posts remaining
+        if (data.usageLimit && postsRemaining) {
+            const remaining = data.usageLimit.postsRemaining;
+            if (remaining === -1) {
+                postsRemaining.textContent = 'Unlimited';
+                postsRemaining.style.color = '#28a745';
+            } else {
+                postsRemaining.textContent = `${remaining} remaining`;
+                postsRemaining.style.color = remaining > 5 ? '#28a745' : remaining > 0 ? '#ffc107' : '#dc3545';
+            }
+        }
+
+        // Setup button event listeners
+        this.setupSubscriptionButtons();
+    }
+
+    hideSubscriptionStatus() {
+        const subscriptionSection = document.getElementById('subscriptionStatusSection');
+        if (subscriptionSection) {
+            subscriptionSection.style.display = 'none';
+        }
+    }
+
+    setupSubscriptionButtons() {
+        const manageBillingBtn = document.getElementById('manageBillingBtn');
+        const upgradeBtn = document.getElementById('upgradeBtn');
+
+        if (manageBillingBtn) {
+            manageBillingBtn.onclick = async () => {
+                try {
+                    const response = await fetch('/api/subscription/billing-portal', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            returnUrl: window.location.href
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        window.location.href = data.url;
+                    } else {
+                        console.error('Failed to create billing portal session');
+                        this.showError('Unable to open billing portal. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error opening billing portal:', error);
+                    this.showError('Unable to open billing portal. Please try again.');
+                }
+            };
+        }
+
+        if (upgradeBtn) {
+            upgradeBtn.onclick = () => {
+                window.location.href = '/subscribe';
+            };
+        }
     }
 
     updatePostButtonState() {

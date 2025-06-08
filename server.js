@@ -15,6 +15,7 @@ const { initializeDatabase, UserDB, PreferencesDB, PostsDB, SubscriptionDB, Usag
 const LinkedInService = require('./linkedin-service');
 const PostScheduler = require('./scheduler');
 const StripeService = require('./stripe-service');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
@@ -1067,47 +1068,6 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Emergency migration check
-    if (req.query.emergency_migrate === 'fix_constraint') {
-      console.log('🔄 Emergency migration: Fixing status constraint...');
-      
-      const client = await pool.connect();
-      try {
-        let migrationSteps = [];
-        
-        // Drop existing constraint if it exists
-        try {
-          await client.query(`
-            ALTER TABLE user_subscriptions 
-            DROP CONSTRAINT IF EXISTS user_subscriptions_status_check
-          `);
-          migrationSteps.push('Dropped existing constraint (if any)');
-        } catch (error) {
-          migrationSteps.push('No existing constraint to drop');
-        }
-        
-        // Add new constraint with incomplete status
-        await client.query(`
-          ALTER TABLE user_subscriptions 
-          ADD CONSTRAINT user_subscriptions_status_check 
-          CHECK (status IN ('active', 'cancelled', 'past_due', 'unpaid', 'incomplete'))
-        `);
-        migrationSteps.push('Added new constraint with incomplete status');
-        
-        return res.json({
-          emergency_migration_success: true,
-          message: 'Database constraint fixed! Subscription creation should work now.',
-          steps: migrationSteps,
-          timestamp: new Date().toISOString(),
-          instruction: 'Try creating a subscription now!'
-        });
-        
-      } finally {
-        client.release();
-      }
-    }
-    
-    // Regular status endpoint
     const [subscription, usage] = await Promise.all([
       SubscriptionDB.getUserSubscription(userId),
       UsageDB.getMonthlyUsage(userId)
@@ -1278,6 +1238,101 @@ app.post('/api/subscription/cancel-subscription', requireAuth, async (req, res) 
   } catch (error) {
     console.error('❌ Error cancelling subscription:', error);
     res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+// Manual subscription activation endpoint
+app.post('/api/subscription/activate-manual', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log('🔄 Manual activation requested for user:', userId);
+    
+    // Get user's subscription
+    const subscription = await SubscriptionDB.getUserSubscription(userId);
+    if (!subscription) {
+      return res.status(404).json({ error: 'No subscription found' });
+    }
+    
+    console.log('📋 Found subscription:', {
+      id: subscription.id,
+      status: subscription.status,
+      stripe_subscription_id: subscription.stripe_subscription_id
+    });
+    
+    // If already active, return current subscription
+    if (subscription.status === 'active') {
+      console.log('✅ Subscription already active');
+      return res.json({ subscription });
+    }
+    
+    // Try to get the latest status from Stripe
+    if (subscription.stripe_subscription_id) {
+      try {
+        const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id);
+        console.log('📋 Stripe subscription status:', stripeSubscription.status);
+        
+        // Update local status to match Stripe
+        let localStatus = 'active';
+        if (stripeSubscription.status === 'canceled') localStatus = 'cancelled';
+        else if (stripeSubscription.status === 'past_due') localStatus = 'past_due';
+        else if (stripeSubscription.status === 'unpaid') localStatus = 'unpaid';
+        else if (stripeSubscription.status === 'incomplete') localStatus = 'incomplete';
+        
+        if (localStatus !== subscription.status) {
+          await SubscriptionDB.updateSubscriptionStatus(userId, localStatus);
+          console.log('✅ Updated subscription status to:', localStatus);
+        }
+        
+        // If now active, return updated subscription
+        if (localStatus === 'active') {
+          const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
+          return res.json({ subscription: updatedSubscription });
+        }
+      } catch (stripeError) {
+        console.error('❌ Error fetching from Stripe:', stripeError.message);
+      }
+    }
+    
+    // If subscription is incomplete, try to activate it
+    if (subscription.status === 'incomplete') {
+      try {
+        await SubscriptionDB.updateSubscriptionStatus(userId, 'active');
+        console.log('✅ Manually activated incomplete subscription');
+        
+        const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
+        return res.json({ subscription: updatedSubscription });
+      } catch (dbError) {
+        console.error('❌ Error updating subscription status:', dbError);
+        return res.status(500).json({ error: 'Failed to activate subscription' });
+      }
+    }
+    
+    return res.status(400).json({ 
+      error: `Subscription is in ${subscription.status} status and cannot be activated manually` 
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in manual activation:', error);
+    res.status(500).json({ error: 'Failed to activate subscription' });
+  }
+});
+
+// Get payment status endpoint
+app.get('/api/subscription/payment-status/:paymentIntentId', requireAuth, async (req, res) => {
+  try {
+    const { paymentIntentId } = req.params;
+    
+    // Try to get payment intent from Stripe
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    
+    res.json({
+      status: paymentIntent.status,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency
+    });
+  } catch (error) {
+    console.error('❌ Error fetching payment status:', error);
+    res.status(500).json({ error: 'Failed to fetch payment status' });
   }
 });
 
