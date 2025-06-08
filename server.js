@@ -1067,6 +1067,47 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     
+    // Emergency migration check
+    if (req.query.emergency_migrate === 'fix_constraint') {
+      console.log('🔄 Emergency migration: Fixing status constraint...');
+      
+      const client = await pool.connect();
+      try {
+        let migrationSteps = [];
+        
+        // Drop existing constraint if it exists
+        try {
+          await client.query(`
+            ALTER TABLE user_subscriptions 
+            DROP CONSTRAINT IF EXISTS user_subscriptions_status_check
+          `);
+          migrationSteps.push('Dropped existing constraint (if any)');
+        } catch (error) {
+          migrationSteps.push('No existing constraint to drop');
+        }
+        
+        // Add new constraint with incomplete status
+        await client.query(`
+          ALTER TABLE user_subscriptions 
+          ADD CONSTRAINT user_subscriptions_status_check 
+          CHECK (status IN ('active', 'cancelled', 'past_due', 'unpaid', 'incomplete'))
+        `);
+        migrationSteps.push('Added new constraint with incomplete status');
+        
+        return res.json({
+          emergency_migration_success: true,
+          message: 'Database constraint fixed! Subscription creation should work now.',
+          steps: migrationSteps,
+          timestamp: new Date().toISOString(),
+          instruction: 'Try creating a subscription now!'
+        });
+        
+      } finally {
+        client.release();
+      }
+    }
+    
+    // Regular status endpoint
     const [subscription, usage] = await Promise.all([
       SubscriptionDB.getUserSubscription(userId),
       UsageDB.getMonthlyUsage(userId)
