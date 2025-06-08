@@ -1336,8 +1336,8 @@ app.get('/api/subscription/payment-status/:paymentIntentId', requireAuth, async 
   }
 });
 
-// Quick fix endpoint to activate incomplete subscription
-app.post('/api/subscription/quick-activate', requireAuth, async (req, res) => {
+// Quick fix endpoint to activate incomplete subscription (GET and POST)
+app.get('/api/subscription/quick-activate', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     console.log('🔧 Quick activation requested for user:', userId);
