@@ -56,11 +56,27 @@ class PostPilotApp {
         // Load recent activity
         this.loadRecentActivity();
         
+        // Load pricing on main page
+        await this.loadMainPagePricing();
+        
         // Check if user just authenticated
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('authenticated') === 'true') {
             window.history.replaceState({}, document.title, window.location.pathname);
             await this.checkAuthStatus();
+            
+            // Show welcome message and check subscription after LinkedIn auth
+            setTimeout(async () => {
+                if (this.isLoggedIn) {
+                    this.showSuccess('🎉 LinkedIn connected successfully! Welcome to PostPilot!');
+                    
+                    // Check subscription status after successful authentication
+                    const hasAccess = await this.checkSubscriptionLimit();
+                    if (!hasAccess) {
+                        console.log('🎯 Showing subscription modal for new user');
+                    }
+                }
+            }, 1500);
         }
         
         console.log('✅ PostPilot ready!');
@@ -145,6 +161,14 @@ class PostPilotApp {
                     this.currentUser = authData.user;
                     this.isLoggedIn = true;
                     this.showAuthenticatedState();
+                    
+                    // Check subscription status after authentication
+                    setTimeout(async () => {
+                        const hasAccess = await this.checkSubscriptionLimit();
+                        if (!hasAccess) {
+                            console.log('🎯 No subscription found - showing pricing modal');
+                        }
+                    }, 1000); // Delay to allow UI to settle
                 } else {
                     console.log('ℹ️ User is not authenticated');
                     this.currentUser = null;
@@ -779,6 +803,57 @@ class PostPilotApp {
         } catch (error) {
             console.error('Error loading plans:', error);
             plansGrid.innerHTML = '<div class="error">Failed to load subscription plans. Please refresh the page.</div>';
+        }
+    }
+
+    async loadMainPagePricing() {
+        const mainPricingGrid = document.getElementById('mainPricingGrid');
+        if (!mainPricingGrid) return; // Main pricing section might not exist on all pages
+        
+        try {
+            const response = await fetch('/api/subscription/plans');
+            const plans = await response.json();
+            
+            mainPricingGrid.innerHTML = '';
+
+            // Filter out free trial plan for the main page
+            const paidPlans = plans.filter(plan => plan.price > 0);
+
+            paidPlans.forEach((plan, index) => {
+                const planCard = document.createElement('div');
+                planCard.className = 'pricing-card';
+                if (index === 1) planCard.classList.add('popular'); // Make Professional popular
+                
+                const regularPrice = plan.launch_price ? (plan.launch_price * 2).toFixed(2) : null;
+                const features = plan.features?.features || [
+                    'AI-powered content generation',
+                    'Real-time news integration', 
+                    'Multiple tone options',
+                    'LinkedIn direct posting',
+                    'Content analytics',
+                    'Hashtag optimization'
+                ];
+                
+                planCard.innerHTML = `
+                    <h3>${plan.name}</h3>
+                    <div class="price">
+                        ${regularPrice ? `<span class="crossed">$${regularPrice}</span>` : ''}
+                        $${plan.launch_price || plan.price}<span style="font-size: 18px;">/mo</span>
+                    </div>
+                    <div class="posts">${plan.posts_limit === -1 ? 'Unlimited' : plan.posts_limit} posts per month</div>
+                    <ul class="features">
+                        ${features.slice(0, 6).map(feature => `<li>${feature}</li>`).join('')}
+                    </ul>
+                    <button class="cta-button" onclick="window.location.href='/subscribe'">
+                        Get Started
+                    </button>
+                `;
+                
+                mainPricingGrid.appendChild(planCard);
+            });
+        } catch (error) {
+            console.error('Error loading main page pricing:', error);
+            mainPricingGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Failed to load pricing plans. Please refresh the page.</div>';
         }
     }
     
