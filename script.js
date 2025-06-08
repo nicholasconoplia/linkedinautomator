@@ -87,11 +87,11 @@ class PostPilotApp {
         this.form.addEventListener('submit', this.handleFormSubmit.bind(this));
         
         if (this.copyBtn) {
-            this.copyBtn.addEventListener('click', this.copyToClipboard.bind(this));
+        this.copyBtn.addEventListener('click', this.copyToClipboard.bind(this));
         }
         
         if (this.regenerateBtn) {
-            this.regenerateBtn.addEventListener('click', this.regeneratePost.bind(this));
+        this.regenerateBtn.addEventListener('click', this.regeneratePost.bind(this));
         }
         
         if (this.postBtn) {
@@ -100,6 +100,57 @@ class PostPilotApp {
         
         // Keyboard shortcuts
         document.addEventListener('keydown', this.handleKeyboardShortcuts.bind(this));
+        
+        // Add global event delegation
+        document.addEventListener('click', this.handleGlobalClicks.bind(this));
+    }
+
+    handleGlobalClicks(e) {
+        const action = e.target.getAttribute('data-action');
+        
+        switch (action) {
+            case 'subscribe':
+                window.location.href = '/subscribe';
+                break;
+            case 'logout':
+                logout();
+                break;
+            case 'copy':
+                copyToClipboard();
+                break;
+            case 'regenerate':
+                regeneratePost();
+                break;
+            case 'post':
+                postToLinkedIn();
+                break;
+            case 'close-modal':
+                closeSubscriptionModal();
+                break;
+            case 'activate-key':
+                activateAccessKey();
+                break;
+            case 'regenerate-and-post':
+                if (window.postPilot) {
+                    window.postPilot.regenerateAndPost();
+                }
+                break;
+            case 'modify-content':
+                if (window.postPilot) {
+                    window.postPilot.showContentModifier();
+                }
+                break;
+            case 'save-modified':
+                if (window.postPilot) {
+                    window.postPilot.saveModifiedContent();
+                }
+                break;
+            case 'cancel-modified':
+                if (window.postPilot) {
+                    window.postPilot.cancelContentModification();
+                }
+                break;
+        }
     }
     
     setupTopicChips() {
@@ -146,7 +197,7 @@ class PostPilotApp {
             this.copyToClipboard();
         }
     }
-
+    
     async checkAuthStatus() {
         console.log('🔍 Checking authentication status...');
         try {
@@ -255,7 +306,7 @@ class PostPilotApp {
                 const prefsText = await prefsResponse.text();
                 if (prefsText && prefsText !== 'undefined') {
                     this.userPreferences = JSON.parse(prefsText);
-                    this.populateAutomationForm();
+                this.populateAutomationForm();
                 }
             } else {
                 console.log('⚠️ Preferences not available:', prefsResponse.status);
@@ -324,7 +375,7 @@ class PostPilotApp {
                 const postsText = await response.text();
                 if (postsText && postsText !== 'undefined') {
                     const posts = JSON.parse(postsText);
-                    this.displayScheduledPosts(posts);
+                this.displayScheduledPosts(posts);
                 }
             } else {
                 console.log('⚠️ Scheduled posts not available:', response.status);
@@ -514,6 +565,347 @@ class PostPilotApp {
             return;
         }
         
+        // Show preview modal instead of posting directly
+        this.showLinkedInPreview();
+    }
+
+    showLinkedInPreview() {
+        // Get the selected post type
+        const selectedPostType = document.querySelector('input[name="postType"]:checked')?.value || 'image';
+        const useArticleLink = selectedPostType === 'link';
+        
+        // Clean and validate the article URL
+        let cleanArticleUrl = null;
+        if (this.currentPost.article?.url && this.currentPost.article.url !== '#') {
+            cleanArticleUrl = this.cleanUrl(this.currentPost.article.url);
+        }
+
+        // Create preview modal
+        const modal = document.createElement('div');
+        modal.id = 'linkedinPreviewModal';
+        modal.className = 'linkedin-preview-modal';
+        
+        const userProfilePic = this.currentUser?.profilePicture || 'https://via.placeholder.com/48x48?text=👤';
+        const userName = this.currentUser?.name || 'Your Name';
+        const userTitle = this.currentUser?.headline || 'Professional Title';
+        
+        modal.innerHTML = `
+            <div class="linkedin-preview-backdrop" data-action="close-preview"></div>
+            <div class="linkedin-preview-container">
+                <div class="linkedin-preview-header">
+                    <h2>Preview Your LinkedIn Post</h2>
+                    <button class="close-preview-btn" data-action="close-preview">×</button>
+                </div>
+                
+                <div class="linkedin-post-preview">
+                    <div class="linkedin-post-header">
+                        <img src="${userProfilePic}" alt="${userName}" class="linkedin-profile-pic" />
+                        <div class="linkedin-user-info">
+                            <div class="linkedin-user-name">${userName}</div>
+                            <div class="linkedin-user-title">${userTitle}</div>
+                            <div class="linkedin-post-time">Now</div>
+                        </div>
+                        <div class="linkedin-post-options">⋯</div>
+                    </div>
+                    
+                    <div class="linkedin-post-content">
+                        ${this.formatPostText(this.currentPost.post)}
+                    </div>
+                    
+                    ${useArticleLink && cleanArticleUrl ? `
+                        <div class="linkedin-article-preview">
+                            <div class="article-preview-placeholder">
+                                🔗 Article Link Preview
+                                <div class="article-url">${cleanArticleUrl}</div>
+                            </div>
+                        </div>
+                    ` : (this.currentPost.image?.url ? `
+                        <div class="linkedin-post-image">
+                            <img src="${this.currentPost.image.url}" alt="Post image" />
+                        </div>
+                    ` : '')}
+                    
+                    <div class="linkedin-post-actions">
+                        <div class="linkedin-action">👍 Like</div>
+                        <div class="linkedin-action">💬 Comment</div>
+                        <div class="linkedin-action">🔄 Repost</div>
+                        <div class="linkedin-action">📤 Send</div>
+                    </div>
+                </div>
+                
+                <div class="linkedin-preview-actions">
+                    <button class="preview-cancel-btn" data-action="close-preview">Cancel</button>
+                    <button class="preview-post-btn" data-action="confirm-post">
+                        🚀 Post to LinkedIn
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
+        
+        // Add event delegation for preview modal buttons
+        this.setupPreviewEventListeners(modal);
+        
+        // Add styles if not already added
+        this.addLinkedInPreviewStyles();
+    }
+
+    setupPreviewEventListeners(modal) {
+        modal.addEventListener('click', (e) => {
+            const action = e.target.getAttribute('data-action');
+            
+            if (action === 'close-preview') {
+                closeLinkedInPreview();
+            } else if (action === 'confirm-post') {
+                confirmLinkedInPost();
+            }
+        });
+    }
+
+    addLinkedInPreviewStyles() {
+        if (document.getElementById('linkedinPreviewStyles')) return;
+        
+        const styles = document.createElement('style');
+        styles.id = 'linkedinPreviewStyles';
+        styles.textContent = `
+            .linkedin-preview-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .linkedin-preview-backdrop {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+            }
+            
+            .linkedin-preview-container {
+                position: relative;
+                background: white;
+                border-radius: 12px;
+                max-width: 600px;
+                width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            }
+            
+            .linkedin-preview-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 20px 24px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            
+            .linkedin-preview-header h2 {
+                margin: 0;
+                font-size: 20px;
+                font-weight: 600;
+                color: #333;
+            }
+            
+            .close-preview-btn {
+                background: none;
+                border: none;
+                font-size: 24px;
+                color: #666;
+                cursor: pointer;
+                padding: 0;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .close-preview-btn:hover {
+                background: #f0f0f0;
+            }
+            
+            .linkedin-post-preview {
+                margin: 24px;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                background: white;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+            
+            .linkedin-post-header {
+                display: flex;
+                align-items: flex-start;
+                padding: 16px;
+                gap: 12px;
+            }
+            
+            .linkedin-profile-pic {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 2px solid #0073b1;
+            }
+            
+            .linkedin-user-info {
+                flex: 1;
+            }
+            
+            .linkedin-user-name {
+                font-weight: 600;
+                font-size: 14px;
+                color: #000;
+                margin-bottom: 2px;
+            }
+            
+            .linkedin-user-title {
+                font-size: 12px;
+                color: #666;
+                margin-bottom: 4px;
+            }
+            
+            .linkedin-post-time {
+                font-size: 12px;
+                color: #666;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            
+            .linkedin-post-time::before {
+                content: "🌐";
+                font-size: 10px;
+            }
+            
+            .linkedin-post-options {
+                color: #666;
+                font-size: 20px;
+                cursor: pointer;
+                padding: 4px;
+            }
+            
+            .linkedin-post-content {
+                padding: 0 16px 16px 16px;
+                font-size: 14px;
+                line-height: 1.5;
+                color: #000;
+                white-space: pre-wrap;
+            }
+            
+            .linkedin-post-image {
+                margin: 0 16px 16px 16px;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            
+            .linkedin-post-image img {
+                width: 100%;
+                height: auto;
+                display: block;
+            }
+            
+            .linkedin-article-preview {
+                margin: 0 16px 16px 16px;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 16px;
+                background: #f8f9fa;
+            }
+            
+            .article-preview-placeholder {
+                text-align: center;
+                color: #666;
+                font-size: 14px;
+            }
+            
+            .article-url {
+                font-size: 12px;
+                color: #0073b1;
+                margin-top: 8px;
+                word-break: break-all;
+            }
+            
+            .linkedin-post-actions {
+                display: flex;
+                justify-content: space-around;
+                padding: 12px 16px;
+                border-top: 1px solid #e0e0e0;
+                background: #f8f9fa;
+            }
+            
+            .linkedin-action {
+                font-size: 14px;
+                color: #666;
+                cursor: pointer;
+                padding: 8px 12px;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            }
+            
+            .linkedin-action:hover {
+                background: #e0e0e0;
+            }
+            
+            .linkedin-preview-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 12px;
+                padding: 20px 24px;
+                border-top: 1px solid #e0e0e0;
+                background: #f8f9fa;
+            }
+            
+            .preview-cancel-btn, .preview-post-btn {
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            
+            .preview-cancel-btn {
+                background: white;
+                color: #666;
+                border: 1px solid #ccc;
+            }
+            
+            .preview-cancel-btn:hover {
+                background: #f0f0f0;
+            }
+            
+            .preview-post-btn {
+                background: #0073b1;
+                color: white;
+                border: none;
+            }
+            
+            .preview-post-btn:hover {
+                background: #005885;
+            }
+        `;
+        
+        document.head.appendChild(styles);
+    }
+
+    async confirmLinkedInPost() {
+        if (!this.currentPost) {
+            this.showError('Generate a post first');
+            return;
+        }
+        
         try {
             // Get the selected post type
             const selectedPostType = document.querySelector('input[name="postType"]:checked')?.value || 'image';
@@ -535,9 +927,18 @@ class PostPilotApp {
             
             console.log('📤 Posting with data:', postData);
             
+            // Close the preview modal
+            closeLinkedInPreview();
+            
+            // Show loading state
+            this.setLoadingState(true);
+            
             const response = await fetch('/api/post-now', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
                 body: JSON.stringify(postData)
             });
             
@@ -559,6 +960,8 @@ class PostPilotApp {
         } catch (error) {
             console.error('Failed to post to LinkedIn:', error);
             this.showError('Failed to post to LinkedIn: ' + error.message);
+        } finally {
+            this.setLoadingState(false);
         }
     }
     
@@ -651,7 +1054,7 @@ class PostPilotApp {
             this.showError('Please enter a topic or select from popular topics');
             return;
         }
-
+        
         // Check if user is authenticated
         if (!this.isLoggedIn) {
             this.showError('Please connect your LinkedIn account first');
@@ -683,29 +1086,20 @@ class PostPilotApp {
             this.setLoadingState(false);
         }
     }
-
+    
     async checkSubscriptionLimit() {
         try {
-            const token = localStorage.getItem('jwt_token');
-            if (!token) {
-                console.log('No JWT token found - showing subscription modal');
-                await this.showSubscriptionModal();
-                return false;
-            }
-
             const response = await fetch('/api/subscription/status', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include' // Include cookies for authentication
             });
-
-            if (!response.ok) {
+        
+        if (!response.ok) {
                 console.error('Failed to check subscription status:', response.status);
                 await this.showSubscriptionModal();
                 return false;
-            }
-
-            const data = await response.json();
+        }
+        
+        const data = await response.json();
             console.log('Subscription status:', data);
             
             // Check if user has access
@@ -844,7 +1238,7 @@ class PostPilotApp {
                     <ul class="features">
                         ${features.slice(0, 6).map(feature => `<li>${feature}</li>`).join('')}
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='/subscribe'">
+                    <button class="cta-button" data-action="subscribe">
                         Get Started
                     </button>
                 `;
@@ -859,19 +1253,12 @@ class PostPilotApp {
     
     async generatePost(topic, tone = 'professional', length = 'medium') {
         try {
-            const token = localStorage.getItem('jwt_token');
-            const headers = {
-                'Content-Type': 'application/json',
-            };
-            
-            // Add auth token if available
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
             const response = await fetch('/api/generate-post', {
                 method: 'POST',
-                headers: headers,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include', // Include cookies for authentication
                 body: JSON.stringify({ topic, tone })
             });
             
@@ -902,7 +1289,7 @@ class PostPilotApp {
                 this.showSuccess('Content generated successfully!');
                 
                 console.log('✅ Content generated successfully');
-            } else {
+        } else {
                 throw new Error(data.error || 'Failed to generate content');
             }
         } catch (error) {
@@ -1039,13 +1426,13 @@ class PostPilotApp {
     
     setLoadingState(isLoading) {
         if (this.generateBtn) {
-            this.generateBtn.disabled = isLoading;
-            
-            if (isLoading) {
+        this.generateBtn.disabled = isLoading;
+        
+        if (isLoading) {
                 this.loader.style.display = 'inline-block';
-                this.generateBtn.querySelector('.btn-text').textContent = 'Generating...';
-            } else {
-                this.loader.style.display = 'none';
+            this.generateBtn.querySelector('.btn-text').textContent = 'Generating...';
+        } else {
+            this.loader.style.display = 'none';
                 this.generateBtn.querySelector('.btn-text').textContent = 'Generate Content';
             }
         }
@@ -1076,10 +1463,10 @@ class PostPilotApp {
                     This content is too similar to a recent post. LinkedIn prevents posting duplicate content to avoid spam.
                 </p>
                 <div class="notification-actions">
-                    <button class="regenerate-and-post-btn" onclick="window.postPilot.regenerateAndPost()">
+                    <button class="regenerate-and-post-btn" data-action="regenerate-and-post">
                         🔄 Generate New Content & Post
                     </button>
-                    <button class="modify-and-post-btn" onclick="window.postPilot.showContentModifier()">
+                    <button class="modify-and-post-btn" data-action="modify-content">
                         ✏️ Modify Current Content
                     </button>
                 </div>
@@ -1294,10 +1681,10 @@ class PostPilotApp {
                 <div class="modifier-form">
                     <textarea id="modifiedContent" class="modified-content-input" rows="6">${this.currentPost.post}</textarea>
                     <div class="modifier-actions">
-                        <button class="save-and-post-btn" onclick="window.postPilot.saveModifiedContent()">
+                        <button class="save-and-post-btn" data-action="save-modified">
                             💾 Save & Post
                         </button>
-                        <button class="cancel-modifier-btn" onclick="window.postPilot.cancelContentModification()">
+                        <button class="cancel-modifier-btn" data-action="cancel-modified">
                             ❌ Cancel
                         </button>
                     </div>
@@ -1496,6 +1883,21 @@ async function logout() {
     }
 }
 
+// LinkedIn Preview Modal Functions
+function closeLinkedInPreview() {
+    const modal = document.getElementById('linkedinPreviewModal');
+    if (modal) {
+        modal.remove();
+        document.body.style.overflow = '';
+    }
+}
+
+function confirmLinkedInPost() {
+    if (window.postPilot) {
+        window.postPilot.confirmLinkedInPost();
+    }
+}
+
 // Subscription Modal Functions
 function closeSubscriptionModal() {
     const modal = document.getElementById('subscriptionModal');
@@ -1517,9 +1919,9 @@ async function activateAccessKey() {
         const response = await fetch('/api/access-key/activate', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
+                'Content-Type': 'application/json'
             },
+            credentials: 'include', // Include cookies for authentication
             body: JSON.stringify({ keyCode })
         });
 

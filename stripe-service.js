@@ -4,6 +4,14 @@ const { SubscriptionDB, UserDB } = require('./database');
 class StripeService {
   constructor() {
     this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    // Validate Stripe configuration
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('❌ STRIPE_SECRET_KEY environment variable is not set');
+      throw new Error('Stripe configuration missing: STRIPE_SECRET_KEY');
+    }
+    
+    console.log('✅ Stripe service initialized with secret key');
   }
 
   // Create a Stripe customer

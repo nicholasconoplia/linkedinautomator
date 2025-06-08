@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com;">
     <title>Subscribe to PostPilot</title>
     <script src="https://js.stripe.com/v3/"></script>
     <link rel="stylesheet" href="styles.css">
@@ -225,7 +226,7 @@
 
     <script>
         // Initialize Stripe with your publishable key
-        const stripe = Stripe('pk_test_51RXcasKkxlEtPdqxsNiMUS6x1DXLdL3NVgUNNNbkeUgl3ADRpGPSSf2SxfmB9Ql2y6e847RUSVuhm0a6uMUSVrOu00TaTusJ93');
+        const stripe = Stripe('STRIPE_PUBLISHABLE_KEY_PLACEHOLDER');
         
         let elements;
         let paymentElement;
@@ -237,8 +238,35 @@
         // Load subscription plans
         async function loadPlans() {
             try {
+                console.log('🔄 Loading subscription plans...');
                 const response = await fetch('/api/subscription/plans');
-                const plans = await response.json();
+                
+                console.log('📊 Plans response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Plans request failed:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const responseText = await response.text();
+                console.log('📄 Raw response:', responseText);
+                
+                let plans;
+                try {
+                    plans = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('❌ JSON parse error:', parseError);
+                    console.error('❌ Response text:', responseText);
+                    throw new Error('Invalid JSON response from server');
+                }
+                
+                if (!plans || !Array.isArray(plans)) {
+                    console.error('❌ Invalid plans data:', plans);
+                    throw new Error('Invalid plans data received');
+                }
+                
+                console.log('✅ Plans loaded successfully:', plans.length);
                 
                 const planSelection = document.getElementById('planSelection');
                 planSelection.innerHTML = '';
@@ -246,15 +274,19 @@
                 plans.forEach((plan, index) => {
                     const planCard = document.createElement('div');
                     planCard.className = 'plan-card';
-                    if (index === 1) planCard.classList.add('popular'); // Make Professional popular
+                    if (index === 2) planCard.classList.add('popular'); // Make Professional popular (index 2)
                     
                     const regularPrice = plan.launch_price ? (plan.launch_price * 2).toFixed(2) : null;
+                    
+                    // Check if this is a free plan or paid plan
+                    const isFree = plan.price === "0.00" || plan.price === 0 || plan.name.toLowerCase().includes('free');
+                    const price = isFree ? 'Free' : `$${plan.launch_price || plan.price}`;
                     
                     planCard.innerHTML = `
                         <div class="plan-name">${plan.name}</div>
                         <div class="plan-price">
-                            ${regularPrice ? `<span class="crossed">$${regularPrice}</span>` : ''}
-                            $${plan.launch_price || plan.price}
+                            ${regularPrice && !isFree ? `<span class="crossed">$${regularPrice}</span>` : ''}
+                            ${price}${!isFree ? '/month' : ''}
                         </div>
                         <div class="plan-posts">${plan.posts_limit === -1 ? 'Unlimited' : plan.posts_limit} posts/month</div>
                         <ul class="plan-features">
@@ -265,9 +297,10 @@
                             ${plan.posts_limit === -1 ? '<li>Unlimited usage</li>' : ''}
                             ${plan.posts_limit === -1 ? '<li>Premium support</li>' : ''}
                         </ul>
+                        ${isFree ? '<div style="margin-top: 15px;"><em>No payment required</em></div>' : ''}
                     `;
                     
-                    planCard.addEventListener('click', () => selectPlan(plan));
+                    planCard.addEventListener('click', (event) => selectPlan(plan, event));
                     planSelection.appendChild(planCard);
                 });
             } catch (error) {
@@ -278,15 +311,92 @@
         }
 
         // Select a plan
-        async function selectPlan(plan) {
+        async function selectPlan(plan, event) {
+            // Check if user is authenticated using the same method as main site
+            try {
+                const authResponse = await fetch('/api/auth-status', {
+                    credentials: 'include' // Include cookies
+                });
+                
+                if (!authResponse.ok) {
+                    throw new Error('Auth check failed');
+                }
+                
+                const authData = await authResponse.json();
+                if (!authData || !authData.authenticated) {
+                    alert('Please log in with LinkedIn first to subscribe to a plan.');
+                    window.location.href = '/';
+                    return;
+                }
+            } catch (error) {
+                console.error('Authentication check failed:', error);
+                alert('Please log in with LinkedIn first to subscribe to a plan.');
+                window.location.href = '/';
+                return;
+            }
+            
             selectedPlan = plan;
             
-            // Update UI
+            // Update UI - find the clicked plan card
             document.querySelectorAll('.plan-card').forEach(card => {
                 card.classList.remove('selected');
             });
-            event.target.closest('.plan-card').classList.add('selected');
             
+            // Find the clicked plan card by matching the plan data
+            const planCards = document.querySelectorAll('.plan-card');
+            planCards.forEach(card => {
+                const planName = card.querySelector('.plan-name').textContent;
+                if (planName === plan.name) {
+                    card.classList.add('selected');
+                }
+            });
+            
+            // Check if this is a free plan
+            const isFree = plan.price === "0.00" || plan.price === 0 || plan.name.toLowerCase().includes('free') || !plan.stripe_price_id;
+            
+            // Handle free plans differently
+            if (isFree) {
+                // For free plans, just show a message and don't create a subscription
+                document.getElementById('paymentSection').innerHTML = `
+                    <h3>Free Plan Activated!</h3>
+                    <p>Your <strong>${plan.name}</strong> is ready to use.</p>
+                    <p>You can start generating LinkedIn posts immediately with your ${plan.posts_limit} posts per month.</p>
+                    <a href="/dashboard" class="subscribe-button" style="display: inline-block; text-decoration: none; text-align: center;">
+                        Go to Dashboard
+                    </a>
+                `;
+                document.getElementById('paymentSection').classList.add('active');
+                document.getElementById('paymentSection').scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+            
+            // For paid plans, ensure the payment section has the correct structure
+            const paymentSection = document.getElementById('paymentSection');
+            if (!paymentSection.querySelector('#selectedPlanName')) {
+                // Reset the payment section to original structure if it was modified
+                paymentSection.innerHTML = `
+                    <h3>Complete Your Subscription</h3>
+                    <p>Selected Plan: <strong id="selectedPlanName"></strong> - <strong id="selectedPlanPrice"></strong></p>
+                    
+                    <form id="payment-form">
+                        <div id="payment-element">
+                            <!-- Stripe Payment Element will be inserted here -->
+                        </div>
+                        
+                        <div class="security-note">
+                            🔒 Your payment information is secured by Stripe's industry-leading encryption
+                        </div>
+                        
+                        <button type="submit" id="submit" class="subscribe-button">
+                            Complete Subscription
+                        </button>
+                        
+                        <div id="error-message" class="error-message"></div>
+                    </form>
+                `;
+            }
+            
+            // Now safely update the plan details
             document.getElementById('selectedPlanName').textContent = plan.name;
             document.getElementById('selectedPlanPrice').textContent = `$${plan.launch_price || plan.price}/month`;
             
@@ -296,9 +406,9 @@
                     const customerResponse = await fetch('/api/subscription/create-customer', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
-                        }
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include' // Use cookies for authentication
                     });
                     
                     if (!customerResponse.ok) {
@@ -310,12 +420,18 @@
                 }
 
                 // Create subscription
+                console.log('📋 Creating subscription with:', {
+                    priceId: plan.stripe_price_id,
+                    customerId: customerId,
+                    planName: plan.name
+                });
+                
                 const subscriptionResponse = await fetch('/api/subscription/create-subscription', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
+                        'Content-Type': 'application/json'
                     },
+                    credentials: 'include', // Use cookies for authentication
                     body: JSON.stringify({
                         priceId: plan.stripe_price_id,
                         customerId: customerId
@@ -323,7 +439,9 @@
                 });
 
                 if (!subscriptionResponse.ok) {
-                    throw new Error('Failed to create subscription');
+                    const errorData = await subscriptionResponse.text();
+                    console.error('❌ Subscription creation failed:', errorData);
+                    throw new Error(`Failed to create subscription: ${subscriptionResponse.status} - ${errorData}`);
                 }
 
                 const subscriptionData = await subscriptionResponse.json();
@@ -368,39 +486,45 @@
             paymentElement.mount('#payment-element');
         }
 
-        // Handle form submission
-        document.getElementById('payment-form').addEventListener('submit', async (event) => {
+        // Handle form submission (using event delegation since form may be recreated)
+        function handlePaymentFormSubmit(event) {
             event.preventDefault();
 
             const submitButton = document.getElementById('submit');
             const errorMessage = document.getElementById('error-message');
             
+            if (!submitButton || !errorMessage) {
+                console.error('❌ Payment form elements not found');
+                return;
+            }
+            
             submitButton.disabled = true;
             submitButton.textContent = 'Processing...';
             errorMessage.textContent = '';
 
-            const { error } = await stripe.confirmPayment({
+            stripe.confirmPayment({
                 elements,
                 confirmParams: {
                     return_url: `${window.location.origin}/subscription/success`,
                 }
+            }).then(({ error }) => {
+                if (error) {
+                    errorMessage.textContent = error.message;
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Complete Subscription';
+                }
             });
-
-            if (error) {
-                errorMessage.textContent = error.message;
-                submitButton.disabled = false;
-                submitButton.textContent = 'Complete Subscription';
+        }
+        
+        // Use event delegation for payment form
+        document.addEventListener('submit', function(event) {
+            if (event.target.id === 'payment-form') {
+                handlePaymentFormSubmit(event);
             }
         });
 
-        // Check authentication and load plans
+        // Load plans when page loads
         document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('jwt_token');
-            if (!token) {
-                window.location.href = '/';
-                return;
-            }
-
             await loadPlans();
         });
     </script>

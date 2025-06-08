@@ -80,7 +80,9 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "http:"],
-      scriptSrc: ["'self'", "'unsafe-inline'"]
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com"],
+      connectSrc: ["'self'", "https://api.stripe.com"],
+      frameSrc: ["https://js.stripe.com"]
     },
   },
 }));
@@ -619,56 +621,67 @@ app.get('/api/user', requireAuth, (req, res) => {
 
 // Check authentication status (no auth required)
 app.get('/api/auth-status', async (req, res) => {
-  const token = extractJWTFromRequest(req);
-  
-  console.log('🔍 Auth status check:', {
-    tokenPresent: !!token,
-    tokenPreview: token ? token.substring(0, 20) + '...' : null
-  });
-  
-  if (!token) {
-    console.log('🔍 No JWT token found');
-    return res.json({
-      authenticated: false,
-      user: null
-    });
-  }
-  
-  const decoded = verifyJWT(token);
-  if (!decoded) {
-    console.log('🔍 JWT token invalid or expired');
-    return res.json({
-      authenticated: false,
-      user: null
-    });
-  }
-  
   try {
-    // Get fresh user data from database
-    const user = await UserDB.getUserById(decoded.id);
-    if (!user) {
-      console.log('🔍 User not found in database');
+    const token = extractJWTFromRequest(req);
+    
+    console.log('🔍 Auth status check:', {
+      tokenPresent: !!token,
+      tokenPreview: token ? token.substring(0, 20) + '...' : null
+    });
+    
+    if (!token) {
+      console.log('🔍 No JWT token found');
       return res.json({
         authenticated: false,
         user: null
       });
     }
     
-    console.log('🔍 JWT authentication successful:', { id: user.id, name: user.name });
-    res.json({
-      authenticated: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        linkedin_id: user.linkedin_id
+    const decoded = verifyJWT(token);
+    if (!decoded) {
+      console.log('🔍 JWT token invalid or expired');
+      return res.json({
+        authenticated: false,
+        user: null
+      });
+    }
+    
+    try {
+      // Get fresh user data from database
+      const user = await UserDB.getUserById(decoded.id);
+      if (!user) {
+        console.log('🔍 User not found in database');
+        return res.json({
+          authenticated: false,
+          user: null
+        });
       }
-    });
+      
+      console.log('🔍 JWT authentication successful:', { id: user.id, name: user.name });
+      res.json({
+        authenticated: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          linkedin_id: user.linkedin_id,
+          profilePicture: user.profile_url,
+          headline: user.headline || 'Professional'
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error fetching user in auth status:', error);
+      res.json({
+        authenticated: false,
+        user: null
+      });
+    }
   } catch (error) {
-    console.error('❌ Error fetching user in auth status:', error);
-    res.json({
+    console.error('❌ Critical error in auth-status endpoint:', error);
+    res.status(500).json({
       authenticated: false,
-      user: null
+      user: null,
+      error: 'Internal server error'
     });
   }
 });
@@ -889,10 +902,34 @@ app.get('/api/subscription/plans', async (req, res) => {
       plans = await SubscriptionDB.getPlans();
     }
     
+    // Ensure we always return an array
+    if (!plans || !Array.isArray(plans)) {
+      console.warn('⚠️ Invalid plans data, returning empty array');
+      plans = [];
+    }
+    
+    console.log('📋 Returning plans:', plans.length, 'plans found');
     res.json(plans);
   } catch (error) {
     console.error('❌ Error fetching plans:', error);
     res.status(500).json({ error: 'Failed to fetch subscription plans' });
+  }
+});
+
+// Update plan Stripe price ID (for setup purposes)
+app.post('/api/update-plan-stripe-id', async (req, res) => {
+  try {
+    const { name, stripe_price_id, launch_price } = req.body;
+    
+    if (!name || !stripe_price_id) {
+      return res.status(400).json({ error: 'Name and stripe_price_id are required' });
+    }
+
+    const result = await SubscriptionDB.updatePlanStripeId(name, stripe_price_id, launch_price);
+    res.json({ success: true, updated: result });
+  } catch (error) {
+    console.error('❌ Error updating plan Stripe ID:', error);
+    res.status(500).json({ error: 'Failed to update plan Stripe ID' });
   }
 });
 
@@ -904,7 +941,7 @@ async function createDefaultPlans() {
       posts_limit: 30,
       price: 0.99,
       launch_price: 0.49,
-      stripe_price_id: 'price_starter', // You'll need to replace with actual Stripe price IDs
+      stripe_price_id: 'price_1RXelQKkxlEtPdqxvLmom609',
       features: {
         features: [
           'AI-powered content generation',
@@ -919,7 +956,7 @@ async function createDefaultPlans() {
       posts_limit: 100,
       price: 2.99,
       launch_price: 1.49,
-      stripe_price_id: 'price_professional',
+      stripe_price_id: 'price_1RXelRKkxlEtPdqxrGxYu3Bp',
       features: {
         features: [
           'AI-powered content generation',
@@ -936,7 +973,7 @@ async function createDefaultPlans() {
       posts_limit: 300,
       price: 4.99,
       launch_price: 2.49,
-      stripe_price_id: 'price_business',
+      stripe_price_id: 'price_1RXelRKkxlEtPdqxveicYc5e',
       features: {
         features: [
           'AI-powered content generation',
@@ -954,7 +991,7 @@ async function createDefaultPlans() {
       posts_limit: -1,
       price: 9.99,
       launch_price: 4.99,
-      stripe_price_id: 'price_enterprise',
+      stripe_price_id: 'price_1RXelSKkxlEtPdqxEsphgkdn',
       features: {
         features: [
           'AI-powered content generation',
@@ -1028,30 +1065,75 @@ app.post('/api/subscription/create-customer', requireAuth, async (req, res) => {
 // Create subscription endpoint (following Stripe guide)
 app.post('/api/subscription/create-subscription', requireAuth, async (req, res) => {
   try {
+    console.log('📋 Creating subscription for user:', req.user.id);
     const { priceId, customerId } = req.body;
     const userId = req.user.id;
     
+    console.log('📋 Request data:', { priceId, customerId, userId });
+    
     if (!priceId || !customerId) {
-      return res.status(400).json({ error: 'Price ID and Customer ID are required' });
-    }
-
-    const subscription = await stripeService.createSubscription(customerId, priceId);
-    
-    // Get the plan from the price ID for database storage
-    const plans = await SubscriptionDB.getPlans();
-    const plan = plans.find(p => p.stripe_price_id === priceId);
-    
-    if (plan) {
-      // Store incomplete subscription in database
-      await SubscriptionDB.upsertSubscription(userId, {
-        plan_id: plan.id,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscription.id,
-        status: 'incomplete',
-        current_period_start: new Date(subscription.current_period_start * 1000),
-        current_period_end: new Date(subscription.current_period_end * 1000)
+      console.log('❌ Missing required fields:', { priceId: !!priceId, customerId: !!customerId });
+      return res.status(400).json({ 
+        error: 'Price ID and Customer ID are required',
+        details: { 
+          priceId: priceId || 'missing', 
+          customerId: customerId || 'missing' 
+        }
       });
     }
+    
+    // Validate that the price ID is not null (for free plans)
+    if (priceId === 'null' || priceId === null) {
+      console.log('❌ Invalid price ID for paid plan:', priceId);
+      return res.status(400).json({ 
+        error: 'Cannot create paid subscription with null price ID',
+        details: 'This appears to be a free plan. No payment required.'
+      });
+    }
+
+    // First verify the price ID exists in our database
+    const plans = await SubscriptionDB.getPlans();
+    console.log('📋 Available plans:', plans.map(p => ({
+      name: p.name,
+      price_id: p.stripe_price_id,
+      price: p.launch_price || p.price
+    })));
+    
+    const plan = plans.find(p => p.stripe_price_id === priceId);
+    
+    if (!plan) {
+      console.error('❌ Invalid price ID:', priceId);
+      console.error('❌ Available price IDs:', plans.map(p => ({
+        name: p.name,
+        price_id: p.stripe_price_id,
+        price: p.launch_price || p.price
+      })));
+      return res.status(400).json({ 
+        error: 'Invalid price ID',
+        details: 'The selected subscription plan is not valid.'
+      });
+    }
+
+    console.log('📋 Creating Stripe subscription...');
+    const subscription = await stripeService.createSubscription(customerId, priceId);
+    console.log('✅ Stripe subscription created:', subscription.id);
+    
+    // Store subscription in database
+    console.log('📋 Storing subscription in database...');
+    await SubscriptionDB.upsertSubscription(userId, {
+      plan_id: plan.id,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscription.id,
+      status: 'incomplete',
+      current_period_start: new Date(subscription.current_period_start * 1000),
+      current_period_end: new Date(subscription.current_period_end * 1000)
+    });
+    console.log('✅ Subscription stored in database');
+
+    console.log('📋 Subscription response:', {
+      subscriptionId: subscription.id,
+      hasClientSecret: !!subscription.latest_invoice?.payment_intent?.client_secret
+    });
 
     res.json({
       subscriptionId: subscription.id,
@@ -1059,7 +1141,34 @@ app.post('/api/subscription/create-subscription', requireAuth, async (req, res) 
     });
   } catch (error) {
     console.error('❌ Error creating subscription:', error);
-    res.status(500).json({ error: 'Failed to create subscription' });
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      statusCode: error.statusCode,
+      raw: error.raw // Include raw Stripe error if available
+    });
+    
+    let errorMessage = 'Failed to create subscription';
+    let statusCode = 500;
+    
+    if (error.type === 'StripeInvalidRequestError') {
+      errorMessage = 'Invalid payment details';
+      statusCode = 400;
+    } else if (error.code === 'resource_missing' && error.param === 'price') {
+      errorMessage = 'Invalid subscription plan';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? {
+        message: error.message,
+        type: error.type,
+        code: error.code
+      } : undefined
+    });
   }
 });
 
@@ -1261,9 +1370,14 @@ app.get('/api/admin/access-keys', async (req, res) => {
     }
     
     const accessKeys = await AccessKeysDB.getAllAccessKeys();
+    
+    if (!accessKeys) {
+      return res.json([]);
+    }
+    
     res.json(accessKeys);
   } catch (error) {
-    console.error('❌ Error fetching all access keys:', error);
+    console.error('Error fetching all access keys:', error);
     res.status(500).json({ error: 'Failed to fetch access keys' });
   }
 });
@@ -1472,6 +1586,16 @@ app.get('/catch-all-debug/*', (req, res) => {
 app.get('/', (req, res) => {
   console.log('🏠 Root route hit - checking for static files...');
   
+  // Set CSP headers for all pages
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "connect-src 'self' https://api.stripe.com; " +
+    "frame-src https://js.stripe.com https://hooks.stripe.com; " +
+    "font-src 'self' https://fonts.gstatic.com;"
+  );
+  
   // Try root directory first (new approach)
   const rootIndexPath = path.join(__dirname, 'index.html');
   // Then try public directory (original approach)
@@ -1589,11 +1713,31 @@ app.get('/', (req, res) => {
 app.get('/subscribe', (req, res) => {
   console.log('💳 Subscribe route hit');
   
+  // Set CSP headers to allow Stripe
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "connect-src 'self' https://api.stripe.com; " +
+    "frame-src https://js.stripe.com https://hooks.stripe.com; " +
+    "font-src 'self' https://fonts.gstatic.com;"
+  );
+  
   const subscribePath = path.join(__dirname, 'subscribe.html');
   
   if (fs.existsSync(subscribePath)) {
-    console.log('✅ Serving subscribe.html');
-    res.sendFile(subscribePath);
+    console.log('✅ Serving subscribe.html with dynamic Stripe key');
+    
+    // Read the HTML file and inject the correct Stripe publishable key
+    const html = fs.readFileSync(subscribePath, 'utf8');
+    
+    // Replace the placeholder with the actual Stripe publishable key
+    const updatedHtml = html.replace(
+      'STRIPE_PUBLISHABLE_KEY_PLACEHOLDER',
+      process.env.STRIPE_PUBLISHABLE_KEY
+    );
+    
+    res.send(updatedHtml);
   } else {
     console.log('⚠️ subscribe.html not found');
     res.status(404).send('Subscribe page not found');

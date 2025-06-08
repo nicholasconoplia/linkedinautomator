@@ -259,9 +259,7 @@
                         // Payment successful - get subscription details
                         try {
                             const response = await fetch('/api/subscription/status', {
-                                headers: {
-                                    'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
-                                }
+                                credentials: 'include' // Use cookies for authentication
                             });
                             
                             if (response.ok) {
@@ -301,9 +299,24 @@
         }
 
         // Check authentication and payment status on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('jwt_token');
-            if (!token) {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication using the same method as main site
+            try {
+                const authResponse = await fetch('/api/auth-status', {
+                    credentials: 'include'
+                });
+                
+                if (!authResponse.ok) {
+                    throw new Error('Auth check failed');
+                }
+                
+                const authData = await authResponse.json();
+                if (!authData.authenticated) {
+                    window.location.href = '/';
+                    return;
+                }
+            } catch (error) {
+                console.error('Authentication check failed:', error);
                 window.location.href = '/';
                 return;
             }

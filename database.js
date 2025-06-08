@@ -133,12 +133,42 @@ function initializeDatabase() {
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
             price DECIMAL(10,2) NOT NULL,
+            launch_price DECIMAL(10,2),
             posts_limit INTEGER,
             features JSONB DEFAULT '{}',
             stripe_price_id TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
         `);
+
+        // Add launch_price column if it doesn't exist (for existing databases)
+        try {
+          await client.query(`
+            ALTER TABLE subscription_plans 
+            ADD COLUMN launch_price DECIMAL(10,2)
+          `);
+          console.log('✅ Added launch_price column to subscription_plans');
+        } catch (error) {
+          // Column already exists, which is fine
+          if (!error.message.includes('already exists')) {
+            console.log('ℹ️ launch_price column already exists in subscription_plans');
+          }
+        }
+
+        // Add updated_at column if it doesn't exist (for existing databases)
+        try {
+          await client.query(`
+            ALTER TABLE subscription_plans 
+            ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          `);
+          console.log('✅ Added updated_at column to subscription_plans');
+        } catch (error) {
+          // Column already exists, which is fine
+          if (!error.message.includes('already exists')) {
+            console.log('ℹ️ updated_at column already exists in subscription_plans');
+          }
+        }
 
         // User subscriptions table
         await client.query(`
@@ -515,7 +545,11 @@ const SubscriptionDB = {
     const client = await pool.connect();
     try {
       const result = await client.query('SELECT * FROM subscription_plans ORDER BY price ASC');
-      return result.rows;
+      console.log('📋 Database query result:', result.rows?.length, 'plans found');
+      return result.rows || [];
+    } catch (error) {
+      console.error('❌ Error in getPlans database query:', error);
+      throw error;
     } finally {
       client.release();
     }
@@ -597,6 +631,44 @@ const SubscriptionDB = {
         WHERE us.stripe_customer_id = $1
       `, [stripeCustomerId]);
       return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Create a new subscription plan
+  createPlan: async (planData) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        INSERT INTO subscription_plans (name, price, launch_price, posts_limit, features, stripe_price_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `, [
+        planData.name,
+        planData.price,
+        planData.launch_price,
+        planData.posts_limit,
+        JSON.stringify(planData.features),
+        planData.stripe_price_id
+      ]);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  },
+
+  // Update plan Stripe price ID
+  updatePlanStripeId: async (planName, stripePriceId, launchPrice) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        UPDATE subscription_plans 
+        SET stripe_price_id = $1, launch_price = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE name = $3
+        RETURNING *
+      `, [stripePriceId, launchPrice, planName]);
+      return result.rows[0];
     } finally {
       client.release();
     }

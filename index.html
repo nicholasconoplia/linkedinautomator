@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com; font-src 'self' https://fonts.gstatic.com;">
     <title>PostPilot - AI-Driven LinkedIn Content That Resonates</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,7 +26,7 @@
                     <h1>PostPilot</h1>
                 </a>
                 <p class="tagline">AI-Driven LinkedIn Content That Resonates</p>
-            </div>
+                </div>
         </header>
 
         <!-- Authentication Section -->
@@ -34,10 +35,10 @@
                 <div id="loginSection">
                     <h2>🚀 Ready to Transform Your LinkedIn Presence?</h2>
                     <p>Connect your LinkedIn account to start generating AI-powered content that drives engagement and builds your professional brand.</p>
-                    <a href="/auth/linkedin" class="linkedin-login-btn">
+                        <a href="/auth/linkedin" class="linkedin-login-btn">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                        </svg>
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                            </svg>
                         Connect LinkedIn Account
                     </a>
                 </div>
@@ -48,8 +49,8 @@
                             Your LinkedIn account is connected and ready to amplify your professional voice.
                         </p>
                     </div>
-                    <div class="user-info">
-                        <div class="user-welcome">
+                        <div class="user-info">
+                            <div class="user-welcome">
                             <div class="welcome-text">Welcome back,</div>
                             <div class="user-name" id="userName"></div>
                             <div style="font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: var(--spacing-xs); display: flex; align-items: center; gap: var(--spacing-xs);">
@@ -58,7 +59,7 @@
                         </div>
                         <div class="user-actions">
                             <a href="/dashboard" class="view-dashboard-btn">📊 Dashboard</a>
-                            <button onclick="logout()" class="logout-btn">Sign Out</button>
+                            <button data-action="logout" class="logout-btn">Sign Out</button>
                         </div>
                     </div>
                 </div>
@@ -69,7 +70,7 @@
         <main class="main">
             <div class="content-grid">
                 <!-- Post Generation Card -->
-                <div class="card">
+                    <div class="card">
                     <h2>Content Generator</h2>
                     <p class="description">
                         Create compelling LinkedIn posts with AI-powered insights from real-time news and trending topics. 
@@ -77,14 +78,14 @@
                     </p>
 
                     <form id="postForm">
-                        <div class="form-group">
+                            <div class="form-group">
                             <label for="topic">What's on your mind?</label>
-                            <div class="topic-input-container">
+                                <div class="topic-input-container">
                                 <input type="text" id="topic" name="topic" placeholder="Enter your topic, industry, or area of interest..." />
                             </div>
                         </div>
 
-                        <div class="topic-divider">
+                                    <div class="topic-divider">
                             <span>Or Choose from Popular Topics</span>
                         </div>
 
@@ -99,7 +100,7 @@
                             <div class="topic-chip" data-topic="Productivity">⚡ Productivity</div>
                             <div class="topic-chip" data-topic="Networking">🤝 Networking</div>
                             <div class="topic-chip" data-topic="Industry Trends">📊 Trends</div>
-                        </div>
+                                    </div>
 
                         <div class="form-group">
                             <label for="tone">Content Tone</label>
@@ -110,25 +111,25 @@
                                 <option value="educational">📚 Educational & Informative</option>
                                 <option value="thought-provoking">🤔 Thought-Provoking</option>
                                 <option value="humorous">😄 Light & Engaging</option>
-                            </select>
-                        </div>
+                                    </select>
+                            </div>
 
-                        <div class="form-group">
+                            <div class="form-group">
                             <label for="length">Post Length</label>
                             <select id="length" name="length">
                                 <option value="short">📝 Short & Punchy (50-100 words)</option>
                                 <option value="medium" selected>📄 Medium Length (100-200 words)</option>
                                 <option value="long">📖 Detailed & Comprehensive (200+ words)</option>
-                            </select>
-                        </div>
+                                </select>
+                            </div>
 
-                        <button type="submit" class="generate-btn" id="generateBtn">
+                            <button type="submit" class="generate-btn" id="generateBtn">
                             <span class="btn-text">Generate Content</span>
-                            <div class="loader" id="loader"></div>
-                        </button>
-                    </form>
+                                <div class="loader" id="loader"></div>
+                            </button>
+                        </form>
 
-                    <div class="features">
+                        <div class="features">
                         <h3>Platform Features</h3>
                         <ul>
                             <li>Real-time news integration for timely content</li>
@@ -139,21 +140,21 @@
                             <li>Content performance analytics</li>
                             <li>Automated scheduling capabilities</li>
                             <li>Professional brand voice consistency</li>
-                        </ul>
+                            </ul>
                     </div>
                 </div>
 
                 <!-- Output Card -->
                 <div class="card">
-                    <div class="output-header">
+                        <div class="output-header">
                         <h2>Generated Content</h2>
-                        <div class="output-actions">
-                            <button class="action-btn" onclick="copyToClipboard()" id="copyBtn" style="display: none;">
+                            <div class="output-actions">
+                            <button class="action-btn" data-action="copy" id="copyBtn" style="display: none;">
                                 📋 Copy
-                            </button>
-                            <button class="action-btn" onclick="regeneratePost()" id="regenerateBtn" style="display: none;">
-                                🔄 Regenerate
-                            </button>
+                                </button>
+                            <button class="action-btn" data-action="regenerate" id="regenerateBtn" style="display: none;">
+                                    🔄 Regenerate
+                                </button>
                         </div>
                     </div>
 
@@ -177,7 +178,7 @@
                             </label>
                         </div>
 
-                        <button class="post-now-btn" onclick="postToLinkedIn()" id="postBtn">
+                        <button class="post-now-btn" data-action="post" id="postBtn">
                             Post to LinkedIn
                         </button>
                         <p class="post-note">
@@ -196,7 +197,7 @@
                     <h2>Automation Dashboard</h2>
                     <p>Set up automated posting schedules and manage your content pipeline with intelligent AI assistance.</p>
                 </div>
-
+                
                 <div class="automation-grid">
                     <div class="automation-card">
                         <h3>📅 Smart Scheduling</h3>
@@ -206,9 +207,9 @@
                             <div class="activity-list" id="activityList">
                                 <div class="loading">Loading recent activity...</div>
                             </div>
-                        </div>
+                            </div>
                     </div>
-
+                    
                     <div class="automation-card">
                         <h3>📊 Performance Analytics</h3>
                         <p>Track engagement metrics, audience growth, and content performance to optimize your LinkedIn strategy.</p>
@@ -217,7 +218,7 @@
                             <div style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">Advanced analytics dashboard</div>
                         </div>
                     </div>
-
+                    
                     <div class="automation-card">
                         <h3>🎯 Content Strategy</h3>
                         <p>AI-powered content recommendations based on trending topics in your industry and network engagement patterns.</p>
@@ -259,11 +260,11 @@
 
     <!-- Subscription Modal -->
     <div id="subscriptionModal" class="subscription-modal" style="display: none;">
-        <div class="modal-backdrop" onclick="closeSubscriptionModal()"></div>
+        <div class="modal-backdrop" data-action="close-modal"></div>
         <div class="modal-content">
             <div class="modal-header">
                 <h2>🚀 Upgrade to Continue Creating</h2>
-                <button class="modal-close" onclick="closeSubscriptionModal()">×</button>
+                <button class="modal-close" data-action="close-modal">×</button>
             </div>
             
             <div class="modal-body">
@@ -285,7 +286,7 @@
                     </div>
                     <div class="access-key-form">
                         <input type="text" id="accessKeyInput" placeholder="Enter access key (e.g., PK-SPECIAL-CODE)" maxlength="50">
-                        <button onclick="activateAccessKey()" class="access-key-btn">Activate Key</button>
+                        <button data-action="activate-key" class="access-key-btn">Activate Key</button>
                     </div>
                     <div id="accessKeyMessage" class="access-key-message"></div>
                 </div>

@@ -26,6 +26,11 @@ class LinkedInService {
       // Make content unique to avoid duplicate errors
       const uniqueContent = this.makeContentUnique(postContent);
 
+      console.log('📝 Original content length:', postContent.length);
+      console.log('📝 Original content preview:', postContent.substring(0, 200) + '...');
+      console.log('📝 Unique content length:', uniqueContent.length);
+      console.log('📝 Unique content preview:', uniqueContent.substring(0, 200) + '...');
+
       // Prepare the post data using the new Posts API format
       let postData = {
         author: `urn:li:person:${authorId}`,
@@ -72,6 +77,8 @@ class LinkedInService {
       }
 
       console.log('📤 Posting to LinkedIn with data:', JSON.stringify(postData, null, 2));
+      console.log('📏 Final commentary length being sent:', postData.commentary.length);
+      console.log('📄 Full commentary being sent:', postData.commentary);
 
       // Create the post using the modern Posts API
       const response = await axios.post(`${this.postsApiBaseUrl}/posts`, postData, {
