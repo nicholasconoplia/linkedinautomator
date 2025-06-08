@@ -575,43 +575,61 @@ app.get('/debug', (req, res) => {
 app.get('/test-static', (req, res) => {
   console.log('🔍 Testing static file access...');
   const fs = require('fs');
-  const indexPath = path.join(__dirname, 'public', 'index.html');
+  const rootIndexPath = path.join(__dirname, 'index.html');
+  const publicIndexPath = path.join(__dirname, 'public', 'index.html');
+  const rootStylesPath = path.join(__dirname, 'styles.css');
+  const rootScriptPath = path.join(__dirname, 'script.js');
   
   console.log('📁 __dirname:', __dirname);
-  console.log('📁 Checking path:', indexPath);
+  console.log('📁 Checking root index:', rootIndexPath);
+  console.log('📁 Checking public index:', publicIndexPath);
   
   try {
-    const fileExists = fs.existsSync(indexPath);
-    console.log('📄 File exists:', fileExists);
+    const rootIndexExists = fs.existsSync(rootIndexPath);
+    const publicIndexExists = fs.existsSync(publicIndexPath);
+    const rootStylesExists = fs.existsSync(rootStylesPath);
+    const rootScriptExists = fs.existsSync(rootScriptPath);
     
-    if (fileExists) {
-      const stats = fs.statSync(indexPath);
-      console.log('📊 File stats:', {
-        size: stats.size,
-        modified: stats.mtime
-      });
+    console.log('📄 Root index exists:', rootIndexExists);
+    console.log('📄 Public index exists:', publicIndexExists);
+    console.log('📄 Root styles exists:', rootStylesExists);
+    console.log('📄 Root script exists:', rootScriptExists);
+    
+    // Get file stats for existing files
+    const stats = {};
+    if (rootIndexExists) {
+      stats.rootIndex = fs.statSync(rootIndexPath);
+    }
+    if (publicIndexExists) {
+      stats.publicIndex = fs.statSync(publicIndexPath);
     }
     
     // List directory contents
     const publicDir = path.join(__dirname, 'public');
-    const publicExists = fs.existsSync(publicDir);
-    console.log('📁 Public directory exists:', publicExists);
-    
-    if (publicExists) {
-      const files = fs.readdirSync(publicDir);
-      console.log('📁 Public directory contents:', files);
-    }
+    const publicDirExists = fs.existsSync(publicDir);
+    console.log('📁 Public directory exists:', publicDirExists);
     
     // List root directory contents
     const rootFiles = fs.readdirSync(__dirname);
     console.log('📁 Root directory contents:', rootFiles);
     
     res.json({
-      indexPath,
-      fileExists,
-      publicExists,
-      publicContents: publicExists ? fs.readdirSync(publicDir) : [],
+      paths: {
+        rootIndex: rootIndexPath,
+        publicIndex: publicIndexPath,
+        rootStyles: rootStylesPath,
+        rootScript: rootScriptPath
+      },
+      filesExist: {
+        rootIndex: rootIndexExists,
+        publicIndex: publicIndexExists,
+        rootStyles: rootStylesExists,
+        rootScript: rootScriptExists,
+        publicDir: publicDirExists
+      },
+      publicContents: publicDirExists ? fs.readdirSync(publicDir) : [],
       rootContents: rootFiles,
+      stats,
       dirname: __dirname,
       cwd: process.cwd()
     });
@@ -657,17 +675,23 @@ app.get('/catch-all-debug/*', (req, res) => {
   });
 });
 
-// Root route fallback - serve inline HTML if static files aren't available
+// Root route fallback - try multiple locations for index.html
 app.get('/', (req, res) => {
   console.log('🏠 Root route hit - checking for static files...');
   
-  const indexPath = path.join(__dirname, 'public', 'index.html');
+  // Try root directory first (new approach)
+  const rootIndexPath = path.join(__dirname, 'index.html');
+  // Then try public directory (original approach)
+  const publicIndexPath = path.join(__dirname, 'public', 'index.html');
   
-  if (fs.existsSync(indexPath)) {
+  if (fs.existsSync(rootIndexPath)) {
+    console.log('✅ Serving index.html from root directory');
+    res.sendFile(rootIndexPath);
+  } else if (fs.existsSync(publicIndexPath)) {
     console.log('✅ Serving index.html from public directory');
-    res.sendFile(indexPath);
+    res.sendFile(publicIndexPath);
   } else {
-    console.log('⚠️ index.html not found, serving inline fallback');
+    console.log('⚠️ index.html not found in root or public, serving inline fallback');
     res.send(`
 <!DOCTYPE html>
 <html lang="en">

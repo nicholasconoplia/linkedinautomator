@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Post Generator - AI-Powered Content Creation</title>
+    <link rel="stylesheet" href="styles.css?v=1.2">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230077B5'><path d='M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z'/></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="#0077B5">
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                    </svg>
+                    <h1>LinkedIn Post Generator</h1>
+                </div>
+                <div class="tagline">AI-Powered Content Creation with Real News</div>
+                
+                <!-- User Authentication -->
+                <div class="auth-section">
+                    <div id="login-prompt" class="auth-card">
+                        <a href="/auth/linkedin" class="linkedin-login-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                            </svg>
+                            Login with LinkedIn for Auto-Posting
+                        </a>
+                    </div>
+                    
+                    <div id="user-profile" class="auth-card" style="display: none;">
+                        <div class="user-info">
+                            <div class="user-welcome">
+                                <span class="welcome-text">Welcome back,</span>
+                                <span class="user-name"></span>
+                                <div class="auth-status">✅ LinkedIn Connected</div>
+                            </div>
+                            <div class="user-actions">
+                                <button id="view-dashboard-btn" class="view-dashboard-btn">🤖 View Automation Dashboard</button>
+                                <button id="logout-btn" class="logout-btn">Logout</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="content-grid">
+                <!-- Input Panel -->
+                <div class="input-panel">
+                    <div class="card">
+                        <h2>Generate Your Next LinkedIn Post</h2>
+                        <p class="description">Create engaging LinkedIn content based on the latest news and trends in your industry.</p>
+                        
+                        <form id="postForm" class="form">
+                            <div class="form-group">
+                                <label for="customTopic">Topic</label>
+                                <div class="topic-input-container">
+                                    <input type="text" id="customTopic" placeholder="Enter your topic (e.g., Artificial Intelligence, Leadership, etc.)" />
+                                    <div class="topic-divider">
+                                        <span>or choose from popular topics</span>
+                                    </div>
+                                    <select id="predefinedTopic">
+                                        <option value="">Select a popular topic...</option>
+                                        <option value="Artificial Intelligence">🤖 Artificial Intelligence</option>
+                                        <option value="Cybersecurity">🔒 Cybersecurity</option>
+                                        <option value="Digital Marketing">📊 Digital Marketing</option>
+                                        <option value="Remote Work">🏠 Remote Work</option>
+                                        <option value="Sustainability">🌱 Sustainability</option>
+                                        <option value="Financial Technology">💳 Financial Technology</option>
+                                        <option value="Healthcare Innovation">🏥 Healthcare Innovation</option>
+                                        <option value="E-commerce">🛒 E-commerce</option>
+                                        <option value="Data Science">📈 Data Science</option>
+                                        <option value="Leadership">👥 Leadership</option>
+                                        <option value="Startup">🚀 Startup</option>
+                                        <option value="Blockchain">⛓️ Blockchain</option>
+                                        <option value="Cloud Computing">☁️ Cloud Computing</option>
+                                        <option value="Social Media">📱 Social Media</option>
+                                        <option value="Project Management">📋 Project Management</option>
+                                        <option value="Software Development">💻 Software Development</option>
+                                        <option value="Sales">💼 Sales</option>
+                                        <option value="Human Resources">👥 Human Resources</option>
+                                        <option value="Marketing Strategy">🎯 Marketing Strategy</option>
+                                        <option value="Customer Experience">⭐ Customer Experience</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tone">Post Tone</label>
+                                <select id="tone">
+                                    <option value="professional">Professional</option>
+                                    <option value="thought-leadership">Thought Leadership</option>
+                                    <option value="conversational">Conversational</option>
+                                    <option value="analytical">Analytical</option>
+                                    <option value="motivational">Motivational</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="generate-btn" id="generateBtn">
+                                <span class="btn-text">Find Latest News & Generate Post</span>
+                                <div class="loader" id="loader"></div>
+                            </button>
+                        </form>
+
+                        <div class="features">
+                            <h3>✨ Features</h3>
+                            <ul>
+                                <li data-icon="📰">Real-time news integration</li>
+                                <li data-icon="🎯">AI-optimized for LinkedIn engagement</li>
+                                <li data-icon="🖼️">Automatic relevant image selection</li>
+                                <li data-icon="📝">Professional copywriting templates</li>
+                                <li data-icon="⚡">One-click copy to clipboard</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output Panel -->
+                <div class="output-panel">
+                    <div class="card" id="outputCard" style="display: none;">
+                        <div class="output-header">
+                            <h2>Your LinkedIn Post</h2>
+                            <div class="output-actions">
+                                <button class="action-btn" id="copyBtn" title="Copy to Clipboard">
+                                    📋 Copy Post
+                                </button>
+                                <button class="action-btn" id="regenerateBtn" title="Generate New Version">
+                                    🔄 Regenerate
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Generated Image Link -->
+                        <div class="post-image-link" id="postImageLink" style="display: none;">
+                            <div class="image-link-container">
+                                <h4>📸 Suggested Image for Your Post:</h4>
+                                <a id="imageUrl" href="#" target="_blank" rel="noopener" class="image-url-link">
+                                    Click to view suggested image
+                                </a>
+                                <div class="image-attribution" id="imageAttribution"></div>
+                            </div>
+                        </div>
+
+                        <!-- Generated Post -->
+                        <div class="post-content">
+                            <div class="post-text" id="generatedPost"></div>
+                        </div>
+
+                        <!-- Post Metadata -->
+                        <div class="post-metadata" id="postMetadata" style="display: none;">
+                            <div class="metadata-item">
+                                <span class="label">Word Count:</span>
+                                <span id="wordCount">-</span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="label">Source:</span>
+                                <span id="newsSource">-</span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="label">Keywords:</span>
+                                <span id="keywords">-</span>
+                            </div>
+                        </div>
+
+                        <!-- Source Article -->
+                        <div class="source-article" id="sourceArticle" style="display: none;">
+                            <h3>📰 Source Article</h3>
+                            <div class="article-card">
+                                <h4 id="articleTitle"></h4>
+                                <p id="articleSnippet"></p>
+                                <a id="articleLink" href="#" target="_blank" rel="noopener">Read full article →</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Success Message -->
+                    <div class="success-message" id="successMessage" style="display: none;">
+                        <div class="success-content">
+                            <div class="success-icon">✅</div>
+                            <h3>Post Copied to Clipboard!</h3>
+                            <p>Your LinkedIn post is ready to paste. Don't forget to add the image when posting!</p>
+                        </div>
+                    </div>
+
+                    <!-- Error Message -->
+                    <div class="error-message" id="errorMessage" style="display: none;">
+                        <div class="error-content">
+                            <div class="error-icon">❌</div>
+                            <h3>Oops! Something went wrong</h3>
+                            <p id="errorText">Please try again in a moment.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Automation Panel (shown when logged in) -->
+        <section id="automation-panel" class="automation-panel" style="display: none;">
+            <div class="automation-container">
+                <div class="automation-header">
+                    <h2>🤖 LinkedIn Automation Dashboard</h2>
+                    <p>Welcome to your automated posting hub! Set up your posting frequency, schedule content, and let AI handle your LinkedIn presence.</p>
+                    <div class="dashboard-highlights">
+                        <div class="highlight-item">
+                            <span class="highlight-number" id="postsPerWeekDisplay">3</span>
+                            <span class="highlight-label">Posts per Week</span>
+                        </div>
+                        <div class="highlight-item">
+                            <span class="highlight-number" id="scheduledPostsCount">0</span>
+                            <span class="highlight-label">Scheduled Posts</span>
+                        </div>
+                        <div class="highlight-item">
+                            <span class="highlight-status" id="automationStatus">🔴 Disabled</span>
+                            <span class="highlight-label">Auto-Posting</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="automation-grid">
+                    <!-- Settings Panel -->
+                    <div class="automation-card">
+                        <h3>⚙️ Automation Settings</h3>
+                        <form id="automationForm" class="automation-form">
+                            <div class="form-group">
+                                <label for="autoPosting">
+                                    <input type="checkbox" id="autoPosting" />
+                                    Enable Automatic Posting
+                                </label>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="postsPerWeek">Posts per Week</label>
+                                <select id="postsPerWeek">
+                                    <option value="1">1 post per week</option>
+                                    <option value="2">2 posts per week</option>
+                                    <option value="3" selected>3 posts per week</option>
+                                    <option value="5">5 posts per week</option>
+                                    <option value="7">Daily posts</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Posting Days</label>
+                                <div class="days-selector">
+                                    <label><input type="checkbox" value="1" checked> Monday</label>
+                                    <label><input type="checkbox" value="2"> Tuesday</label>
+                                    <label><input type="checkbox" value="3" checked> Wednesday</label>
+                                    <label><input type="checkbox" value="4"> Thursday</label>
+                                    <label><input type="checkbox" value="5" checked> Friday</label>
+                                    <label><input type="checkbox" value="6"> Saturday</label>
+                                    <label><input type="checkbox" value="0"> Sunday</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="postingTime">Posting Time</label>
+                                <input type="time" id="postingTime" value="09:00" />
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="defaultTopics">Default Topics</label>
+                                <input type="text" id="defaultTopics" placeholder="Artificial Intelligence, Technology, Leadership" />
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="defaultTone">Default Tone</label>
+                                <select id="defaultTone">
+                                    <option value="professional">Professional</option>
+                                    <option value="thought-leadership">Thought Leadership</option>
+                                    <option value="conversational">Conversational</option>
+                                    <option value="analytical">Analytical</option>
+                                    <option value="motivational">Motivational</option>
+                                </select>
+                            </div>
+                            
+                            <button type="submit" class="save-settings-btn">💾 Save Settings</button>
+                        </form>
+                    </div>
+                    
+                    <!-- Scheduled Posts Panel -->
+                    <div class="automation-card">
+                        <h3>📅 Scheduled Posts</h3>
+                        <div class="scheduled-posts-list" id="scheduledPostsList">
+                            <div class="loading">Loading scheduled posts...</div>
+                        </div>
+                        
+                        <!-- Quick Schedule -->
+                        <div class="quick-schedule">
+                            <h4>🚀 Quick Schedule</h4>
+                            <form id="quickScheduleForm" class="quick-schedule-form">
+                                <div class="form-row">
+                                    <input type="text" id="quickTopic" placeholder="Topic" required />
+                                    <select id="quickTone">
+                                        <option value="professional">Professional</option>
+                                        <option value="thought-leadership">Thought Leadership</option>
+                                        <option value="conversational">Conversational</option>
+                                        <option value="analytical">Analytical</option>
+                                        <option value="motivational">Motivational</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <input type="datetime-local" id="quickDateTime" required />
+                                    <button type="submit" class="schedule-btn">Schedule</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual Posting Panel -->
+                    <div class="automation-card">
+                        <h3>📤 Post Now to LinkedIn</h3>
+                        <div class="manual-post-section">
+                            <button id="postCurrentBtn" class="post-now-btn" disabled>
+                                📝 Post Current Content to LinkedIn
+                            </button>
+                            <p class="post-note">Generate a post first, then click to post directly to your LinkedIn profile</p>
+                        </div>
+                        
+                        <!-- Recent Activity -->
+                        <div class="recent-activity">
+                            <h4>📊 Recent Activity</h4>
+                            <div id="recentActivity" class="activity-list">
+                                <div class="loading">Loading recent posts...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>© 2025 LinkedIn Post Generator. Powered by OpenAI & Real News APIs.</p>
+                <div class="footer-links">
+                    <span>Made with ❤️ for content creators</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js?v=5.1"></script>
+</body>
+</html> 

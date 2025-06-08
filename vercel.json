@@ -6,7 +6,15 @@
       "use": "@vercel/node"
     },
     {
-      "src": "public/**/*",
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "styles.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "script.js",
       "use": "@vercel/static"
     }
   ],
@@ -57,11 +65,15 @@
     },
     {
       "src": "/styles.css",
-      "dest": "public/styles.css"
+      "dest": "styles.css"
     },
     {
       "src": "/script.js", 
-      "dest": "public/script.js"
+      "dest": "script.js"
+    },
+    {
+      "src": "/index.html",
+      "dest": "index.html"
     },
     {
       "src": "/(.*\\.(css|js|png|jpg|jpeg|gif|ico|svg))",
@@ -69,7 +81,7 @@
     },
     {
       "src": "/",
-      "dest": "server.js"
+      "dest": "index.html"
     },
     {
       "src": "/(.*)",
