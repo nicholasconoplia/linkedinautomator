@@ -72,8 +72,8 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
     LinkedInStrategy.call(this, options, verify);
     
-    // Use the legacy profile endpoint that works with r_liteprofile
-    this.profileUrl = 'https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))';
+    // Use the modern OpenID Connect userinfo endpoint
+    this.profileUrl = 'https://api.linkedin.com/v2/userinfo';
     this.emailUrl = null; // Email is included in userinfo response
   };
   
@@ -105,19 +105,19 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
 
       try {
         const json = JSON.parse(body);
-        console.log('📋 LinkedIn profile response:', json);
+        console.log('📋 LinkedIn userinfo response:', json);
         
-        // Parse legacy LinkedIn profile format
+        // Parse OpenID Connect userinfo format
         const profile = {
           provider: 'linkedin',
-          id: json.id,
-          displayName: `${json.firstName?.localized?.en_US || json.firstName?.preferredLocale?.language || ''} ${json.lastName?.localized?.en_US || json.lastName?.preferredLocale?.language || ''}`.trim(),
+          id: json.sub,
+          displayName: json.name,
           name: {
-            givenName: json.firstName?.localized?.en_US || json.firstName?.preferredLocale?.language || '',
-            familyName: json.lastName?.localized?.en_US || json.lastName?.preferredLocale?.language || ''
+            givenName: json.given_name,
+            familyName: json.family_name
           },
-          emails: [], // Will fetch separately with email endpoint
-          photos: json.profilePicture?.displayImage ? [{ value: json.profilePicture.displayImage }] : [],
+          emails: json.email ? [{ value: json.email }] : [],
+          photos: json.picture ? [{ value: json.picture }] : [],
           _raw: body,
           _json: json
         };
@@ -134,7 +134,7 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     clientID: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
     callbackURL: process.env.LINKEDIN_CALLBACK_URL || "http://localhost:3000/auth/linkedin/callback",
-    scope: ['r_liteprofile', 'r_emailaddress'], // Legacy scopes that work immediately
+    scope: ['openid', 'profile', 'email'], // OpenID Connect scopes (now approved)
     state: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
@@ -259,7 +259,7 @@ app.get('/auth/linkedin/callback', (req, res) => {
     console.log('🔗 LinkedIn callback received with query:', req.query);
     
     // Use custom callback handling for better debugging
-    passport.authenticate('linkedin', async (err, user, info) => {
+    passport.authenticate('linkedin-oauth2', async (err, user, info) => {
       if (err) {
         console.error('❌ LinkedIn authentication error:', err);
         
