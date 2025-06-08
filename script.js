@@ -333,10 +333,14 @@ class LinkedInPostGenerator {
         e.preventDefault();
         
         try {
-            const response = await fetch('/auth/logout', { method: 'POST' });
+            const response = await fetch('/api/logout', { method: 'POST' });
             if (response.ok) {
                 this.showUnauthenticatedState();
                 this.showSuccess('Logged out successfully');
+                // Redirect to home page to clear any authentication state
+                setTimeout(() => window.location.href = '/', 1000);
+            } else {
+                this.showError('Logout failed');
             }
         } catch (error) {
             console.error('Logout failed:', error);

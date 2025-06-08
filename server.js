@@ -8,11 +8,65 @@ const passport = require('passport');
 const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
 const session = require('express-session');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
 // Import our modules
 const { initializeDatabase, UserDB, PreferencesDB, PostsDB } = require('./database');
 const LinkedInService = require('./linkedin-service');
 const PostScheduler = require('./scheduler');
+
+// JWT Configuration
+const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
+const JWT_EXPIRES_IN = '7d'; // 7 days
+
+// JWT Utility Functions
+function generateJWT(user) {
+  const payload = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    linkedin_id: user.linkedin_id
+  };
+  
+  return jwt.sign(payload, JWT_SECRET, { 
+    expiresIn: JWT_EXPIRES_IN,
+    issuer: 'linkedinautomator',
+    audience: 'linkedinautomator-users'
+  });
+}
+
+function verifyJWT(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET, {
+      issuer: 'linkedinautomator',
+      audience: 'linkedinautomator-users'
+    });
+  } catch (error) {
+    console.log('🔐 JWT verification failed:', error.message);
+    return null;
+  }
+}
+
+function extractJWTFromRequest(req) {
+  // Check Authorization header first
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  
+  // Check cookies
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+      const [name, value] = cookie.trim().split('=');
+      acc[name] = value;
+      return acc;
+    }, {});
+    return cookies.auth_token;
+  }
+  
+  return null;
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -305,12 +359,32 @@ const rateLimitMiddleware = async (req, res, next) => {
   }
 };
 
-// Authentication middleware
-const requireAuth = (req, res, next) => {
-  if (req.isAuthenticated()) {
-    return next();
+// JWT Authentication middleware
+const requireAuth = async (req, res, next) => {
+  const token = extractJWTFromRequest(req);
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required - no token provided' });
   }
-  res.status(401).json({ error: 'Authentication required' });
+  
+  const decoded = verifyJWT(token);
+  if (!decoded) {
+    return res.status(401).json({ error: 'Authentication required - invalid token' });
+  }
+  
+  // Get fresh user data from database
+  try {
+    const user = await UserDB.getUserById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ error: 'Authentication required - user not found' });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('❌ Error fetching user in auth middleware:', error);
+    res.status(401).json({ error: 'Authentication required - database error' });
+  }
 };
 
 // ====================
@@ -439,37 +513,42 @@ ${JSON.stringify(errorDetails, null, 2)}
         `);
       }
 
-      // Success! Log the user in
-      req.logIn(user, (loginErr) => {
-        if (loginErr) {
-          console.error('❌ Login error:', loginErr);
-          return res.send(`
-            <html>
-              <head><title>Login Error</title></head>
-              <body style="font-family: Arial, sans-serif; padding: 20px;">
-                <h1>❌ Login Error</h1>
-                <p>User profile retrieved but couldn't establish session.</p>
-                <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
-${JSON.stringify(loginErr, null, 2)}
-                </pre>
-                <p><a href="/" style="background: #0073b1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">← Back to Home</a></p>
-              </body>
-            </html>
-          `);
-        }
-
+      // Success! Generate JWT token and set as cookie
+      try {
+        const token = generateJWT(user);
+        console.log('🔐 JWT token generated successfully');
         console.log('✅ LinkedIn OAuth callback successful');
-        console.log('🔍 User authenticated:', req.isAuthenticated());
         console.log('👤 User data:', { id: user.id, name: user.name });
-        console.log('🍪 Session after login:', {
-          sessionID: req.sessionID,
-          passport: req.session.passport,
-          cookie: req.session.cookie
+        
+        // Set JWT token as httpOnly cookie
+        res.cookie('auth_token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: '/'
         });
+        
+        console.log('🍪 JWT token set as cookie');
         
         // Successful authentication - redirect to home with success message
         return res.redirect('/?authenticated=true');
-      });
+      } catch (jwtError) {
+        console.error('❌ JWT generation error:', jwtError);
+        return res.send(`
+          <html>
+            <head><title>Authentication Error</title></head>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+              <h1>❌ Authentication Error</h1>
+              <p>User authenticated but token generation failed.</p>
+              <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+${JSON.stringify(jwtError, null, 2)}
+              </pre>
+              <p><a href="/" style="background: #0073b1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">← Back to Home</a></p>
+            </body>
+          </html>
+        `);
+      }
     });
     
     console.log('🎯 Calling authenticate function with req, res...');
@@ -503,7 +582,21 @@ ${JSON.stringify(authError, null, 2)}
   }
 });
 
-// Logout
+// Logout - JWT version
+app.post('/api/logout', (req, res) => {
+  // Clear the JWT cookie
+  res.clearCookie('auth_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/'
+  });
+  
+  console.log('🚪 User logged out - JWT cookie cleared');
+  res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// Old session-based logout (keeping for compatibility)
 app.post('/auth/logout', (req, res) => {
   req.logout((err) => {
     if (err) {
@@ -524,26 +617,54 @@ app.get('/api/user', requireAuth, (req, res) => {
 });
 
 // Check authentication status (no auth required)
-app.get('/api/auth-status', (req, res) => {
+app.get('/api/auth-status', async (req, res) => {
+  const token = extractJWTFromRequest(req);
+  
   console.log('🔍 Auth status check:', {
-    sessionID: req.sessionID,
-    isAuthenticated: req.isAuthenticated(),
-    userExists: !!req.user,
-    user: req.user ? { id: req.user.id, name: req.user.name } : null,
-    sessionData: Object.keys(req.session || {})
+    tokenPresent: !!token,
+    tokenPreview: token ? token.substring(0, 20) + '...' : null
   });
   
-  if (req.isAuthenticated() && req.user) {
+  if (!token) {
+    console.log('🔍 No JWT token found');
+    return res.json({
+      authenticated: false,
+      user: null
+    });
+  }
+  
+  const decoded = verifyJWT(token);
+  if (!decoded) {
+    console.log('🔍 JWT token invalid or expired');
+    return res.json({
+      authenticated: false,
+      user: null
+    });
+  }
+  
+  try {
+    // Get fresh user data from database
+    const user = await UserDB.getUserById(decoded.id);
+    if (!user) {
+      console.log('🔍 User not found in database');
+      return res.json({
+        authenticated: false,
+        user: null
+      });
+    }
+    
+    console.log('🔍 JWT authentication successful:', { id: user.id, name: user.name });
     res.json({
       authenticated: true,
       user: {
-        id: req.user.id,
-        name: req.user.name,
-        email: req.user.email,
-        linkedin_id: req.user.linkedin_id
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        linkedin_id: user.linkedin_id
       }
     });
-  } else {
+  } catch (error) {
+    console.error('❌ Error fetching user in auth status:', error);
     res.json({
       authenticated: false,
       user: null

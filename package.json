@@ -27,6 +27,7 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
     "passport": "^0.7.0",
     "passport-linkedin-oauth2": "^2.0.0",
