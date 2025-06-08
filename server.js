@@ -1420,6 +1420,51 @@ app.get('/', (req, res) => {
   }
 });
 
+// Subscribe page route
+app.get('/subscribe', (req, res) => {
+  console.log('💳 Subscribe route hit');
+  
+  const subscribePath = path.join(__dirname, 'subscribe.html');
+  
+  if (fs.existsSync(subscribePath)) {
+    console.log('✅ Serving subscribe.html');
+    res.sendFile(subscribePath);
+  } else {
+    console.log('⚠️ subscribe.html not found');
+    res.status(404).send('Subscribe page not found');
+  }
+});
+
+// Admin page route
+app.get('/admin', (req, res) => {
+  console.log('👑 Admin route hit');
+  
+  const adminPath = path.join(__dirname, 'admin.html');
+  
+  if (fs.existsSync(adminPath)) {
+    console.log('✅ Serving admin.html');
+    res.sendFile(adminPath);
+  } else {
+    console.log('⚠️ admin.html not found');
+    res.status(404).send('Admin page not found');
+  }
+});
+
+// Subscription success page route
+app.get('/subscription/success', (req, res) => {
+  console.log('🎉 Subscription success route hit');
+  
+  const successPath = path.join(__dirname, 'subscription', 'success.html');
+  
+  if (fs.existsSync(successPath)) {
+    console.log('✅ Serving subscription success.html');
+    res.sendFile(successPath);
+  } else {
+    console.log('⚠️ subscription/success.html not found');
+    res.status(404).send('Subscription success page not found');
+  }
+});
+
 // ====================
 // EXISTING GENERATE POST ROUTE (Updated)
 // ====================
