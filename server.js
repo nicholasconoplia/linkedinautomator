@@ -32,7 +32,19 @@ app.use(helmet({
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+
+// Enhanced static file serving with fallback
+const publicPath = path.join(__dirname, 'public');
+console.log('📁 Setting up static files from:', publicPath);
+
+// Check if public directory exists
+const fs = require('fs');
+if (fs.existsSync(publicPath)) {
+  console.log('✅ Public directory found, serving static files');
+  app.use(express.static('public'));
+} else {
+  console.log('⚠️ Public directory not found, static files disabled');
+}
 
 // Session configuration - Vercel compatible
 app.use(session({
@@ -645,8 +657,116 @@ app.get('/catch-all-debug/*', (req, res) => {
   });
 });
 
-// Note: Root route (/) is handled by vercel.json routing to public/index.html
-// Vercel routes "/" directly to "public/index.html" without going through Express
+// Root route fallback - serve inline HTML if static files aren't available
+app.get('/', (req, res) => {
+  console.log('🏠 Root route hit - checking for static files...');
+  
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  
+  if (fs.existsSync(indexPath)) {
+    console.log('✅ Serving index.html from public directory');
+    res.sendFile(indexPath);
+  } else {
+    console.log('⚠️ index.html not found, serving inline fallback');
+    res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Post Generator - AI-Powered Content Creation</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 20px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; }
+        input, select, button { width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px; }
+        button { background: #0077B5; color: white; border: none; cursor: pointer; font-weight: 600; }
+        button:hover { background: #005885; }
+        .error { color: red; margin-top: 10px; }
+        .result { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚧 LinkedIn Post Generator</h1>
+        <p>Static files not deployed properly. Using fallback version.</p>
+        <p><strong>Debug Info:</strong></p>
+        <ul style="text-align: left; display: inline-block;">
+            <li><a href="/debug">Environment Variables</a></li>
+            <li><a href="/api/health">API Health Check</a></li>
+            <li><a href="/test-static">File System Debug</a></li>
+        </ul>
+    </div>
+    
+    <div class="card">
+        <h2>Generate LinkedIn Post</h2>
+        <form id="postForm">
+            <div class="form-group">
+                <label for="topic">Topic:</label>
+                <input type="text" id="topic" placeholder="e.g., Artificial Intelligence, Leadership, etc." required>
+            </div>
+            <div class="form-group">
+                <label for="tone">Tone:</label>
+                <select id="tone" required>
+                    <option value="professional">Professional</option>
+                    <option value="thought-leadership">Thought Leadership</option>
+                    <option value="conversational">Conversational</option>
+                    <option value="analytical">Analytical</option>
+                    <option value="motivational">Motivational</option>
+                </select>
+            </div>
+            <button type="submit">Generate Post</button>
+        </form>
+        <div id="result" class="result" style="display: none;"></div>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('postForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const topic = document.getElementById('topic').value;
+            const tone = document.getElementById('tone').value;
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+            
+            resultDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/generate-post', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic, tone })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = \`
+                        <h3>Generated Post:</h3>
+                        <p style="white-space: pre-wrap; background: white; padding: 15px; border-radius: 8px;">\${data.post}</p>
+                        <h4>Source Article:</h4>
+                        <p><a href="\${data.article.url}" target="_blank">\${data.article.title}</a></p>
+                        \${data.image ? \`<p>Image: <a href="\${data.image.url}" target="_blank">View Image</a></p>\` : ''}
+                    \`;
+                    resultDiv.style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error: ' + error.message;
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
+    `);
+  }
+});
 
 // ====================
 // EXISTING GENERATE POST ROUTE (Updated)
