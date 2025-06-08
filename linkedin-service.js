@@ -5,7 +5,7 @@ class LinkedInService {
   constructor() {
     this.apiBaseUrl = 'https://api.linkedin.com/v2';
     this.postsApiBaseUrl = 'https://api.linkedin.com/rest';
-    this.linkedinVersion = '202412'; // Latest API version
+    this.linkedinVersion = '202411'; // Current active API version (November 2024)
   }
 
   // Post content to LinkedIn using the modern Posts API
