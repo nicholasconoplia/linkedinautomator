@@ -1336,6 +1336,46 @@ app.get('/api/subscription/payment-status/:paymentIntentId', requireAuth, async 
   }
 });
 
+// Quick fix endpoint to activate incomplete subscription
+app.post('/api/subscription/quick-activate', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log('🔧 Quick activation requested for user:', userId);
+    
+    // Get current subscription
+    const subscription = await SubscriptionDB.getUserSubscription(userId);
+    if (!subscription) {
+      return res.status(404).json({ error: 'No subscription found' });
+    }
+    
+    console.log('📋 Current subscription status:', subscription.status);
+    
+    if (subscription.status === 'incomplete') {
+      // Update status to active
+      await SubscriptionDB.updateSubscriptionStatus(userId, 'active');
+      console.log('✅ Subscription activated!');
+      
+      // Get updated subscription
+      const updatedSubscription = await SubscriptionDB.getUserSubscription(userId);
+      return res.json({ 
+        success: true, 
+        message: 'Subscription activated successfully!',
+        subscription: updatedSubscription
+      });
+    } else {
+      return res.json({ 
+        success: true, 
+        message: `Subscription is already ${subscription.status}`,
+        subscription: subscription
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in quick activation:', error);
+    res.status(500).json({ error: 'Failed to activate subscription' });
+  }
+});
+
 // Create checkout session (keep existing for backward compatibility)
 app.post('/api/subscription/checkout', requireAuth, async (req, res) => {
   try {
