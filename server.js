@@ -806,29 +806,55 @@ async function startServer() {
       PostScheduler.initialize(generatePost);
     }
     
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running at http://localhost:${PORT}`);
-      console.log('📊 Features enabled:');
-      console.log('  ✅ AI Post Generation');
-      console.log('  ✅ Real-time News Integration');
-      console.log('  ✅ Copy to Clipboard');
-      
-      if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
-        console.log('  ✅ LinkedIn OAuth Authentication');
-        console.log('  ✅ Automated Post Scheduling');
-        console.log('  ✅ Direct LinkedIn Posting');
-        console.log('  ✅ User Preferences Management');
-      } else {
-        console.log('  ⚠️  LinkedIn automation disabled (OAuth not configured)');
-      }
-      
-      console.log('  ✅ Rate Limiting & Security');
-    });
+    console.log('📊 Features enabled:');
+    console.log('  ✅ AI Post Generation');
+    console.log('  ✅ Real-time News Integration');
+    console.log('  ✅ Copy to Clipboard');
+    
+    if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+      console.log('  ✅ LinkedIn OAuth Authentication');
+      console.log('  ✅ Automated Post Scheduling');
+      console.log('  ✅ Direct LinkedIn Posting');
+      console.log('  ✅ User Preferences Management');
+    } else {
+      console.log('  ⚠️  LinkedIn automation disabled (OAuth not configured)');
+    }
+    
+    console.log('  ✅ Rate Limiting & Security');
+    
+    return app;
   } catch (error) {
     console.error('❌ Failed to start server:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
-startServer(); 
+// For local development
+if (require.main === module) {
+  startServer().then(app => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running at http://localhost:${PORT}`);
+    });
+  }).catch(error => {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  });
+}
+
+// For Vercel serverless deployment
+let serverInitialized = false;
+let serverApp = null;
+
+module.exports = async (req, res) => {
+  if (!serverInitialized) {
+    try {
+      serverApp = await startServer();
+      serverInitialized = true;
+    } catch (error) {
+      console.error('❌ Failed to initialize server:', error);
+      return res.status(500).json({ error: 'Server initialization failed' });
+    }
+  }
+  
+  return serverApp(req, res);
+}; 

@@ -4,48 +4,56 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/**/*",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/server.js"
+      "dest": "server.js"
     },
     {
       "src": "/auth/(.*)",
-      "dest": "/server.js"
+      "dest": "server.js"
     },
     {
       "src": "/generate",
-      "dest": "/server.js"
+      "dest": "server.js"
     },
     {
       "src": "/schedule",
-      "dest": "/server.js"
+      "dest": "server.js"
     },
     {
       "src": "/preferences",
-      "dest": "/server.js"
+      "dest": "server.js"
     },
     {
       "src": "/scheduled-posts",
-      "dest": "/server.js"
+      "dest": "server.js"
     },
     {
       "src": "/post-to-linkedin",
-      "dest": "/server.js"
+      "dest": "server.js"
+    },
+    {
+      "src": "/public/(.*)",
+      "dest": "public/$1"
     },
     {
       "src": "/(.*\\.(css|js|png|jpg|jpeg|gif|ico|svg))",
-      "dest": "/public/$1"
+      "dest": "public/$1"
     },
     {
       "src": "/",
-      "dest": "/public/index.html"
+      "dest": "public/index.html"
     },
     {
       "src": "/(.*)",
-      "dest": "/server.js"
+      "dest": "server.js"
     }
   ],
   "env": {
