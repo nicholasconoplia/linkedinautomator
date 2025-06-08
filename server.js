@@ -500,6 +500,7 @@ app.post('/api/post-now', requireAuth, rateLimitMiddleware, async (req, res) => 
 
 // Health check
 app.get('/api/health', (req, res) => {
+  console.log('🔍 Health check called');
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
@@ -515,6 +516,20 @@ app.get('/api/health', (req, res) => {
       copyToClipboard: true,
       linkedinAutomation: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET)
     }
+  });
+});
+
+// Debug endpoint for Vercel
+app.get('/debug', (req, res) => {
+  console.log('🔍 Debug endpoint called');
+  res.json({
+    status: 'debug',
+    environment: process.env.NODE_ENV,
+    hasDatabase: !!(process.env.POSTGRES_URL || process.env.DATABASE_URL),
+    hasOpenAI: !!process.env.OPENAI_API_KEY,
+    hasLinkedIn: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET),
+    timestamp: new Date().toISOString(),
+    platform: 'vercel'
   });
 });
 
@@ -798,12 +813,20 @@ async function fetchRelevantImage(topic) {
 
 async function startServer() {
   try {
+    console.log('🔧 Starting server initialization...');
+    console.log('🔧 Environment:', process.env.NODE_ENV);
+    console.log('🔧 Database URL available:', !!process.env.POSTGRES_URL || !!process.env.DATABASE_URL);
+    
     // Initialize database
+    console.log('🔧 Initializing database...');
     await initializeDatabase();
+    console.log('✅ Database initialized');
     
     // Initialize scheduler with post generation function (only if OAuth configured)
     if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+      console.log('🔧 Initializing scheduler...');
       PostScheduler.initialize(generatePost);
+      console.log('✅ Scheduler initialized');
     }
     
     console.log('📊 Features enabled:');
@@ -821,10 +844,16 @@ async function startServer() {
     }
     
     console.log('  ✅ Rate Limiting & Security');
+    console.log('🔧 Server initialization complete, returning Express app');
     
     return app;
   } catch (error) {
     console.error('❌ Failed to start server:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     throw error;
   }
 }
@@ -846,15 +875,38 @@ let serverInitialized = false;
 let serverApp = null;
 
 module.exports = async (req, res) => {
+  console.log('🔍 Vercel function called:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.keys(req.headers),
+    initialized: serverInitialized
+  });
+
   if (!serverInitialized) {
     try {
+      console.log('🚀 Initializing server for Vercel...');
       serverApp = await startServer();
       serverInitialized = true;
+      console.log('✅ Server initialized successfully for Vercel');
     } catch (error) {
       console.error('❌ Failed to initialize server:', error);
-      return res.status(500).json({ error: 'Server initialization failed' });
+      console.error('❌ Error stack:', error.stack);
+      return res.status(500).json({ 
+        error: 'Server initialization failed',
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
   
-  return serverApp(req, res);
+  try {
+    console.log('📡 Passing request to Express app...');
+    return serverApp(req, res);
+  } catch (error) {
+    console.error('❌ Error in Express app:', error);
+    return res.status(500).json({ 
+      error: 'Request handling failed',
+      message: error.message 
+    });
+  }
 }; 

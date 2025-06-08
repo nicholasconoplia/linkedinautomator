@@ -10,7 +10,10 @@ const pool = new Pool({
 function initializeDatabase() {
   return new Promise(async (resolve, reject) => {
     try {
+      console.log('🔧 Connecting to database...');
+      console.log('🔧 Connection string available:', !!process.env.POSTGRES_URL || !!process.env.DATABASE_URL);
       const client = await pool.connect();
+      console.log('✅ Database connection established');
       
       try {
         // Users table
