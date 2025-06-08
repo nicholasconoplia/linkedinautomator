@@ -880,13 +880,106 @@ const stripeService = new StripeService();
 // Get subscription plans
 app.get('/api/subscription/plans', async (req, res) => {
   try {
-    const plans = await SubscriptionDB.getPlans();
+    let plans = await SubscriptionDB.getPlans();
+    
+    // If no plans exist, create default ones
+    if (!plans || plans.length === 0) {
+      console.log('📋 No plans found, creating default plans...');
+      await createDefaultPlans();
+      plans = await SubscriptionDB.getPlans();
+    }
+    
     res.json(plans);
   } catch (error) {
     console.error('❌ Error fetching plans:', error);
     res.status(500).json({ error: 'Failed to fetch subscription plans' });
   }
 });
+
+// Function to create default subscription plans
+async function createDefaultPlans() {
+  const defaultPlans = [
+    {
+      name: 'Starter',
+      posts_limit: 30,
+      price: 0.99,
+      launch_price: 0.49,
+      stripe_price_id: 'price_starter', // You'll need to replace with actual Stripe price IDs
+      features: {
+        features: [
+          'AI-powered content generation',
+          'Real-time news integration',
+          'Multiple tone options',
+          'LinkedIn direct posting'
+        ]
+      }
+    },
+    {
+      name: 'Professional',
+      posts_limit: 100,
+      price: 2.99,
+      launch_price: 1.49,
+      stripe_price_id: 'price_professional',
+      features: {
+        features: [
+          'AI-powered content generation',
+          'Real-time news integration',
+          'Multiple tone options',
+          'LinkedIn direct posting',
+          'Content analytics',
+          'Priority support'
+        ]
+      }
+    },
+    {
+      name: 'Business',
+      posts_limit: 300,
+      price: 4.99,
+      launch_price: 2.49,
+      stripe_price_id: 'price_business',
+      features: {
+        features: [
+          'AI-powered content generation',
+          'Real-time news integration',
+          'Multiple tone options',
+          'LinkedIn direct posting',
+          'Content analytics',
+          'Priority support',
+          'Bulk scheduling'
+        ]
+      }
+    },
+    {
+      name: 'Enterprise',
+      posts_limit: -1,
+      price: 9.99,
+      launch_price: 4.99,
+      stripe_price_id: 'price_enterprise',
+      features: {
+        features: [
+          'AI-powered content generation',
+          'Real-time news integration',
+          'Multiple tone options',
+          'LinkedIn direct posting',
+          'Content analytics',
+          'Priority support',
+          'Bulk scheduling',
+          'Unlimited posts',
+          'Custom integrations'
+        ]
+      }
+    }
+  ];
+
+  for (const plan of defaultPlans) {
+    try {
+      await SubscriptionDB.createPlan(plan);
+      console.log(`✅ Created plan: ${plan.name}`);
+    } catch (error) {
+      console.log(`⚠️ Plan ${plan.name} might already exist:`, error.message);
+    }
+  }
+}
 
 // Get user's current subscription and usage
 app.get('/api/subscription/status', requireAuth, async (req, res) => {
@@ -1435,14 +1528,43 @@ app.get('/subscribe', (req, res) => {
   }
 });
 
-// Admin page route
+// Admin page route - password protected
 app.get('/admin', (req, res) => {
   console.log('👑 Admin route hit');
+  
+  // Simple password protection - check for admin password in query parameter
+  const adminPassword = req.query.key;
+  const expectedPassword = process.env.ADMIN_PASSWORD || 'postpilot-admin-2024';
+  
+  if (!adminPassword || adminPassword !== expectedPassword) {
+    console.log('🚫 Unauthorized admin access attempt');
+    return res.status(401).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Access Denied</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px; }
+          .container { max-width: 400px; margin: 0 auto; }
+          h1 { color: #e74c3c; }
+          p { color: #666; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🔒 Access Denied</h1>
+          <p>This page requires administrator access.</p>
+          <p>Please contact the site administrator for access.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
   
   const adminPath = path.join(__dirname, 'admin.html');
   
   if (fs.existsSync(adminPath)) {
-    console.log('✅ Serving admin.html');
+    console.log('✅ Serving admin.html to authorized user');
     res.sendFile(adminPath);
   } else {
     console.log('⚠️ admin.html not found');
