@@ -559,6 +559,12 @@ app.get('/debug', (req, res) => {
   res.json(envCheck);
 });
 
+// Root route - serve the main application
+app.get('/', (req, res) => {
+  console.log('🏠 Root route accessed');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // ====================
 // EXISTING GENERATE POST ROUTE (Updated)
 // ====================
