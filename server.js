@@ -1190,11 +1190,18 @@ app.get('/api/access-key/list', requireAuth, async (req, res) => {
 });
 
 // Admin: Create access key (requires admin privileges)
-app.post('/api/admin/access-key/create', requireAuth, async (req, res) => {
+app.post('/api/admin/access-key/create', async (req, res) => {
   try {
-    // Note: Add admin role check here in production
+    // Admin authentication check
+    const adminPassword = req.headers['x-admin-key'] || req.query.key;
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'postpilot-admin-2024';
+    
+    if (!adminPassword || adminPassword !== expectedPassword) {
+      return res.status(401).json({ error: 'Admin authentication required' });
+    }
+    
     const { name, key_code, postsLimit, validUntil } = req.body;
-    const createdBy = req.user.email || req.user.name;
+    const createdBy = 'admin';
     
     // Validate custom key code if provided
     if (key_code) {
@@ -1243,9 +1250,16 @@ app.post('/api/admin/access-key/create', requireAuth, async (req, res) => {
 });
 
 // Admin: Get all access keys
-app.get('/api/admin/access-keys', requireAuth, async (req, res) => {
+app.get('/api/admin/access-keys', async (req, res) => {
   try {
-    // Note: Add admin role check here in production
+    // Admin authentication check
+    const adminPassword = req.headers['x-admin-key'] || req.query.key;
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'postpilot-admin-2024';
+    
+    if (!adminPassword || adminPassword !== expectedPassword) {
+      return res.status(401).json({ error: 'Admin authentication required' });
+    }
+    
     const accessKeys = await AccessKeysDB.getAllAccessKeys();
     res.json(accessKeys);
   } catch (error) {
@@ -1255,9 +1269,16 @@ app.get('/api/admin/access-keys', requireAuth, async (req, res) => {
 });
 
 // Admin: Delete access key
-app.delete('/api/admin/access-key/:keyId', requireAuth, async (req, res) => {
+app.delete('/api/admin/access-key/:keyId', async (req, res) => {
   try {
-    // Note: Add admin role check here in production
+    // Admin authentication check
+    const adminPassword = req.headers['x-admin-key'] || req.query.key;
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'postpilot-admin-2024';
+    
+    if (!adminPassword || adminPassword !== expectedPassword) {
+      return res.status(401).json({ error: 'Admin authentication required' });
+    }
+    
     const { keyId } = req.params;
     
     if (!keyId) {

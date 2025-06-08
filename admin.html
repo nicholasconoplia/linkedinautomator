@@ -267,7 +267,15 @@
     <script>
         class AdminDashboard {
             constructor() {
+                this.adminKey = new URLSearchParams(window.location.search).get('key');
                 this.init();
+            }
+            
+            getAdminHeaders() {
+                return {
+                    'Content-Type': 'application/json',
+                    'x-admin-key': this.adminKey
+                };
             }
 
             async init() {
@@ -317,7 +325,7 @@
                     
                     const response = await fetch('/api/admin/access-key/create', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: this.getAdminHeaders(),
                         body: JSON.stringify(keyData)
                     });
 
@@ -339,7 +347,7 @@
 
             async loadAccessKeys() {
                 try {
-                    const response = await fetch('/api/admin/access-keys');
+                    const response = await fetch(`/api/admin/access-keys?key=${this.adminKey}`);
                     const accessKeys = await response.json();
 
                     this.displayAccessKeys(accessKeys);
@@ -441,9 +449,9 @@
                     console.log('Starting delete process...');
                     this.showLoading(true);
                     
-                    const response = await fetch(`/api/admin/access-key/${keyId}`, {
+                    const response = await fetch(`/api/admin/access-key/${keyId}?key=${this.adminKey}`, {
                         method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' }
+                        headers: this.getAdminHeaders()
                     });
 
                     console.log('Delete response status:', response.status);
