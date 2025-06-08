@@ -1132,7 +1132,7 @@ async function createDefaultPlans() {
 // Get user's current subscription and usage
 app.get('/api/subscription/status', requireAuth, async (req, res) => {
   try {
-    console.log('🎯 STATUS ENDPOINT HIT - DEPLOYMENT TEST v6d65ae0');
+    console.log('🎯 STATUS ENDPOINT HIT - DEPLOYMENT TEST v219cbe0 - FORCE REDEPLOY');
     const userId = req.user.id;
     const activateIncomplete = req.query.activate === 'true';
     
