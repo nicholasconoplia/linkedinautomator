@@ -87,28 +87,30 @@ class PostScheduler {
     }
   }
 
-  // Get users who need new posts generated
+  // Get users who need new posts generated (updated for PostgreSQL)
   async getUsersNeedingPosts() {
-    return new Promise((resolve, reject) => {
-      const query = `
-        SELECT u.*, up.* 
-        FROM users u
-        JOIN user_preferences up ON u.id = up.user_id
-        WHERE up.auto_posting_enabled = 1
-        AND (
-          SELECT COUNT(*) 
-          FROM scheduled_posts sp 
-          WHERE sp.user_id = u.id 
-          AND sp.status = 'pending' 
-          AND sp.scheduled_for > datetime('now')
-        ) < 3
-      `;
+    try {
+      // Get users who need content generated using the new PostgreSQL database
+      const users = await PreferencesDB.getUsersNeedingContent();
       
-      require('./database').db.all(query, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+      // Filter users who don't have too many pending posts
+      const usersNeedingPosts = [];
+      for (const user of users) {
+        const scheduledPosts = await PostsDB.getUserScheduledPosts(user.id);
+        const pendingPosts = scheduledPosts.filter(post => 
+          post.status === 'pending' && new Date(post.scheduled_for) > new Date()
+        );
+        
+        if (pendingPosts.length < 3) {
+          usersNeedingPosts.push(user);
+        }
+      }
+      
+      return usersNeedingPosts;
+    } catch (error) {
+      console.error('❌ Error getting users needing posts:', error);
+      return [];
+    }
   }
 
   // Generate posts for a specific user
@@ -131,13 +133,13 @@ class PostScheduler {
           const postData = await this.postProcessor(randomTopic, preferences.tone);
           
           if (postData && postData.post) {
-            await PostsDB.schedulePost(user.user_id || user.id, {
+            await PostsDB.createScheduledPost(user.user_id || user.id, {
               topic: randomTopic,
               tone: preferences.tone,
               post_content: postData.post,
               image_url: postData.image?.url || null,
               article_url: postData.article?.url || null,
-              scheduled_for: this.formatDateForDB(nextDates[i])
+              scheduled_for: nextDates[i].toISOString()
             });
 
             console.log(`📝 Scheduled post for ${user.name} on ${nextDates[i].toISOString()}`);
@@ -182,35 +184,37 @@ class PostScheduler {
     return dates.slice(0, postsPerWeek);
   }
 
-  // Format date for database storage
+  // Format date for database storage (PostgreSQL accepts ISO strings)
   formatDateForDB(date) {
-    return date.toISOString().replace('T', ' ').replace('Z', '');
+    return date.toISOString();
   }
 
   // Schedule a one-time post
   async scheduleOneTimePost(userId, postData, scheduledDate) {
     try {
-      const postId = await PostsDB.schedulePost(userId, {
+      const post = await PostsDB.createScheduledPost(userId, {
         ...postData,
-        scheduled_for: this.formatDateForDB(scheduledDate)
+        scheduled_for: scheduledDate.toISOString()
       });
 
-      console.log(`📅 One-time post scheduled for user ${userId}: ${postId}`);
-      return postId;
+      console.log(`📅 One-time post scheduled for user ${userId}: ${post.id}`);
+      return post.id;
 
     } catch (error) {
-      console.error('❌ Error scheduling one-time post:', error.message);
+      console.error(`❌ Error scheduling one-time post:`, error.message);
       throw error;
     }
   }
 
-  // Get user's upcoming posts
+  // Get upcoming posts for a user
   async getUserUpcomingPosts(userId) {
     try {
-      const posts = await PostsDB.getUserPosts(userId, 10);
-      return posts.filter(post => post.status === 'pending');
+      const posts = await PostsDB.getUserScheduledPosts(userId);
+      return posts.filter(post => 
+        post.status === 'pending' && new Date(post.scheduled_for) > new Date()
+      );
     } catch (error) {
-      console.error('❌ Error getting user upcoming posts:', error.message);
+      console.error(`❌ Error getting upcoming posts for user ${userId}:`, error.message);
       return [];
     }
   }
@@ -218,11 +222,13 @@ class PostScheduler {
   // Cancel a scheduled post
   async cancelScheduledPost(postId, userId) {
     try {
-      await PostsDB.updatePostStatus(postId, 'cancelled');
-      console.log(`❌ Cancelled scheduled post ${postId} for user ${userId}`);
-      return true;
+      const success = await PostsDB.deleteScheduledPost(postId, userId);
+      if (success) {
+        console.log(`🗑️ Cancelled scheduled post ${postId} for user ${userId}`);
+      }
+      return success;
     } catch (error) {
-      console.error('❌ Error cancelling scheduled post:', error.message);
+      console.error(`❌ Error cancelling post ${postId}:`, error.message);
       return false;
     }
   }

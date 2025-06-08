@@ -49,44 +49,131 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// LinkedIn OAuth Strategy (only if credentials are provided)
+// Configure LinkedIn OAuth Strategy (only if credentials are available)
 if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
-  passport.use(new LinkedInStrategy({
+  // Create a custom LinkedIn strategy that uses the modern OpenID Connect userinfo endpoint
+  const LinkedInOIDCStrategy = function(options, verify) {
+    const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
+    LinkedInStrategy.call(this, options, verify);
+    
+    // Override the profile URL to use the modern OpenID Connect userinfo endpoint
+    this.profileUrl = 'https://api.linkedin.com/v2/userinfo';
+    this.emailUrl = null; // Email is included in userinfo response
+  };
+  
+  // Inherit from LinkedInStrategy
+  require('util').inherits(LinkedInOIDCStrategy, require('passport-linkedin-oauth2').Strategy);
+  
+  // Override the userProfile method to use the new endpoint
+  LinkedInOIDCStrategy.prototype.userProfile = function(accessToken, done) {
+    this._oauth2.setAccessTokenName("oauth2_access_token");
+    
+    this._oauth2.get(this.profileUrl, accessToken, function (err, body, res) {
+      if (err) {
+        console.error('❌ LinkedIn API Error:', {
+          message: err.message,
+          statusCode: err.statusCode,
+          data: err.data
+        });
+        return done(new require('passport-oauth2').InternalOAuthError('failed to fetch user profile', err));
+      }
+
+      try {
+        const json = JSON.parse(body);
+        console.log('📋 LinkedIn userinfo response:', json);
+        
+        const profile = {
+          provider: 'linkedin',
+          id: json.sub,
+          displayName: json.name,
+          name: {
+            givenName: json.given_name,
+            familyName: json.family_name
+          },
+          emails: json.email ? [{ value: json.email }] : [],
+          photos: json.picture ? [{ value: json.picture }] : [],
+          _raw: body,
+          _json: json
+        };
+        
+        return done(null, profile);
+      } catch(e) {
+        console.error('❌ Failed to parse LinkedIn response:', e);
+        return done(new require('passport-oauth2').InternalOAuthError('failed to parse profile response', e));
+      }
+    });
+  };
+
+  passport.use(new LinkedInOIDCStrategy({
     clientID: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
     callbackURL: process.env.LINKEDIN_CALLBACK_URL || "http://localhost:3000/auth/linkedin/callback",
-    scope: ['r_liteprofile', 'r_emailaddress', 'w_member_social']
+    scope: ['openid', 'profile', 'email'], // Updated to use OpenID Connect scopes
+    state: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
+      console.log('🔑 LinkedIn OAuth Strategy - Processing user profile');
+      console.log('📋 Profile data received:', {
+        id: profile.id,
+        displayName: profile.displayName,
+        name: profile.name,
+        emails: profile.emails,
+        photos: profile.photos
+      });
+
+      // Check if user already exists
+      let user = await UserDB.getUserByLinkedInId(profile.id);
+      
+      if (user) {
+        console.log('👤 Existing user found:', { id: user.id, name: user.name });
+        // Update access token for existing user
+        const tokens = {
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          expires_at: Date.now() + (60 * 60 * 1000) // 1 hour default
+        };
+        await UserDB.updateTokens(user.id, tokens);
+        return done(null, user);
+      }
+
+      // Create new user using saveUser function
       const tokens = {
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_at: Date.now() + (60 * 60 * 1000) // 1 hour default
       };
 
+      console.log('✨ Creating new user with profile data');
       const userId = await UserDB.saveUser(profile, tokens);
-      const user = await UserDB.getUserById(userId);
       
-      return done(null, user);
+      const newUser = await UserDB.getUserById(userId);
+      console.log('✅ User created successfully:', { id: newUser.id, name: newUser.name });
+      
+      return done(null, newUser);
     } catch (error) {
-      return done(error, null);
+      console.error('❌ Error in LinkedIn OAuth strategy:', error);
+      return done(error);
     }
   }));
-  
-  console.log('✅ LinkedIn OAuth configured');
+
+  console.log('✅ LinkedIn OAuth configured with OpenID Connect');
 } else {
-  console.log('⚠️  LinkedIn OAuth not configured - automation features disabled');
+  console.log('⚠️  LinkedIn OAuth not configured - missing credentials');
 }
 
 passport.serializeUser((user, done) => {
+  console.log('📝 Serializing user:', user ? { id: user.id, name: user.name } : 'No user');
   done(null, user.id);
 });
 
 passport.deserializeUser(async (id, done) => {
   try {
+    console.log('🔍 Deserializing user with ID:', id);
     const user = await UserDB.getUserById(id);
+    console.log('👤 Deserialized user:', user ? { id: user.id, name: user.name } : 'Not found');
     done(null, user);
   } catch (error) {
+    console.error('❌ Deserialization error:', error);
     done(error, null);
   }
 });
@@ -133,10 +220,110 @@ app.get('/auth/linkedin', (req, res) => {
 // LinkedIn callback (only if OAuth is configured)
 app.get('/auth/linkedin/callback', (req, res) => {
   if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
-    passport.authenticate('linkedin', { failureRedirect: '/' })(req, res, () => {
-      // Successful authentication
-      res.redirect('/?authenticated=true');
-    });
+    console.log('🔗 LinkedIn callback received with query:', req.query);
+    
+    // Use custom callback handling for better debugging
+    passport.authenticate('linkedin', async (err, user, info) => {
+      if (err) {
+        console.error('❌ LinkedIn authentication error:', err);
+        
+        // Detailed error display for debugging
+        const errorDetails = {
+          message: err.message,
+          oauthError: err.oauthError || null,
+          stack: process.env.NODE_ENV === 'development' ? err.stack : null
+        };
+        
+        return res.send(`
+          <html>
+            <head><title>LinkedIn Auth Error</title></head>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+              <h1>❌ LinkedIn Authentication Error</h1>
+              <h2>What happened:</h2>
+              <p>LinkedIn successfully redirected back to our app, but we couldn't fetch your profile information.</p>
+              
+              <h2>Error Details:</h2>
+              <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">
+${JSON.stringify(errorDetails, null, 2)}
+              </pre>
+              
+              <h2>Common Solutions:</h2>
+              <ol>
+                <li><strong>Check LinkedIn Developer Portal:</strong>
+                  <ul>
+                    <li>Go to <a href="https://www.linkedin.com/developers/apps" target="_blank">LinkedIn Developer Portal</a></li>
+                    <li>Select your app</li>
+                    <li>Go to "Products" tab</li>
+                    <li>Make sure "Sign In with LinkedIn" is requested and approved</li>
+                  </ul>
+                </li>
+                <li><strong>Verify OAuth Redirect URLs:</strong>
+                  <ul>
+                    <li>In your LinkedIn app settings, under "Auth"</li>
+                    <li>Make sure <code>http://localhost:3000/auth/linkedin/callback</code> is listed</li>
+                  </ul>
+                </li>
+                <li><strong>Check App Permissions:</strong>
+                  <ul>
+                    <li>Your app needs access to basic profile information</li>
+                    <li>Try with minimal scopes first: ['r_liteprofile', 'r_emailaddress']</li>
+                  </ul>
+                </li>
+              </ol>
+              
+              <p><a href="/" style="background: #0073b1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">← Back to Home</a></p>
+            </body>
+          </html>
+        `);
+      }
+      
+      if (!user) {
+        console.warn('⚠️ No user returned from LinkedIn');
+        return res.send(`
+          <html>
+            <head><title>No User Data</title></head>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+              <h1>⚠️ Authentication Issue</h1>
+              <p>LinkedIn OAuth completed but no user profile was returned.</p>
+              <p>This usually means the LinkedIn app doesn't have proper permissions.</p>
+              <p><a href="/" style="background: #0073b1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">← Back to Home</a></p>
+            </body>
+          </html>
+        `);
+      }
+
+      // Success! Log the user in
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error('❌ Login error:', loginErr);
+          return res.send(`
+            <html>
+              <head><title>Login Error</title></head>
+              <body style="font-family: Arial, sans-serif; padding: 20px;">
+                <h1>❌ Login Error</h1>
+                <p>User profile retrieved but couldn't establish session.</p>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+${JSON.stringify(loginErr, null, 2)}
+                </pre>
+                <p><a href="/" style="background: #0073b1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">← Back to Home</a></p>
+              </body>
+            </html>
+          `);
+        }
+
+        console.log('✅ LinkedIn OAuth callback successful');
+        console.log('🔍 User authenticated:', req.isAuthenticated());
+        console.log('👤 User data:', { id: user.id, name: user.name });
+        console.log('🍪 Session after login:', {
+          sessionID: req.sessionID,
+          passport: req.session.passport,
+          cookie: req.session.cookie
+        });
+        
+        // Successful authentication - redirect to home with success message
+        return res.redirect('/?authenticated=true');
+      });
+    })(req, res);
   } else {
     res.redirect('/?error=oauth_not_configured');
   }
@@ -162,6 +349,44 @@ app.get('/api/user', requireAuth, (req, res) => {
   });
 });
 
+// Check authentication status (no auth required)
+app.get('/api/auth-status', (req, res) => {
+  console.log('🔍 Auth status check:', {
+    sessionID: req.sessionID,
+    isAuthenticated: req.isAuthenticated(),
+    userExists: !!req.user,
+    user: req.user ? { id: req.user.id, name: req.user.name } : null,
+    sessionData: Object.keys(req.session || {})
+  });
+  
+  if (req.isAuthenticated() && req.user) {
+    res.json({
+      authenticated: true,
+      user: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        linkedin_id: req.user.linkedin_id
+      }
+    });
+  } else {
+    res.json({
+      authenticated: false,
+      user: null
+    });
+  }
+});
+
+// Debug endpoint to check session status
+app.get('/api/session-debug', (req, res) => {
+  res.json({
+    isAuthenticated: req.isAuthenticated(),
+    sessionID: req.sessionID,
+    user: req.user ? { id: req.user.id, name: req.user.name } : null,
+    session: req.session
+  });
+});
+
 // ====================
 // USER PREFERENCES ROUTES
 // ====================
@@ -180,7 +405,7 @@ app.get('/api/preferences', requireAuth, async (req, res) => {
 // Update user preferences
 app.post('/api/preferences', requireAuth, async (req, res) => {
   try {
-    await PreferencesDB.updatePreferences(req.user.id, req.body);
+    await PreferencesDB.updateUserPreferences(req.user.id, req.body);
     res.json({ success: true });
   } catch (error) {
     console.error('❌ Error updating preferences:', error);
@@ -195,7 +420,7 @@ app.post('/api/preferences', requireAuth, async (req, res) => {
 // Get user's scheduled posts
 app.get('/api/scheduled-posts', requireAuth, async (req, res) => {
   try {
-    const posts = await PostsDB.getUserPosts(req.user.id, 20);
+    const posts = await PostsDB.getUserScheduledPosts(req.user.id);
     res.json(posts);
   } catch (error) {
     console.error('❌ Error fetching scheduled posts:', error);
@@ -219,7 +444,7 @@ app.post('/api/schedule-post', requireAuth, rateLimitMiddleware, async (req, res
       return res.status(500).json({ error: 'Failed to generate post content' });
     }
 
-    const postId = await PostsDB.schedulePost(req.user.id, {
+    const post = await PostsDB.createScheduledPost(req.user.id, {
       topic,
       tone,
       post_content: postData.post,
@@ -228,7 +453,7 @@ app.post('/api/schedule-post', requireAuth, rateLimitMiddleware, async (req, res
       scheduled_for: scheduled_for
     });
 
-    res.json({ success: true, postId });
+    res.json({ success: true, postId: post.id });
   } catch (error) {
     console.error('❌ Error scheduling post:', error);
     res.status(500).json({ error: 'Failed to schedule post' });
