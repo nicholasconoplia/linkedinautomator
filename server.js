@@ -1483,6 +1483,51 @@ app.get('/api/subscription/test-activate', async (req, res) => {
   });
 });
 
+// Dedicated activation endpoint - no auth required for now
+app.get('/api/activate-nick-subscription', async (req, res) => {
+  console.log('🚀 DEDICATED ACTIVATION ENDPOINT HIT!');
+  
+  try {
+    const client = await pool.connect();
+    
+    // First check current subscription
+    const checkResult = await client.query(
+      'SELECT * FROM user_subscriptions WHERE user_id = 1'
+    );
+    
+    console.log('📋 Current subscription for user 1:', checkResult.rows[0]);
+    
+    // Force update to active
+    const updateResult = await client.query(
+      'UPDATE user_subscriptions SET status = $1, updated_at = NOW() WHERE user_id = 1 RETURNING *',
+      ['active']
+    );
+    
+    client.release();
+    
+    console.log('✅ UPDATE COMPLETED!');
+    console.log('✅ Rows affected:', updateResult.rowCount);
+    console.log('✅ Updated subscription:', updateResult.rows[0]);
+    
+    return res.json({
+      success: true,
+      message: '🎉 SUBSCRIPTION ACTIVATED!',
+      before: checkResult.rows[0],
+      after: updateResult.rows[0],
+      rows_affected: updateResult.rowCount,
+      instruction: 'NOW REFRESH YOUR HOMEPAGE!'
+    });
+    
+  } catch (error) {
+    console.error('❌ ACTIVATION ERROR:', error);
+    return res.status(500).json({
+      error: 'Activation failed',
+      details: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // Create checkout session (keep existing for backward compatibility)
 app.post('/api/subscription/checkout', requireAuth, async (req, res) => {
   try {
