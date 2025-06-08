@@ -82,14 +82,23 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
   
   // Override the userProfile method to use the new endpoint
   LinkedInOIDCStrategy.prototype.userProfile = function(accessToken, done) {
+    console.log('🔍 LinkedIn userProfile method called');
+    console.log('🔑 Access token for profile fetch:', !!accessToken);
+    console.log('🌐 Profile URL:', this.profileUrl);
+    
     this._oauth2.setAccessTokenName("oauth2_access_token");
     
     this._oauth2.get(this.profileUrl, accessToken, function (err, body, res) {
+      console.log('📡 LinkedIn API response received');
+      console.log('📊 Response status:', res?.statusCode);
+      console.log('📄 Response body length:', body?.length);
+      
       if (err) {
         console.error('❌ LinkedIn API Error:', {
           message: err.message,
           statusCode: err.statusCode,
-          data: err.data
+          data: err.data,
+          stack: err.stack
         });
         return done(new require('passport-oauth2').InternalOAuthError('failed to fetch user profile', err));
       }
@@ -129,13 +138,23 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       console.log('🔑 LinkedIn OAuth Strategy - Processing user profile');
+      console.log('🔑 Access token received:', !!accessToken);
+      console.log('🔑 Refresh token received:', !!refreshToken);
+      console.log('📋 Raw profile object:', profile);
       console.log('📋 Profile data received:', {
-        id: profile.id,
-        displayName: profile.displayName,
-        name: profile.name,
-        emails: profile.emails,
-        photos: profile.photos
+        id: profile?.id,
+        displayName: profile?.displayName,
+        name: profile?.name,
+        emails: profile?.emails,
+        photos: profile?.photos,
+        provider: profile?.provider,
+        _json: profile?._json
       });
+
+      if (!profile || !profile.id) {
+        console.error('❌ No profile or profile.id received from LinkedIn');
+        return done(new Error('No user profile returned from LinkedIn. Check app permissions.'));
+      }
 
       // Check if user already exists
       let user = await UserDB.getUserByLinkedInId(profile.id);
