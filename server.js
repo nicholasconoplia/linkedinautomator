@@ -559,11 +559,8 @@ app.get('/debug', (req, res) => {
   res.json(envCheck);
 });
 
-// Root route - serve the main application
-app.get('/', (req, res) => {
-  console.log('🏠 Root route accessed');
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Note: Root route (/) is handled by vercel.json routing to public/index.html
+// Vercel routes "/" directly to "public/index.html" without going through Express
 
 // ====================
 // EXISTING GENERATE POST ROUTE (Updated)
