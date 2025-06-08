@@ -1193,11 +1193,30 @@ app.get('/api/access-key/list', requireAuth, async (req, res) => {
 app.post('/api/admin/access-key/create', requireAuth, async (req, res) => {
   try {
     // Note: Add admin role check here in production
-    const { name, postsLimit, validUntil } = req.body;
+    const { name, key_code, postsLimit, validUntil } = req.body;
     const createdBy = req.user.email || req.user.name;
+    
+    // Validate custom key code if provided
+    if (key_code) {
+      // Check if key code is valid format (letters, numbers, dashes only)
+      if (!/^[A-Za-z0-9-]+$/.test(key_code)) {
+        return res.status(400).json({ 
+          error: 'Custom key code can only contain letters, numbers, and dashes' 
+        });
+      }
+      
+      // Check if key code already exists
+      const existingKey = await AccessKeysDB.getKeyByCode(key_code);
+      if (existingKey) {
+        return res.status(400).json({ 
+          error: 'This key code already exists. Please choose a different one.' 
+        });
+      }
+    }
     
     const accessKey = await AccessKeysDB.createAccessKey({
       name,
+      key_code: key_code || undefined, // Let createAccessKey generate if not provided
       posts_limit: postsLimit || 10,
       valid_until: validUntil ? new Date(validUntil) : null,
       created_by: createdBy
@@ -1215,7 +1234,11 @@ app.post('/api/admin/access-key/create', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error creating access key:', error);
-    res.status(500).json({ error: 'Failed to create access key' });
+    if (error.message && error.message.includes('unique constraint')) {
+      res.status(400).json({ error: 'This key code already exists. Please choose a different one.' });
+    } else {
+      res.status(500).json({ error: 'Failed to create access key' });
+    }
   }
 });
 
@@ -1228,6 +1251,34 @@ app.get('/api/admin/access-keys', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching all access keys:', error);
     res.status(500).json({ error: 'Failed to fetch access keys' });
+  }
+});
+
+// Admin: Delete access key
+app.delete('/api/admin/access-key/:keyId', requireAuth, async (req, res) => {
+  try {
+    // Note: Add admin role check here in production
+    const { keyId } = req.params;
+    
+    if (!keyId) {
+      return res.status(400).json({ error: 'Access key ID is required' });
+    }
+
+    const deleted = await AccessKeysDB.deleteAccessKey(keyId);
+    
+    if (deleted) {
+      res.json({ 
+        success: true, 
+        message: 'Access key deleted successfully' 
+      });
+    } else {
+      res.status(404).json({ 
+        error: 'Access key not found' 
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error deleting access key:', error);
+    res.status(500).json({ error: 'Failed to delete access key' });
   }
 });
 

@@ -208,6 +208,12 @@
                     </div>
                     
                     <div class="form-group">
+                        <label for="customKeyCode">Custom Key Code (Optional)</label>
+                        <input type="text" id="customKeyCode" placeholder="e.g., BETA2024, LAUNCH50, INFLUENCER" maxlength="30">
+                        <small style="color: #666; font-size: 0.8rem;">Leave empty for auto-generated code. Use letters, numbers, and dashes only.</small>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="postsLimit">Posts Limit</label>
                         <select id="postsLimit">
                             <option value="5">5 posts</option>
@@ -284,8 +290,11 @@
                 const form = e.target;
                 const formData = new FormData(form);
                 
+                const customKeyCode = document.getElementById('customKeyCode').value.trim();
+                
                 const keyData = {
                     name: document.getElementById('keyName').value,
+                    key_code: customKeyCode || undefined, // Only include if provided
                     postsLimit: parseInt(document.getElementById('postsLimit').value),
                     validUntil: document.getElementById('validUntil').value || null
                 };
@@ -351,6 +360,10 @@
                                 <div style="text-align: right;">
                                     <div style="font-size: 0.9rem; opacity: 0.8;">Status: ${status}</div>
                                     <div style="font-size: 0.8rem; opacity: 0.6;">Created: ${new Date(key.created_at).toLocaleDateString()}</div>
+                                    <button class="btn-delete" onclick="adminDashboard.deleteKey('${key.id}', '${key.key_code}')" 
+                                            style="margin-top: 8px; background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
+                                        🗑️ Delete
+                                    </button>
                                 </div>
                             </div>
                             
@@ -403,6 +416,34 @@
                 }, 5000);
             }
 
+            async deleteKey(keyId, keyCode) {
+                if (!confirm(`Are you sure you want to delete the access key "${keyCode}"?\n\nThis action cannot be undone and will immediately revoke access for all users using this key.`)) {
+                    return;
+                }
+
+                try {
+                    this.showLoading(true);
+                    
+                    const response = await fetch(`/api/admin/access-key/${keyId}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        this.showMessage(`Access key "${keyCode}" deleted successfully!`, 'success');
+                        await this.loadAccessKeys();
+                    } else {
+                        throw new Error(result.error || 'Failed to delete access key');
+                    }
+                } catch (error) {
+                    this.showMessage('Error: ' + error.message, 'error');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
             showLoading(isLoading) {
                 const form = document.getElementById('createKeyForm');
                 if (isLoading) {
@@ -414,8 +455,9 @@
         }
 
         // Initialize dashboard when page loads
+        let adminDashboard;
         document.addEventListener('DOMContentLoaded', () => {
-            new AdminDashboard();
+            adminDashboard = new AdminDashboard();
         });
 
         // Console welcome message

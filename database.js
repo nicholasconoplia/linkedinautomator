@@ -841,6 +841,50 @@ const AccessKeysDB = {
     } finally {
       client.release();
     }
+  },
+
+  // Get access key by code
+  getKeyByCode: async (keyCode) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT * FROM access_keys 
+        WHERE key_code = $1
+      `, [keyCode]);
+      return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Delete access key
+  deleteAccessKey: async (keyId) => {
+    const client = await pool.connect();
+    try {
+      // Start transaction
+      await client.query('BEGIN');
+
+      // Delete related user_access_keys records first (foreign key constraint)
+      await client.query(`
+        DELETE FROM user_access_keys 
+        WHERE access_key_id = $1
+      `, [keyId]);
+
+      // Delete the access key
+      const result = await client.query(`
+        DELETE FROM access_keys 
+        WHERE id = $1
+      `, [keyId]);
+
+      await client.query('COMMIT');
+      
+      return result.rowCount > 0; // Returns true if a row was deleted
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 };
 
