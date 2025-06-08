@@ -2381,5 +2381,178 @@ app.post('/api/admin/migrate-status-constraint', async (req, res) => {
 
 // Migration page route
 app.get('/migrate', (req, res) => {
-  res.sendFile(path.join(__dirname, 'migrate.html'));
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostPilot - Database Migration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .migration-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            display: none;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PostPilot Database Migration</h1>
+        
+        <div class="migration-box">
+            <h3>Fix Subscription Status Constraint</h3>
+            <p>This migration will fix the database constraint that's preventing subscription creation with "incomplete" status.</p>
+            
+            <p><strong>What it does:</strong></p>
+            <ul>
+                <li>Drops the existing status constraint on user_subscriptions table</li>
+                <li>Recreates it with support for "incomplete" status</li>
+                <li>Verifies the new constraint is working</li>
+            </ul>
+            
+            <button id="runMigration" class="button">Run Migration</button>
+            
+            <div id="result" class="result">
+                <h4>Migration Result:</h4>
+                <div id="resultContent"></div>
+            </div>
+            
+            <div id="log" class="log" style="display: none;">
+                <h4>Migration Log:</h4>
+                <div id="logContent"></div>
+            </div>
+        </div>
+        
+        <div class="migration-box">
+            <h3>Migration Status</h3>
+            <p>Current subscription creation issue: <strong>Database constraint violation for "incomplete" status</strong></p>
+            <p>After migration: <strong>Subscription creation should work normally</strong></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('runMigration').addEventListener('click', async function() {
+            const button = this;
+            const result = document.getElementById('result');
+            const log = document.getElementById('log');
+            const resultContent = document.getElementById('resultContent');
+            const logContent = document.getElementById('logContent');
+            
+            button.disabled = true;
+            button.textContent = 'Running Migration...';
+            result.style.display = 'none';
+            log.style.display = 'block';
+            logContent.textContent = 'Starting migration...\\n';
+            
+            try {
+                const response = await fetch('/api/admin/migrate-status-constraint', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    result.className = 'result';
+                    resultContent.innerHTML = \`
+                        <p><strong>✅ Migration completed successfully!</strong></p>
+                        <p>\${data.message}</p>
+                        <ul>
+                            \${data.steps.map(step => \`<li>\${step}</li>\`).join('')}
+                        </ul>
+                    \`;
+                    logContent.textContent += 'Migration completed successfully!\\n';
+                    logContent.textContent += 'You can now try creating subscriptions again.\\n';
+                } else {
+                    result.className = 'result error';
+                    resultContent.innerHTML = \`
+                        <p><strong>❌ Migration failed</strong></p>
+                        <p>Error: \${data.error}</p>
+                        <p>Details: \${data.details}</p>
+                    \`;
+                    logContent.textContent += \`Migration failed: \${data.error}\\n\`;
+                    logContent.textContent += \`Details: \${data.details}\\n\`;
+                }
+                
+                result.style.display = 'block';
+                
+            } catch (error) {
+                result.className = 'result error';
+                result.style.display = 'block';
+                resultContent.innerHTML = \`
+                    <p><strong>❌ Migration failed</strong></p>
+                    <p>Network or server error: \${error.message}</p>
+                \`;
+                logContent.textContent += \`Network error: \${error.message}\\n\`;
+            }
+            
+            button.disabled = false;
+            button.textContent = 'Run Migration';
+        });
+    </script>
+</body>
+</html>`;
+  
+  res.send(html);
 });

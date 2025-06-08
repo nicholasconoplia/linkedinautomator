@@ -30,6 +30,7 @@
     { "source": "/preferences", "destination": "server.js" },
     { "source": "/scheduled-posts", "destination": "server.js" },
     { "source": "/post-to-linkedin", "destination": "server.js" },
+    { "source": "/migrate", "destination": "server.js" },
     { "source": "/(.*)", "destination": "server.js" }
   ],
   "redirects": [
