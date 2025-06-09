@@ -7,18 +7,7 @@
     <title>PostPilot - AI-Driven LinkedIn Content Platform</title>
     
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
-    <link
-      rel="stylesheet"
-      as="style"
-      onload="this.rel='stylesheet'"
-      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
-    />
-    
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    
-    <meta name="description" content="PostPilot - Transform your LinkedIn presence with AI-powered content creation. Generate engaging posts with real-time news insights and automated scheduling.">
-    <meta name="keywords" content="LinkedIn, AI content, social media automation, post generator, professional networking">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
     
     <style>
         /* Subscription Modal Styles */
@@ -28,10 +17,12 @@
             left: 0;
             width: 100%;
             height: 100%;
+            background: rgba(0, 0, 0, 0.5);
             z-index: 1000;
             display: flex;
             align-items: center;
             justify-content: center;
+            backdrop-filter: blur(4px);
         }
 
         .modal-backdrop {
@@ -40,63 +31,60 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
         }
 
         .modal-content {
-            position: relative;
             background: white;
             border-radius: 16px;
-            max-width: 90vw;
+            max-width: 900px;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            width: 100%;
-            max-width: 1000px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+            position: relative;
+            margin: 20px;
         }
 
         .modal-header {
+            padding: 24px 32px 16px;
+            border-bottom: 1px solid #e5e7eb;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 24px;
-            border-bottom: 1px solid #e5e7eb;
         }
 
         .modal-header h2 {
+            margin: 0;
             font-size: 24px;
             font-weight: bold;
-            color: #0d151c;
-            margin: 0;
+            color: #111827;
         }
 
         .modal-close {
             background: none;
             border: none;
             font-size: 24px;
-            color: #6b7280;
             cursor: pointer;
-            padding: 8px;
-            border-radius: 8px;
-            transition: all 0.2s ease;
+            color: #6b7280;
+            padding: 4px;
+            border-radius: 4px;
+            line-height: 1;
         }
 
         .modal-close:hover {
+            color: #111827;
             background: #f3f4f6;
-            color: #374151;
         }
 
         .modal-body {
-            padding: 24px;
+            padding: 24px 32px;
         }
 
         .usage-info {
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            border: 1px solid #f59e0b;
+            background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 24px;
+            border: 1px solid #f59e0b;
         }
 
         .usage-card {
@@ -106,142 +94,125 @@
         }
 
         .usage-icon {
-            font-size: 32px;
-            flex-shrink: 0;
+            font-size: 24px;
         }
 
         .usage-text h3 {
+            margin: 0 0 4px 0;
             font-size: 18px;
             font-weight: bold;
-            color: #0d151c;
-            margin: 0 0 8px 0;
+            color: #92400e;
         }
 
         .usage-text p {
-            color: #6b7280;
             margin: 0;
+            color: #92400e;
+            font-size: 14px;
         }
 
         .plans-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
         }
 
         .plan-card-modal {
-            background: white;
             border: 2px solid #e5e7eb;
             border-radius: 12px;
-            padding: 24px;
+            padding: 20px;
             text-align: center;
+            cursor: pointer;
             transition: all 0.2s ease;
-            position: relative;
+            background: white;
+        }
+
+        .plan-card-modal:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
         }
 
         .plan-card-modal.popular {
-            border-color: #0b80ee;
-            transform: scale(1.05);
+            border-color: #3b82f6;
+            position: relative;
         }
 
         .plan-card-modal.popular::before {
-            content: "Most Popular";
+            content: "MOST POPULAR";
             position: absolute;
-            top: -12px;
+            top: -8px;
             left: 50%;
             transform: translateX(-50%);
-            background: #0b80ee;
+            background: #3b82f6;
             color: white;
-            padding: 6px 16px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 10px;
             font-weight: bold;
         }
 
         .plan-name-modal {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
-            color: #0d151c;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
+            color: #111827;
         }
 
         .plan-price-modal {
-            font-size: 32px;
+            font-size: 24px;
             font-weight: bold;
-            color: #0b80ee;
-            margin-bottom: 8px;
+            color: #3b82f6;
+            margin-bottom: 4px;
         }
 
         .plan-price-modal .crossed {
             text-decoration: line-through;
             color: #6b7280;
-            font-size: 18px;
+            font-size: 14px;
             margin-right: 8px;
         }
 
         .plan-posts-modal {
             color: #6b7280;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
+            font-size: 14px;
         }
 
         .plan-features-modal {
             list-style: none;
             padding: 0;
-            margin: 0 0 24px 0;
+            margin: 0;
+            font-size: 12px;
+            color: #6b7280;
         }
 
         .plan-features-modal li {
-            padding: 8px 0;
-            color: #374151;
-            border-bottom: 1px solid #f3f4f6;
-        }
-
-        .plan-features-modal li:last-child {
-            border-bottom: none;
-        }
-
-        .plan-button-modal {
-            width: 100%;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .plan-button-modal.primary {
-            background: #0b80ee;
-            color: white;
-        }
-
-        .plan-button-modal.secondary {
-            background: #f3f4f6;
-            color: #374151;
-        }
-
-        .plan-button-modal:hover {
-            transform: translateY(-2px);
+            padding: 2px 0;
         }
 
         .access-key-section {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 24px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 24px;
+            margin-top: 24px;
+        }
+
+        .access-key-header {
             text-align: center;
+            margin-bottom: 20px;
         }
 
         .access-key-header h3 {
+            margin: 0 0 8px 0;
             font-size: 18px;
             font-weight: bold;
-            color: #0d151c;
-            margin: 0 0 8px 0;
+            color: #111827;
         }
 
         .access-key-header p {
+            margin: 0;
             color: #6b7280;
-            margin: 0 0 20px 0;
+            font-size: 14px;
         }
 
         .access-key-form {
@@ -321,27 +292,27 @@
                     <div class="size-4">
                         <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M4 42.4379C4 42.4379 14.0962 36.0744 24 41.1692C35.0664 46.8624 44 42.2078 44 42.2078L44 7.01134C44 7.01134 35.068 11.6577 24.0031 5.96913C14.0971 0.876274 4 7.27094 4 7.27094L4 42.4379Z" fill="currentColor"></path>
-                    </svg>
+                        </svg>
                     </div>
                     <h2 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em]">PostPilot</h2>
                 </div>
                 
                 <div class="flex flex-1 justify-end gap-8">
                     <div class="flex items-center gap-9">
-                        <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal">Dashboard</a>
+                        <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">Dashboard</a>
                         <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal">Content Generator</a>
                         <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
                     </div>
                     
                     <!-- Authentication buttons -->
                     <div id="authSection">
-                <div id="loginSection">
+                        <div id="loginSection">
                             <a href="/auth/linkedin" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em]">
                                 <span class="truncate">Connect LinkedIn</span>
-                    </a>
-                </div>
+                            </a>
+                        </div>
                         
-                <div id="userSection" style="display: none;">
+                        <div id="userSection" style="display: none;">
                             <div class="flex items-center gap-3">
                                 <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full border border-[#e7edf4]" style="display: none;">
                                 <span class="text-[#0d151c] text-sm font-medium" id="userName">User</span>
@@ -380,11 +351,11 @@
                                     <div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#cedce8] py-5">
                                         <p class="text-[#49749c] text-sm font-normal leading-normal">Status</p>
                                         <p class="text-[#0d151c] text-sm font-normal leading-normal" id="subscriptionStatus">Active</p>
-                                </div>
+                                    </div>
                                     <div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#cedce8] py-5">
                                         <p class="text-[#49749c] text-sm font-normal leading-normal">Posts Remaining</p>
                                         <p class="text-[#0d151c] text-sm font-normal leading-normal" id="postsRemaining">25/30</p>
-                                </div>
+                                    </div>
                                 </div>
                                 <div class="flex px-4 py-3 justify-start">
                                     <button id="manageBillingBtn" style="display: none;" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em]">
@@ -393,8 +364,6 @@
                                 </div>
                             </div>
                         </div>
-
-
 
                         <!-- Recent Activity -->
                         <h2 class="text-[#0d151c] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Recent Activity</h2>
