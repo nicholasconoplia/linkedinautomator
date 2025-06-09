@@ -4973,7 +4973,7 @@ async function performWebResearch(topic, searchDepth = 5, requiredKeywords = '')
 // Free News Search Function using direct RSS feeds (bypasses Google News redirect issues)
 async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = '') {
   try {
-    console.log(`📰 🚀 USING COMPREHENSIVE RSS SYSTEM with 50+ premium sources for: "${topic}"`);
+    console.log(`📰 🚀 COMPREHENSIVE RSS v2.0 - USING 50+ PREMIUM SOURCES for: "${topic}"`);
     console.log(`🔑 Required keywords filter: "${requiredKeywords}"`);
     
     // Parse required keywords
@@ -5413,6 +5413,9 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
     console.log(`🎲 Final selected RSS feeds for this search (${finalSelectedFeeds.length}):`, finalSelectedFeeds.map(f => f.name));
     
     let allNewsResults = [];
+    
+    console.log(`🚀 STARTING RSS FEED PROCESSING WITH ${finalSelectedFeeds.length} SELECTED FEEDS:`);
+    finalSelectedFeeds.forEach((feed, i) => console.log(`  ${i+1}. ${feed.name} (${feed.isUniversal ? 'UNIVERSAL' : 'CATEGORY-SPECIFIC'})`));
     
     for (const feed of finalSelectedFeeds) {
       try {
