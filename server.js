@@ -4812,118 +4812,86 @@ async function performWebResearch(topic, searchDepth = 5) {
   }
 }
 
-// Free Google News Search Function (Vercel-compatible)
+// Free Google News Search Function using RSS (Reliable & Fast)
 async function searchGoogleNewsFree(topic, maxResults = 5) {
   try {
-    console.log(`📰 Searching Google News for: "${topic}"`);
+    console.log(`📰 Searching Google News RSS for: "${topic}"`);
     
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(topic)}&tbm=nws&hl=en&gl=us&num=${Math.min(maxResults, 10)}`;
-    console.log(`🔍 Search URL: ${searchUrl}`);
+    // Use Australian Google News RSS for better ASX coverage
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=en&gl=AU&ceid=AU:en`;
+    console.log(`📡 RSS URL: ${rssUrl}`);
     
-    // Use axios with proper headers for Google scraping
-    const response = await axios.get(searchUrl, {
+    const response = await axios.get(rssUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1'
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
+        'Accept': 'application/rss+xml, application/xml, text/xml, text/html'
       },
       timeout: 15000
     });
-
-    const cheerio = require('cheerio');
-    const $ = cheerio.load(response.data);
     
-    const newsResults = [];
+    const xml2js = require('xml2js');
+    const parsed = await xml2js.parseStringPromise(response.data, { 
+      trim: true, 
+      explicitArray: false 
+    });
     
-    // Parse Google News results - Multiple selectors for robustness
-    const selectors = [
-      'div[data-ved]',
-      '.g',
-      '.tF2Cxc',
-      '.MjjYud',
-      'div[jscontroller]'
-    ];
+    const items = parsed.rss?.channel?.item || [];
+    const articles = Array.isArray(items) ? items : [items];
     
-    for (const selector of selectors) {
-      $(selector).each((i, element) => {
-        const $element = $(element);
-        
-        // Extract title and link
-        const titleElement = $element.find('h3, .LC20lb, .DKV0Md').first();
-        const linkElement = $element.find('a[href*="/url?"], a[href^="http"]').first();
-        
-        if (titleElement.length && linkElement.length) {
-          const title = titleElement.text().trim();
-          const href = linkElement.attr('href');
-          
-          // Extract real URL from Google's redirect
-          let realUrl = null;
-          if (href) {
-            if (href.startsWith('http')) {
-              realUrl = href;
-            } else if (href.includes('/url?')) {
-              const urlMatch = href.match(/\/url\?.*?[&?]url=([^&]+)/);
-              const qMatch = href.match(/\/url\?.*?[&?]q=([^&]+)/);
-              if (urlMatch) {
-                realUrl = decodeURIComponent(urlMatch[1]);
-              } else if (qMatch) {
-                realUrl = decodeURIComponent(qMatch[1]);
-              }
-            }
+    const newsResults = articles.slice(0, maxResults).map(item => {
+      // Extract clean URL (Google News sometimes wraps URLs)
+      let cleanUrl = item.link;
+      if (cleanUrl && cleanUrl.includes('news.google.com/articles/')) {
+        // Try to extract original URL from Google News redirect
+        try {
+          const urlParams = new URLSearchParams(cleanUrl.split('?')[1]);
+          const originalUrl = urlParams.get('url');
+          if (originalUrl) {
+            cleanUrl = decodeURIComponent(originalUrl);
           }
-          
-          // Extract snippet/description
-          const snippetElement = $element.find('.VwiC3b, .s3v9rd, .st, span').filter((i, el) => {
-            const text = $(el).text();
-            return text.length > 30 && text.length < 300 && !text.includes('·') && !text.includes('ago');
-          }).first();
-          
-          // Extract source and date
-          const sourceElement = $element.find('.NUnG9d, .iUh30, cite, span').filter((i, el) => {
-            const text = $(el).text();
-            return (text.includes('·') || text.includes('ago') || text.match(/\d+\s+(hour|day|week|month)s?\s+ago/i)) && text.length < 100;
-          }).first();
-          
-          if (title && realUrl && realUrl.startsWith('http') && !newsResults.find(r => r.link === realUrl)) {
-            newsResults.push({
-              title: title,
-              link: realUrl,
-              snippet: snippetElement.text().trim() || title.substring(0, 150) + '...',
-              source: sourceElement.text().split('·')[0]?.trim() || extractDomainFromUrl(realUrl),
-              date: new Date().toISOString(),
-              thumbnail: null
-            });
-          }
+        } catch (e) {
+          // Keep original URL if extraction fails
         }
-      });
+      }
       
-      // If we found enough results, break
-      if (newsResults.length >= maxResults) break;
-    }
+      // Extract source from item.source or fallback to domain
+      const source = item.source?._ || item.source || extractDomainFromUrl(cleanUrl);
+      
+      // Clean up title (remove source prefix if present)
+      let cleanTitle = item.title;
+      if (typeof cleanTitle === 'string' && source) {
+        const sourcePrefix = source.split('.')[0];
+        if (cleanTitle.startsWith(`${sourcePrefix} - `)) {
+          cleanTitle = cleanTitle.replace(`${sourcePrefix} - `, '');
+        }
+      }
+      
+      return {
+        title: cleanTitle,
+        link: cleanUrl,
+        snippet: item.description || cleanTitle.substring(0, 150) + '...',
+        source: source,
+        date: item.pubDate || new Date().toISOString(),
+        thumbnail: null
+      };
+    }).filter(article => article.title && article.link);
     
-    console.log(`📊 Free scraper found ${newsResults.length} news articles`);
-    return newsResults.slice(0, maxResults);
+    console.log(`📊 RSS found ${newsResults.length} news articles`);
+    newsResults.forEach((article, i) => {
+      console.log(`📄 ${i+1}. ${article.title} (${article.source})`);
+    });
+    
+    return newsResults;
     
   } catch (error) {
-    console.error('❌ Free Google News search failed:', error.message);
+    console.error('❌ Google News RSS search failed:', error.message);
     
-    // Fallback to RSS approach
+    // Fallback to US RSS if Australian RSS fails
     try {
-      console.log('🔄 Trying RSS fallback...');
+      console.log('🔄 Trying US RSS fallback...');
       return await searchGoogleNewsRSS(topic, maxResults);
     } catch (rssError) {
-      console.error('❌ RSS fallback also failed:', rssError.message);
+      console.error('❌ US RSS fallback also failed:', rssError.message);
       return [];
     }
   }
@@ -4939,10 +4907,10 @@ function extractDomainFromUrl(url) {
   }
 }
 
-// RSS Fallback for Google News
+// US RSS Fallback for Google News
 async function searchGoogleNewsRSS(topic, maxResults = 5) {
   try {
-    console.log(`📡 Searching Google News RSS for: "${topic}"`);
+    console.log(`📡 Searching US Google News RSS for: "${topic}"`);
     
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=en&gl=us&ceid=US:en`;
     
@@ -4954,38 +4922,58 @@ async function searchGoogleNewsRSS(topic, maxResults = 5) {
       timeout: 10000
     });
     
-    const cheerio = require('cheerio');
-    const $ = cheerio.load(response.data, { xmlMode: true });
-    
-    const newsResults = [];
-    
-    $('item').each((i, element) => {
-      if (i >= maxResults) return false;
-      
-      const $item = $(element);
-      const title = $item.find('title').text().trim();
-      const link = $item.find('link').text().trim();
-      const description = $item.find('description').text().trim();
-      const pubDate = $item.find('pubDate').text().trim();
-      const source = $item.find('source').text().trim() || extractDomainFromUrl(link);
-      
-      if (title && link) {
-        newsResults.push({
-          title: title,
-          link: link,
-          snippet: description || title.substring(0, 150) + '...',
-          source: source,
-          date: pubDate || new Date().toISOString(),
-          thumbnail: null
-        });
-      }
+    const xml2js = require('xml2js');
+    const parsed = await xml2js.parseStringPromise(response.data, { 
+      trim: true, 
+      explicitArray: false 
     });
     
-    console.log(`📡 RSS found ${newsResults.length} news articles`);
+    const items = parsed.rss?.channel?.item || [];
+    const articles = Array.isArray(items) ? items : [items];
+    
+    const newsResults = articles.slice(0, maxResults).map(item => {
+      // Extract clean URL (Google News sometimes wraps URLs)
+      let cleanUrl = item.link;
+      if (cleanUrl && cleanUrl.includes('news.google.com/articles/')) {
+        // Try to extract original URL from Google News redirect
+        try {
+          const urlParams = new URLSearchParams(cleanUrl.split('?')[1]);
+          const originalUrl = urlParams.get('url');
+          if (originalUrl) {
+            cleanUrl = decodeURIComponent(originalUrl);
+          }
+        } catch (e) {
+          // Keep original URL if extraction fails
+        }
+      }
+      
+      // Extract source from item.source or fallback to domain
+      const source = item.source?._ || item.source || extractDomainFromUrl(cleanUrl);
+      
+      // Clean up title (remove source prefix if present)
+      let cleanTitle = item.title;
+      if (typeof cleanTitle === 'string' && source) {
+        const sourcePrefix = source.split('.')[0];
+        if (cleanTitle.startsWith(`${sourcePrefix} - `)) {
+          cleanTitle = cleanTitle.replace(`${sourcePrefix} - `, '');
+        }
+      }
+      
+      return {
+        title: cleanTitle,
+        link: cleanUrl,
+        snippet: item.description || cleanTitle.substring(0, 150) + '...',
+        source: source,
+        date: item.pubDate || new Date().toISOString(),
+        thumbnail: null
+      };
+    }).filter(article => article.title && article.link);
+    
+    console.log(`📡 US RSS found ${newsResults.length} news articles`);
     return newsResults;
     
   } catch (error) {
-    console.error('❌ RSS search failed:', error.message);
+    console.error('❌ US RSS search failed:', error.message);
     return [];
   }
 }
