@@ -5104,16 +5104,16 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
         isUniversal: false
       },
 
-      // 🌍 WORLD NEWS / INTERNATIONAL (UNIVERSAL)
+      // 🌍 WORLD NEWS / INTERNATIONAL (UNIVERSAL) - Vercel-Optimized
       { 
         name: 'Reuters World News', 
-        url: 'http://feeds.reuters.com/Reuters/worldNews',
+        url: 'https://feeds.reuters.com/Reuters/worldNews',
         categories: ['news', 'world', 'global', 'international', 'breaking'],
         isUniversal: true
       },
       { 
         name: 'BBC World News', 
-        url: 'http://feeds.bbci.co.uk/news/world/rss.xml',
+        url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
         categories: ['news', 'world', 'global', 'international', 'breaking'],
         isUniversal: true
       },
@@ -5414,20 +5414,116 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
     
     let allNewsResults = [];
     
-    console.log(`🚀 STARTING RSS FEED PROCESSING WITH ${finalSelectedFeeds.length} SELECTED FEEDS:`);
+    console.log(`🚀 [VERCEL] STARTING RSS FEED PROCESSING WITH ${finalSelectedFeeds.length} SELECTED FEEDS:`);
     finalSelectedFeeds.forEach((feed, i) => console.log(`  ${i+1}. ${feed.name} (${feed.isUniversal ? 'UNIVERSAL' : 'CATEGORY-SPECIFIC'})`));
     
-    for (const feed of finalSelectedFeeds) {
+    // Vercel-specific: Process feeds in parallel with shorter timeouts
+    const isVercel = process.env.VERCEL === '1';
+    console.log(`🔧 [VERCEL] Environment: ${isVercel ? 'Vercel Serverless' : 'Local/Other'}`);
+    
+    if (isVercel) {
+      console.log(`⚡ [VERCEL] Using optimized parallel processing for serverless environment`);
+      
+      // Process feeds in parallel for faster Vercel execution
+      const feedPromises = finalSelectedFeeds.map(async (feed) => {
+        try {
+          console.log(`📡 [VERCEL-PARALLEL] Trying ${feed.name}: ${feed.url}`);
+          
+          const response = await axios.get(feed.url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+              'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Cache-Control': 'no-cache'
+            },
+            timeout: 6000, // Shorter timeout for parallel requests
+            maxRedirects: 3
+          });
+          
+          const xml2js = require('xml2js');
+          const parsed = await xml2js.parseStringPromise(response.data, { 
+            trim: true, 
+            explicitArray: false 
+          });
+          
+          const items = parsed.rss?.channel?.item || [];
+          const articles = Array.isArray(items) ? items : [items];
+          
+          // Process articles for this feed
+          const relevantArticles = articles.filter(item => {
+            const title = (item.title || '').toLowerCase();
+            const description = (item.description || '').toLowerCase();
+            const content = title + ' ' + description;
+            
+            // User keywords check
+            if (keywordsList.length > 0) {
+              const hasUserKeyword = keywordsList.some(keyword => content.includes(keyword));
+              if (!hasUserKeyword) return false;
+            }
+            
+            // Basic relevance check
+            const topicMatches = searchTerms.some(term => term.length > 2 && content.includes(term));
+            const categoryMatches = feed.categories ? feed.categories.some(category => content.includes(category)) : false;
+            const isUniversalFeed = feed.isUniversal;
+            
+            const relevanceScore = isUniversalFeed ? 
+              (topicMatches ? 1.0 : 0.4) : 
+              (topicMatches || categoryMatches ? 1.0 : 0.1);
+              
+            return Math.random() < relevanceScore || topicMatches;
+          }).slice(0, 3);
+          
+          const feedResults = relevantArticles.map(item => ({
+            title: item.title,
+            link: item.link,
+            snippet: item.description || item.title?.substring(0, 150) + '...',
+            source: feed.name,
+            date: item.pubDate || new Date().toISOString(),
+            thumbnail: null
+          }));
+          
+          console.log(`✅ [VERCEL-PARALLEL] ${feed.name} found ${feedResults.length} articles`);
+          return feedResults;
+          
+        } catch (error) {
+          console.log(`❌ [VERCEL-PARALLEL] ${feed.name} failed: ${error.message}`);
+          return [];
+        }
+      });
+      
+      // Wait for all feeds to complete (or timeout)
+      const feedResults = await Promise.allSettled(feedPromises);
+      
+      // Combine all successful results
+      feedResults.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.length > 0) {
+          allNewsResults = allNewsResults.concat(result.value);
+          console.log(`✅ [VERCEL-PARALLEL] ${finalSelectedFeeds[index].name}: ${result.value.length} articles added`);
+        }
+      });
+      
+    } else {
+      // Original sequential processing for local development
+      for (const feed of finalSelectedFeeds) {
       try {
-        console.log(`📡 Trying ${feed.name}: ${feed.url}`);
+        console.log(`📡 [VERCEL] Trying ${feed.name}: ${feed.url}`);
+        console.log(`⏰ [VERCEL] Request start time: ${new Date().toISOString()}`);
         
         const response = await axios.get(feed.url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
-            'Accept': 'application/rss+xml, application/xml, text/xml'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
           },
-          timeout: 10000
+          timeout: 8000, // Reduced for Vercel
+          maxRedirects: 5,
+          validateStatus: (status) => status < 500 // Accept 4xx but not 5xx
         });
+        
+        console.log(`✅ [VERCEL] ${feed.name} responded with status: ${response.status}`);
         
         const xml2js = require('xml2js');
         const parsed = await xml2js.parseStringPromise(response.data, { 
@@ -5495,11 +5591,15 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
           console.log(`📄 - ${article.title}`);
         });
         
-      } catch (feedError) {
-        console.log(`⚠️ ${feed.name} RSS failed: ${feedError.message}`);
-        continue;
+              } catch (feedError) {
+          console.log(`❌ [VERCEL] ${feed.name} RSS failed: ${feedError.message}`);
+          console.log(`❌ [VERCEL] Error code: ${feedError.code || 'Unknown'}`);
+          console.log(`❌ [VERCEL] Status: ${feedError.response?.status || 'No response'}`);
+          console.log(`❌ [VERCEL] URL: ${feed.url}`);
+          continue;
+        }
       }
-    }
+    } // End of Vercel vs local processing
     
     // Only use Google News if we have ZERO articles from premium sources
     if (allNewsResults.length === 0) {
