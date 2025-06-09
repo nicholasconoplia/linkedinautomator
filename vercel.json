@@ -38,9 +38,11 @@
     { "source": "/generator", "destination": "server.js" },
     { "source": "/automation", "destination": "server.js" },
     { "source": "/subscribe", "destination": "server.js" },
+    { "source": "/pricing", "destination": "server.js" },
     { "source": "/admin", "destination": "server.js" },
     { "source": "/dashboard", "destination": "server.js" },
     { "source": "/subscription/(.*)", "destination": "server.js" },
+    { "source": "/manage-subscription", "destination": "server.js" },
     { "source": "/", "destination": "server.js" }
   ],
   "redirects": [],

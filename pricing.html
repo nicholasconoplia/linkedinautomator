@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; img-src 'self' data: https: http:; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com; font-src 'self' https://fonts.gstatic.com;">
+    <title>Pricing - PostPilot</title>
+    
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
+    
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+    
+    <style>
+        .pricing-card {
+            transition: all 0.3s ease;
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+            border: 2px solid #e2e8f0;
+        }
+        
+        .pricing-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border-color: #0b80ee;
+        }
+        
+        .pricing-card.popular {
+            border-color: #0b80ee;
+            background: linear-gradient(145deg, #ffffff 0%, #eff6ff 100%);
+            position: relative;
+        }
+        
+        .pricing-card.popular::before {
+            content: 'Most Popular';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #0b80ee, #1e40af);
+            color: white;
+            padding: 6px 24px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .price-amount {
+            background: linear-gradient(135deg, #0b80ee, #1e40af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .feature-checkmark {
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .upgrade-btn {
+            background: linear-gradient(135deg, #0b80ee, #1e40af);
+            transition: all 0.3s ease;
+        }
+        
+        .upgrade-btn:hover {
+            background: linear-gradient(135deg, #1e40af, #0b80ee);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(11, 128, 238, 0.3);
+        }
+        
+        .upgrade-btn.popular {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .upgrade-btn.popular:hover {
+            background: linear-gradient(135deg, #059669, #10b981);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0b80ee;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hero-gradient {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="relative flex size-full min-h-screen flex-col bg-slate-50 group/design-root overflow-x-hidden">
+        
+        <div class="layout-container flex h-full grow flex-col">
+            <!-- Header -->
+            <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e7edf4] px-10 py-3">
+                <div class="flex items-center gap-4 text-[#0d151c]">
+                    <div class="size-4">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 42.4379C4 42.4379 14.0962 36.0744 24 41.1692C35.0664 46.8624 44 42.2078 44 42.2078L44 7.01134C44 7.01134 35.068 11.6577 24.0031 5.96913C14.0971 0.876274 4 7.27094 4 7.27094L4 42.4379Z" fill="currentColor"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em]">PostPilot</h2>
+                </div>
+                
+                <div class="flex flex-1 justify-end gap-8">
+                    <div class="flex items-center gap-9">
+                        <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal">Dashboard</a>
+                        <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal">Content Generator</a>
+                        <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
+                        <a href="/pricing" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">Pricing</a>
+                    </div>
+                    
+                    <!-- Authentication buttons -->
+                    <div id="authSection">
+                        <div id="loginSection">
+                            <a href="/auth/linkedin" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em]">
+                                <span class="truncate">Connect LinkedIn</span>
+                            </a>
+                        </div>
+                        
+                        <div id="userSection" style="display: none;">
+                            <div class="flex items-center gap-3">
+                                <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full border border-[#e7edf4]" style="display: none;">
+                                <span class="text-[#0d151c] text-sm font-medium" id="userName">User</span>
+                                <button data-action="logout" class="text-[#49749c] text-sm font-medium hover:text-[#0d151c]">Sign Out</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Hero Section -->
+            <div class="hero-gradient text-white py-16">
+                <div class="max-w-6xl mx-auto text-center px-6">
+                    <h1 class="text-5xl font-bold mb-6">Simple, Transparent Pricing</h1>
+                    <p class="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
+                        Choose the perfect plan for your LinkedIn content needs. All plans include AI-powered post generation, trending news integration, and professional templates.
+                    </p>
+                    <div class="inline-flex items-center gap-2 bg-blue-600/20 border border-blue-400/30 rounded-full px-6 py-3">
+                        <span class="text-2xl">🚀</span>
+                        <span class="font-semibold">Launch Special - Limited Time Pricing</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pricing Cards -->
+            <div class="max-w-7xl mx-auto px-6 py-16">
+                <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                    
+                    <!-- Starter Plan -->
+                    <div class="pricing-card rounded-2xl p-8 text-center">
+                        <div class="mb-6">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">Starter</h3>
+                            <p class="text-gray-600">Perfect for getting started</p>
+                        </div>
+                        
+                        <div class="mb-8">
+                            <div class="price-amount text-5xl font-bold mb-2">$0.49</div>
+                            <div class="text-gray-500">per month</div>
+                        </div>
+                        
+                        <div class="mb-8">
+                            <div class="text-3xl font-bold text-blue-600 mb-2">30 Posts</div>
+                            <div class="text-gray-500">AI-generated content per month</div>
+                        </div>
+                        
+                        <ul class="text-left mb-8 space-y-3">
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>AI-powered content generation</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Real-time news integration</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Professional templates</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>LinkedIn direct posting</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Email support</span>
+                            </li>
+                        </ul>
+                        
+                        <a href="https://buy.stripe.com/28E4gA6LC7L50J53Q2abK00" 
+                           class="upgrade-btn w-full py-4 text-white font-bold rounded-xl block text-center">
+                            Get Started
+                        </a>
+                    </div>
+                    
+                    <!-- Professional Plan -->
+                    <div class="pricing-card popular rounded-2xl p-8 text-center">
+                        <div class="mb-6">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">Professional</h3>
+                            <p class="text-gray-600">Best for professionals</p>
+                        </div>
+                        
+                        <div class="mb-8">
+                            <div class="price-amount text-5xl font-bold mb-2">$1.49</div>
+                            <div class="text-gray-500">per month</div>
+                        </div>
+                        
+                        <div class="mb-8">
+                            <div class="text-3xl font-bold text-blue-600 mb-2">100 Posts</div>
+                            <div class="text-gray-500">AI-generated content per month</div>
+                        </div>
+                        
+                        <ul class="text-left mb-8 space-y-3">
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Everything in Starter</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Advanced AI models</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Content scheduling</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Analytics dashboard</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Priority support</span>
+                            </li>
+                        </ul>
+                        
+                        <a href="https://buy.stripe.com/00w7sM6LC1mH8bx0DQabK01" 
+                           class="upgrade-btn popular w-full py-4 text-white font-bold rounded-xl block text-center">
+                            Start Professional
+                        </a>
+                    </div>
+                    
+                    <!-- Business Plan -->
+                    <div class="pricing-card rounded-2xl p-8 text-center">
+                        <div class="mb-6">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">Business</h3>
+                            <p class="text-gray-600">For teams and agencies</p>
+                        </div>
+                        
+                        <div class="mb-8">
+                            <div class="price-amount text-5xl font-bold mb-2">$2.49</div>
+                            <div class="text-gray-500">per month</div>
+                        </div>
+                        
+                        <div class="mb-8">
+                            <div class="text-3xl font-bold text-blue-600 mb-2">300 Posts</div>
+                            <div class="text-gray-500">AI-generated content per month</div>
+                        </div>
+                        
+                        <ul class="text-left mb-8 space-y-3">
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Everything in Professional</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Team collaboration</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Advanced automation</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Custom templates</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <span class="feature-checkmark">✓</span>
+                                <span>Dedicated support</span>
+                            </li>
+                        </ul>
+                        
+                        <a href="https://buy.stripe.com/7sY5kE5Hy2qLgI3euGabK02" 
+                           class="upgrade-btn w-full py-4 text-white font-bold rounded-xl block text-center">
+                            Scale Your Business
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Features Section -->
+                <div class="feature-grid mt-20">
+                    <div class="text-center p-6 bg-white rounded-xl border border-gray-200">
+                        <div class="text-4xl mb-4">🤖</div>
+                        <h3 class="font-bold text-xl mb-2">AI-Powered Generation</h3>
+                        <p class="text-gray-600">Advanced AI creates engaging, professional LinkedIn content tailored to your industry and audience.</p>
+                    </div>
+                    
+                    <div class="text-center p-6 bg-white rounded-xl border border-gray-200">
+                        <div class="text-4xl mb-4">📰</div>
+                        <h3 class="font-bold text-xl mb-2">Real-Time News</h3>
+                        <p class="text-gray-600">Stay relevant with posts based on the latest industry news and trending topics in your field.</p>
+                    </div>
+                    
+                    <div class="text-center p-6 bg-white rounded-xl border border-gray-200">
+                        <div class="text-4xl mb-4">📅</div>
+                        <h3 class="font-bold text-xl mb-2">Smart Scheduling</h3>
+                        <p class="text-gray-600">Automatically post at optimal times for maximum engagement and reach on LinkedIn.</p>
+                    </div>
+                </div>
+                
+                <!-- FAQ Section -->
+                <div class="mt-20 text-center">
+                    <h2 class="text-3xl font-bold mb-8">Frequently Asked Questions</h2>
+                    <div class="max-w-3xl mx-auto text-left space-y-6">
+                        <div class="border border-gray-200 rounded-lg p-6">
+                            <h3 class="font-bold mb-2">Can I change plans anytime?</h3>
+                            <p class="text-gray-600">Yes! You can upgrade or downgrade your plan at any time. Changes take effect at your next billing cycle.</p>
+                        </div>
+                        <div class="border border-gray-200 rounded-lg p-6">
+                            <h3 class="font-bold mb-2">What happens if I exceed my post limit?</h3>
+                            <p class="text-gray-600">You'll be notified when you're close to your limit. You can upgrade your plan or wait for the next billing cycle for your posts to reset.</p>
+                        </div>
+                        <div class="border border-gray-200 rounded-lg p-6">
+                            <h3 class="font-bold mb-2">Is my LinkedIn account safe?</h3>
+                            <p class="text-gray-600">Absolutely. We use LinkedIn's official API and follow all security best practices. Your account credentials are never stored.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check authentication status
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+        });
+        
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (data.authenticated) {
+                    document.getElementById('loginSection').style.display = 'none';
+                    document.getElementById('userSection').style.display = 'block';
+                    document.getElementById('userName').textContent = data.user.name || 'User';
+                    
+                    if (data.user.profile_picture) {
+                        const profilePic = document.getElementById('userProfilePic');
+                        profilePic.src = data.user.profile_picture;
+                        profilePic.style.display = 'block';
+                    }
+                } else {
+                    document.getElementById('loginSection').style.display = 'block';
+                    document.getElementById('userSection').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error checking auth status:', error);
+            }
+        }
+        
+        // Handle logout
+        document.addEventListener('click', function(e) {
+            if (e.target.dataset.action === 'logout') {
+                e.preventDefault();
+                
+                fetch('/api/auth/logout', { method: 'POST' })
+                    .then(() => {
+                        window.location.href = '/';
+                    })
+                    .catch(error => {
+                        console.error('Logout error:', error);
+                        window.location.href = '/';
+                    });
+            }
+        });
+    </script>
+</body>
+</html> 

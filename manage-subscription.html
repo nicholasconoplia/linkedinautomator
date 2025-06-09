@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Subscription - PostPilot</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <a href="/" class="text-2xl font-bold text-blue-600">PostPilot</a>
+                </div>
+                
+                <!-- Navigation Links -->
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="/" class="text-gray-600 hover:text-blue-600">Dashboard</a>
+                    <a href="/generator" class="text-gray-600 hover:text-blue-600">Generator</a>
+                    <a href="/automation" class="text-gray-600 hover:text-blue-600">Automation</a>
+                    <a href="/pricing" class="text-gray-600 hover:text-blue-600">Pricing</a>
+                </div>
+                
+                <!-- User Section -->
+                <div class="flex items-center space-x-4">
+                    <div id="loginSection" style="display: none;">
+                        <a href="/auth/linkedin" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            Connect LinkedIn
+                        </a>
+                    </div>
+                    
+                    <div id="userSection" style="display: none;" class="flex items-center space-x-3">
+                        <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full" style="display: none;">
+                        <span id="userName" class="text-gray-700 font-medium"></span>
+                        <button data-action="logout" class="text-gray-500 hover:text-gray-700 text-sm">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">Manage Subscription</h1>
+            <p class="text-xl text-gray-600">View billing history, update payment methods, or cancel your subscription</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p class="mt-4 text-gray-600">Loading subscription details...</p>
+        </div>
+
+        <!-- No Subscription State -->
+        <div id="noSubscriptionState" style="display: none;" class="text-center py-12">
+            <div class="bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
+                <div class="text-6xl mb-4">📋</div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">No Active Subscription</h2>
+                <p class="text-gray-600 mb-6">You're currently on the free plan. Upgrade to unlock more features!</p>
+                <a href="/pricing" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                    View Plans
+                </a>
+            </div>
+        </div>
+
+        <!-- Subscription Details -->
+        <div id="subscriptionDetails" style="display: none;">
+            <!-- Current Plan Card -->
+            <div class="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Current Plan</h2>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="mb-4">
+                            <label class="text-sm font-medium text-gray-500">Plan Name</label>
+                            <div id="planName" class="text-xl font-bold text-blue-600"></div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="text-sm font-medium text-gray-500">Monthly Posts</label>
+                            <div id="postsLimit" class="text-lg font-semibold text-gray-900"></div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="text-sm font-medium text-gray-500">Status</label>
+                            <div id="subscriptionStatus" class="text-lg font-semibold"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="mb-4">
+                            <label class="text-sm font-medium text-gray-500">Next Billing Date</label>
+                            <div id="nextBilling" class="text-lg font-semibold text-gray-900"></div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="text-sm font-medium text-gray-500">Posts Used This Month</label>
+                            <div id="postsUsed" class="text-lg font-semibold text-gray-900"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Management Actions -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Billing Portal -->
+                <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+                    <div class="text-center">
+                        <div class="text-4xl mb-4">💳</div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-4">Billing & Payments</h3>
+                        <p class="text-gray-600 mb-6">Update payment methods, view invoices, and manage billing details</p>
+                        <button id="billingPortalBtn" 
+                                class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-semibold">
+                            <span class="btn-text">Manage Billing</span>
+                            <span class="loader hidden">
+                                <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Plan Changes -->
+                <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
+                    <div class="text-center">
+                        <div class="text-4xl mb-4">📈</div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-4">Change Plan</h3>
+                        <p class="text-gray-600 mb-6">Upgrade or downgrade your subscription plan</p>
+                        <a href="/pricing" 
+                           class="block w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors font-semibold text-center">
+                            View All Plans
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cancellation Notice -->
+            <div class="mt-8 bg-red-50 border border-red-200 rounded-2xl p-6">
+                <div class="flex items-start">
+                    <div class="text-2xl mr-4">⚠️</div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-red-800 mb-2">Need to Cancel?</h3>
+                        <p class="text-red-700 mb-4">
+                            You can cancel your subscription at any time through the billing portal above. 
+                            Your subscription will remain active until the end of your current billing period.
+                        </p>
+                        <p class="text-sm text-red-600">
+                            <strong>Note:</strong> After cancellation, you'll still have access to your current plan features 
+                            until your subscription expires, then you'll be moved to the free plan.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" style="display: none;" class="text-center py-12">
+            <div class="bg-red-50 border border-red-200 rounded-2xl p-8">
+                <div class="text-4xl mb-4">❌</div>
+                <h2 class="text-2xl font-bold text-red-800 mb-4">Error Loading Subscription</h2>
+                <p class="text-red-600 mb-6">We couldn't load your subscription details. Please try again.</p>
+                <button onclick="window.location.reload()" 
+                        class="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors">
+                    Try Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check authentication and load subscription data
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAuthStatus();
+            await loadSubscriptionData();
+        });
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (data.authenticated) {
+                    document.getElementById('loginSection').style.display = 'none';
+                    document.getElementById('userSection').style.display = 'block';
+                    document.getElementById('userName').textContent = data.user.name || 'User';
+                    
+                    if (data.user.profile_picture) {
+                        const profilePic = document.getElementById('userProfilePic');
+                        profilePic.src = data.user.profile_picture;
+                        profilePic.style.display = 'block';
+                    }
+                } else {
+                    // Redirect to login if not authenticated
+                    window.location.href = '/';
+                    return;
+                }
+            } catch (error) {
+                console.error('Error checking auth status:', error);
+                window.location.href = '/';
+            }
+        }
+
+        async function loadSubscriptionData() {
+            try {
+                const response = await fetch('/api/subscription/status', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load subscription data');
+                }
+                
+                const data = await response.json();
+                
+                // Hide loading state
+                document.getElementById('loadingState').style.display = 'none';
+                
+                if (!data.subscription || data.subscription.plan_name === 'Free Trial') {
+                    // Show no subscription state
+                    document.getElementById('noSubscriptionState').style.display = 'block';
+                } else {
+                    // Show subscription details
+                    displaySubscriptionDetails(data);
+                    document.getElementById('subscriptionDetails').style.display = 'block';
+                }
+                
+            } catch (error) {
+                console.error('Error loading subscription:', error);
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('errorState').style.display = 'block';
+            }
+        }
+
+        function displaySubscriptionDetails(data) {
+            const subscription = data.subscription;
+            const usage = data.usage;
+            
+            // Plan details
+            document.getElementById('planName').textContent = subscription.plan_name;
+            document.getElementById('postsLimit').textContent = 
+                subscription.posts_limit === -1 ? 'Unlimited' : `${subscription.posts_limit} posts`;
+            
+            // Status with color coding
+            const statusElement = document.getElementById('subscriptionStatus');
+            const status = subscription.status || 'active';
+            statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            
+            if (status === 'active') {
+                statusElement.className = 'text-lg font-semibold text-green-600';
+            } else if (status === 'past_due') {
+                statusElement.className = 'text-lg font-semibold text-yellow-600';
+            } else {
+                statusElement.className = 'text-lg font-semibold text-red-600';
+            }
+            
+            // Next billing date
+            if (subscription.current_period_end) {
+                const nextBilling = new Date(subscription.current_period_end);
+                document.getElementById('nextBilling').textContent = nextBilling.toLocaleDateString();
+            } else {
+                document.getElementById('nextBilling').textContent = 'N/A';
+            }
+            
+            // Usage this month
+            const postsUsed = usage?.posts_used || 0;
+            const postsLimit = subscription.posts_limit === -1 ? '∞' : subscription.posts_limit;
+            document.getElementById('postsUsed').textContent = `${postsUsed} / ${postsLimit}`;
+        }
+
+        // Handle billing portal button
+        document.getElementById('billingPortalBtn').addEventListener('click', async function() {
+            const button = this;
+            const btnText = button.querySelector('.btn-text');
+            const loader = button.querySelector('.loader');
+            
+            // Show loading state
+            btnText.textContent = 'Opening Portal...';
+            loader.classList.remove('hidden');
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/stripe/billing-portal', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create billing portal session');
+                }
+                
+                const data = await response.json();
+                
+                if (data.url) {
+                    // Redirect to Stripe billing portal
+                    window.location.href = data.url;
+                } else {
+                    throw new Error('No billing portal URL received');
+                }
+                
+            } catch (error) {
+                console.error('Error opening billing portal:', error);
+                alert('Error opening billing portal. Please try again.');
+                
+                // Reset button state
+                btnText.textContent = 'Manage Billing';
+                loader.classList.add('hidden');
+                button.disabled = false;
+            }
+        });
+
+        // Handle logout
+        document.addEventListener('click', function(e) {
+            if (e.target.dataset.action === 'logout') {
+                e.preventDefault();
+                
+                fetch('/api/auth/logout', { method: 'POST' })
+                    .then(() => {
+                        window.location.href = '/';
+                    })
+                    .catch(error => {
+                        console.error('Logout error:', error);
+                        window.location.href = '/';
+                    });
+            }
+        });
+    </script>
+</body>
+</html> 

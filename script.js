@@ -1431,7 +1431,11 @@ class PostPilotApp {
                 nextBillingRow.style.display = 'flex';
             }
             
-            // Show manage billing button for active subscriptions
+            // Show manage subscription button for active subscriptions
+            const manageSubBtn = document.getElementById('manageSubBtn');
+            if (manageSubBtn && subscription.status === 'active') {
+                manageSubBtn.style.display = 'inline-block';
+            }
             if (manageBillingBtn && subscription.status === 'active') {
                 manageBillingBtn.style.display = 'inline-block';
             }
@@ -2650,7 +2654,7 @@ class PostPilotApp {
                         // Free trial - user already has it, just close modal
                         closeSubscriptionModal();
                     } else {
-                        window.location.href = '/subscribe';
+                        window.location.href = '/pricing';
                     }
                 });
                 

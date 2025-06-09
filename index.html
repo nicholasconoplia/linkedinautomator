@@ -305,6 +305,7 @@
                         <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">Dashboard</a>
                         <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal">Content Generator</a>
                         <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
+                        <a href="/pricing" class="text-[#0d151c] text-sm font-medium leading-normal">Pricing</a>
                     </div>
                     
                     <!-- Authentication buttons -->
@@ -360,10 +361,13 @@
                                         <p class="text-[#0d151c] text-sm font-normal leading-normal" id="postsRemaining">25/30</p>
                                     </div>
                                 </div>
-                                <div class="flex px-4 py-3 justify-start">
-                                    <button id="manageBillingBtn" style="display: none;" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em]">
-                                        <span class="truncate">Manage Billing</span>
-                                    </button>
+                                <div class="flex px-4 py-3 justify-start gap-3">
+                                    <a href="/manage-subscription" id="manageSubBtn" style="display: none;" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#0b80ee] text-white text-sm font-bold leading-normal tracking-[0.015em]">
+                                        <span class="truncate">Manage Subscription</span>
+                                    </a>
+                                    <a href="/pricing" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em]">
+                                        <span class="truncate">View Plans</span>
+                                    </a>
                                 </div>
                             </div>
                         </div>

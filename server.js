@@ -1091,6 +1091,33 @@ app.post('/api/update-plan-stripe-id', async (req, res) => {
   }
 });
 
+// Payment Links are now used instead of checkout sessions - see pricing.html
+
+// Create Stripe billing portal session for subscription management
+app.post('/api/stripe/billing-portal', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get user's subscription to find customer ID
+    const subscription = await SubscriptionDB.getUserSubscription(userId);
+    if (!subscription || !subscription.stripe_customer_id) {
+      return res.status(400).json({ error: 'No active subscription found' });
+    }
+    
+    // Create billing portal session
+    const session = await stripeService.createBillingPortalSession(
+      userId,
+      `${process.env.NODE_ENV === 'production' ? 'https://postpilot.vercel.app' : 'http://localhost:3000'}/manage-subscription`
+    );
+    
+    res.json({ url: session.url });
+    
+  } catch (error) {
+    console.error('❌ Error creating billing portal session:', error);
+    res.status(500).json({ error: 'Failed to create billing portal session' });
+  }
+});
+
 // Function to create default subscription plans
 async function createDefaultPlans() {
   const defaultPlans = [
@@ -2581,6 +2608,42 @@ app.get('/subscribe', (req, res) => {
   }
 });
 
+// Pricing page route
+app.get('/pricing', (req, res) => {
+  console.log('💰 Pricing route hit');
+  
+  // Set CSP headers to allow Stripe
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
+    "img-src 'self' data: https: http:; " +
+    "connect-src 'self' https://api.stripe.com; " +
+    "frame-src https://js.stripe.com https://hooks.stripe.com; " +
+    "font-src 'self' https://fonts.gstatic.com;"
+  );
+  
+  const pricingPath = path.join(__dirname, 'pricing.html');
+  
+  if (fs.existsSync(pricingPath)) {
+    console.log('✅ Serving pricing.html with dynamic Stripe key');
+    
+    // Read the HTML file and inject the correct Stripe publishable key
+    const html = fs.readFileSync(pricingPath, 'utf8');
+    
+    // Replace the placeholder with the actual Stripe publishable key
+    const updatedHtml = html.replace(
+      'STRIPE_PUBLISHABLE_KEY_PLACEHOLDER',
+      process.env.STRIPE_PUBLISHABLE_KEY
+    );
+    
+    res.send(updatedHtml);
+  } else {
+    console.log('⚠️ pricing.html not found');
+    res.status(404).send('Pricing page not found');
+  }
+});
+
 // Admin page route - password protected
 app.get('/admin', (req, res) => {
   console.log('👑 Admin route hit');
@@ -2658,6 +2721,30 @@ app.get('/dashboard', (req, res) => {
   } else {
     console.log('⚠️ index.html not found for dashboard route');
     res.status(404).send('Dashboard page not found');
+  }
+});
+
+// Manage subscription route
+app.get('/manage-subscription', (req, res) => {
+  console.log('💳 Manage subscription route hit');
+  
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " +
+    "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self'"
+  );
+  
+  const manageSubPath = path.join(__dirname, 'manage-subscription.html');
+  
+  if (fs.existsSync(manageSubPath)) {
+    console.log('✅ Serving manage-subscription.html');
+    res.sendFile(manageSubPath);
+  } else {
+    console.log('⚠️ manage-subscription.html not found');
+    res.status(404).send('Manage subscription page not found');
   }
 });
 
