@@ -3400,6 +3400,129 @@ class EmploymentApp {
             }
         }
     }
+
+    showResearchLoadingAnimation(topic) {
+        if (this.generateBtn) {
+            this.generateBtn.disabled = true;
+            this.generateBtn.querySelector('.btn-text').textContent = '🔍 Researching...';
+        }
+        
+        if (this.loader) {
+            this.loader.style.display = 'block';
+            this.loader.innerHTML = `
+                <div class="research-loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-steps">
+                        <div class="loading-step active" data-step="search">
+                            <span class="step-icon">🔍</span>
+                            <span class="step-text">Searching for articles about "${topic.substring(0, 40)}${topic.length > 40 ? '...' : ''}"</span>
+                        </div>
+                        <div class="loading-step" data-step="scrape">
+                            <span class="step-icon">📄</span>
+                            <span class="step-text">Analyzing web content...</span>
+                        </div>
+                        <div class="loading-step" data-step="generate">
+                            <span class="step-icon">✨</span>
+                            <span class="step-text">Generating research-based post...</span>
+                        </div>
+                    </div>
+                    <div class="loading-note">
+                        This may take 15-30 seconds as we research multiple sources
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add CSS for research loading animation
+        if (!document.getElementById('research-loading-styles')) {
+            const style = document.createElement('style');
+            style.id = 'research-loading-styles';
+            style.textContent = `
+                .research-loading {
+                    text-align: center;
+                    padding: 20px;
+                    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+                    border-radius: 12px;
+                    margin: 20px 0;
+                }
+                
+                .loading-spinner {
+                    width: 40px;
+                    height: 40px;
+                    border: 4px solid #e2e8f0;
+                    border-top: 4px solid #0b80ee;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                }
+                
+                .loading-steps {
+                    max-width: 400px;
+                    margin: 0 auto;
+                }
+                
+                .loading-step {
+                    display: flex;
+                    align-items: center;
+                    padding: 8px 0;
+                    opacity: 0.5;
+                    transition: opacity 0.3s ease;
+                }
+                
+                .loading-step.active {
+                    opacity: 1;
+                    animation: pulse 2s ease-in-out infinite;
+                }
+                
+                .step-icon {
+                    font-size: 18px;
+                    margin-right: 12px;
+                    width: 24px;
+                }
+                
+                .step-text {
+                    font-size: 14px;
+                    color: #374151;
+                    text-align: left;
+                }
+                
+                .loading-note {
+                    font-size: 12px;
+                    color: #6b7280;
+                    margin-top: 15px;
+                    font-style: italic;
+                }
+                
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.7; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Simulate progression through steps
+        setTimeout(() => {
+            const steps = this.loader.querySelectorAll('.loading-step');
+            if (steps.length >= 2) {
+                steps[0].classList.remove('active');
+                steps[1].classList.add('active');
+            }
+        }, 5000);
+        
+        setTimeout(() => {
+            const steps = this.loader.querySelectorAll('.loading-step');
+            if (steps.length >= 3) {
+                steps[1].classList.remove('active');
+                steps[2].classList.add('active');
+            }
+        }, 12000);
+    }
     
     showSuccess(message) {
         this.showNotification(message, 'success');
@@ -4139,6 +4262,9 @@ class EmploymentApp {
             };
             
             console.log('📤 Sending request to generate research post:', requestData);
+            
+            // Show enhanced loading animation for research
+            this.showResearchLoadingAnimation(topic);
             
             const response = await fetch('/api/generate-research-post', {
                 method: 'POST',

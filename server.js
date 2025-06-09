@@ -4893,13 +4893,11 @@ async function performGoogleSearch(searchTerm, depth = 5) {
     const searchParams = {
       key: googleApiKey,
       cx: searchEngineId,
-      q: `${searchTerm} -site:news.google.com -site:google.com -site:youtube.com -site:twitter.com -site:facebook.com`,
+      q: searchTerm, // Start with clean search term
       sort: 'date',
       num: Math.min(depth, 10), // Google API limit is 10
-      dateRestrict: 'd30', // Last 30 days for fresher content
-      fileType: '', // Ensure we get web pages, not PDFs
-      siteSearch: '', // Don't restrict to any particular site
-      excludeTerms: 'homepage home index'
+      dateRestrict: 'd90', // Last 90 days for more content
+      safe: 'off' // Don't filter results
     };
     
     const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
@@ -4908,35 +4906,37 @@ async function performGoogleSearch(searchTerm, depth = 5) {
 
     let items = response.data.items || [];
     
-    // Filter out unwanted results
+    // Filter out only the most obvious low-quality results
     items = items.filter(item => {
       const url = item.link.toLowerCase();
       const title = item.title.toLowerCase();
       
-      // Exclude generic homepages and aggregators
+      // Only exclude the most obvious junk
       const excludePatterns = [
-        'news.google.com',
-        '/home',
-        '/index',
-        'homepage',
-        'main page',
-        'front page'
+        'news.google.com/home',
+        'google.com/search',
+        'youtube.com/watch',
+        'twitter.com/status',
+        'facebook.com/posts'
       ];
       
-      const isExcluded = excludePatterns.some(pattern => 
-        url.includes(pattern) || title.includes(pattern)
-      );
+      const isJunk = excludePatterns.some(pattern => url.includes(pattern));
       
-      // Prefer articles with specific content indicators
-      const hasArticleIndicators = 
+      // Very permissive content check - just needs to be somewhat relevant
+      const hasRelevance = 
         title.includes('ipo') || 
         title.includes('listing') || 
         title.includes('asx') ||
+        title.includes('virgin') ||
+        title.includes('stock') ||
+        title.includes('market') ||
         item.snippet.toLowerCase().includes('ipo') ||
         item.snippet.toLowerCase().includes('listing') ||
-        item.snippet.toLowerCase().includes('asx');
+        item.snippet.toLowerCase().includes('asx') ||
+        item.snippet.toLowerCase().includes('virgin') ||
+        item.snippet.toLowerCase().includes('stock');
       
-      return !isExcluded && hasArticleIndicators;
+      return !isJunk && hasRelevance;
     });
 
     console.log(`📊 Filtered ${items.length} relevant results from ${response.data.items?.length || 0} total results`);
@@ -4970,26 +4970,20 @@ async function processWebContent(searchResults, originalTopic, maxSources = 5) {
   const researchData = [];
   const processedUrls = new Set(); // Avoid duplicates
   
-  // Enhanced filtering for quality results
+  // Light filtering for quality results  
   const filteredResults = searchResults.filter(item => {
     if (!item.link || processedUrls.has(item.link)) return false;
     
     const url = item.link.toLowerCase();
-    const title = item.title.toLowerCase();
-    const snippet = item.snippet.toLowerCase();
     
-    // Skip low-quality sources
+    // Only skip the most obvious junk
     const skipPatterns = [
-      'news.google.com',
-      'google.com',
-      'youtube.com',
-      'twitter.com',
-      'facebook.com',
-      'linkedin.com/posts',
-      'reddit.com',
-      '/home',
-      '/index',
-      'homepage'
+      'news.google.com/home',
+      'google.com/search', 
+      'youtube.com/watch',
+      'twitter.com/status',
+      'facebook.com/posts',
+      'reddit.com/r/'
     ];
     
     const shouldSkip = skipPatterns.some(pattern => url.includes(pattern));
@@ -4998,12 +4992,8 @@ async function processWebContent(searchResults, originalTopic, maxSources = 5) {
       return false;
     }
     
-    // Prefer sources with substantial content indicators
-    const hasGoodLength = snippet.length > 50;
-    const hasRelevantContent = title.includes(originalTopic.toLowerCase()) || 
-                              snippet.includes(originalTopic.toLowerCase());
-    
-    return hasGoodLength && hasRelevantContent;
+    // Very permissive - just needs basic indicators
+    return item.snippet && item.snippet.length > 20;
   });
   
   console.log(`📊 Filtered to ${filteredResults.length} quality sources from ${searchResults.length} total results`);
@@ -5020,14 +5010,14 @@ async function processWebContent(searchResults, originalTopic, maxSources = 5) {
       
       // Scrape webpage content
       const webContent = await scrapeWebContent(item.link);
-      if (!webContent || webContent.length < 200) {
+      if (!webContent || webContent.length < 100) {
         console.log(`⏭️ Skipping - insufficient content (${webContent?.length || 0} chars)`);
         continue;
       }
       
       // Summarize content relevant to original topic
       const summary = await summarizeWebContent(webContent, originalTopic);
-      if (!summary || summary.length < 50) {
+      if (!summary || summary.length < 20) {
         console.log(`⏭️ Skipping - poor summary quality`);
         continue;
       }
