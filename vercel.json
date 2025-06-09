@@ -23,6 +23,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/webhook/(.*)", "destination": "server.js" },
     { "source": "/test-static", "destination": "server.js" },
     { "source": "/serve-index", "destination": "server.js" },
     { "source": "/debug", "destination": "server.js" },
