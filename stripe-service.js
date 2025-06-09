@@ -83,15 +83,19 @@ class StripeService {
   async createBillingPortalSession(userId, returnUrl) {
     try {
       const subscription = await SubscriptionDB.getUserSubscription(userId);
+      console.log('🔧 Subscription data for billing portal:', subscription);
+      
       if (!subscription || !subscription.stripe_customer_id) {
-        throw new Error('No active subscription found');
+        throw new Error('No active subscription or customer ID found. Please contact support.');
       }
 
+      console.log('🔧 Creating billing portal for customer:', subscription.stripe_customer_id);
       const session = await stripe.billingPortal.sessions.create({
         customer: subscription.stripe_customer_id,
         return_url: returnUrl,
       });
 
+      console.log('✅ Billing portal session created successfully');
       return session;
     } catch (error) {
       console.error('❌ Error creating billing portal session:', error);

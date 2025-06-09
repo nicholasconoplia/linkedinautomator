@@ -1097,24 +1097,37 @@ app.post('/api/update-plan-stripe-id', async (req, res) => {
 app.post('/api/stripe/billing-portal', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('🔧 Creating billing portal for user:', userId);
     
     // Get user's subscription to find customer ID
     const subscription = await SubscriptionDB.getUserSubscription(userId);
+    console.log('🔧 User subscription:', subscription ? 'Found' : 'Not found');
+    console.log('🔧 Customer ID:', subscription?.stripe_customer_id);
+    
     if (!subscription || !subscription.stripe_customer_id) {
-      return res.status(400).json({ error: 'No active subscription found' });
+      console.log('❌ No subscription or customer ID found');
+      return res.status(400).json({ 
+        error: 'No active subscription found. Please subscribe to a plan first.',
+        redirect: '/pricing'
+      });
     }
     
     // Create billing portal session
+    console.log('🔧 Creating Stripe billing portal session...');
     const session = await stripeService.createBillingPortalSession(
       userId,
       `${process.env.NODE_ENV === 'production' ? 'https://employment.vercel.app' : 'http://localhost:3000'}/manage-subscription`
     );
     
+    console.log('✅ Billing portal session created:', session.id);
     res.json({ url: session.url });
     
   } catch (error) {
     console.error('❌ Error creating billing portal session:', error);
-    res.status(500).json({ error: 'Failed to create billing portal session' });
+    res.status(500).json({ 
+      error: 'Failed to create billing portal session: ' + error.message,
+      redirect: '/manage-subscription'
+    });
   }
 });
 

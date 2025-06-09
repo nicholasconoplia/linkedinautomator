@@ -293,13 +293,21 @@
                     }
                 });
                 
+                const data = await response.json();
+                console.log('Billing portal response:', data);
+                
                 if (!response.ok) {
-                    throw new Error('Failed to create billing portal session');
+                    // Handle specific error cases
+                    if (data.redirect) {
+                        alert(data.error);
+                        window.location.href = data.redirect;
+                        return;
+                    }
+                    throw new Error(data.error || 'Failed to create billing portal session');
                 }
                 
-                const data = await response.json();
-                
                 if (data.url) {
+                    console.log('Redirecting to billing portal:', data.url);
                     // Redirect to Stripe billing portal
                     window.location.href = data.url;
                 } else {
@@ -308,7 +316,7 @@
                 
             } catch (error) {
                 console.error('Error opening billing portal:', error);
-                alert('Error opening billing portal. Please try again.');
+                alert('Error opening billing portal: ' + error.message);
                 
                 // Reset button state
                 btnText.textContent = 'Manage Billing';
