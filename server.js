@@ -4837,44 +4837,48 @@ async function performWebResearch(topic, searchDepth = 5) {
 
 async function generateSearchTerms(topic) {
   try {
-    const prompt = `Generate 3-4 specific search terms for finding recent news articles about: "${topic}"
+    const prompt = `Generate 4 specific search terms for finding recent news articles about: "${topic}"
 
 Requirements:
-- Include the main topic keywords
-- Add "news", "article", or "report" to find actual articles (not homepages)
-- Consider different news angles (recent developments, analysis, company announcements)
-- Make terms specific enough to find real articles, not generic pages
-- Focus on recent/current events and developments
+- Include specific company names, terms, and keywords from the topic
+- Add news source keywords: "AFR", "Reuters", "Forbes", "news", "article"
+- Consider different angles: listings, IPOs, announcements, analysis, reports
+- Include Australian financial sources for ASX topics
+- Focus on recent developments and make terms very specific
 - Separate each term with a comma
 
 Examples:
-Input: "AI in healthcare"
-Output: AI healthcare news 2024, medical AI breakthrough article, healthcare artificial intelligence developments, AI medical technology announcements
-
 Input: "ASX IPO listings"
-Output: ASX IPO listings news 2024, recent ASX public offerings, upcoming Australian IPO announcements, ASX stock market listings
+Output: Virgin Australia IPO AFR news 2024, ASX IPO listings Reuters article, upcoming Australian IPO Forbes, ASX stock market flotation news
 
-Input: "Remote work productivity"
-Output: remote work productivity studies 2024, work from home research findings, remote team performance reports, hybrid work productivity news
+Input: "AI in healthcare"
+Output: AI healthcare breakthrough news article, medical AI technology Reuters 2024, healthcare artificial intelligence Forbes, AI medical startup funding news
 
 Generate search terms for: "${topic}"`;
 
     const response = await callOpenAI(prompt, 'research_helper');
     const searchTerms = response.split(',').map(term => term.trim()).filter(term => term.length > 0);
     
-    // Add current year to make searches more recent
-    const currentYear = new Date().getFullYear();
-    const enhancedTerms = searchTerms.map(term => {
-      if (!term.includes('2024') && !term.includes('2025')) {
-        return `${term} ${currentYear}`;
-      }
-      return term;
-    });
+    // Enhanced search terms with news source targeting
+    const newsSourceTerms = [
+      `"${topic}" site:afr.com OR site:reuters.com OR site:forbes.com.au`,
+      `${topic} news 2024 OR 2025`,
+      `${topic} article announcement`,
+      `${topic} latest development report`
+    ];
     
-    return enhancedTerms.slice(0, 4); // Limit to 4 terms to avoid rate limits
+    // Combine AI-generated terms with news source specific terms
+    const allTerms = [...searchTerms.slice(0, 2), ...newsSourceTerms.slice(0, 2)];
+    
+    return allTerms.slice(0, 4); // Limit to 4 terms to avoid rate limits
   } catch (error) {
-    console.warn('⚠️ Failed to generate search terms, using original topic');
-    return [`${topic} news 2024`, `${topic} article`, `${topic} recent developments`];
+    console.warn('⚠️ Failed to generate search terms, using fallback terms');
+    return [
+      `"${topic}" site:afr.com OR site:reuters.com OR site:forbes.com.au`,
+      `${topic} news 2024`,
+      `${topic} article announcement`, 
+      `${topic} latest development`
+    ];
   }
 }
 
@@ -4889,15 +4893,18 @@ async function performGoogleSearch(searchTerm, depth = 5) {
 
     console.log(`🔍 Searching Google for: "${searchTerm}"`);
     
-    // Enhanced search parameters to find actual articles
+    // Enhanced search parameters targeting news content
     const searchParams = {
       key: googleApiKey,
       cx: searchEngineId,
-      q: searchTerm, // Start with clean search term
+      q: searchTerm, // Clean search term
       sort: 'date',
       num: Math.min(depth, 10), // Google API limit is 10
-      dateRestrict: 'd90', // Last 90 days for more content
-      safe: 'off' // Don't filter results
+      dateRestrict: 'd180', // Last 6 months for more content
+      safe: 'off', // Don't filter results
+      cr: 'countryAU', // Focus on Australian content for ASX
+      lr: 'lang_en', // English language
+      gl: 'au' // Australian search results
     };
     
     const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
@@ -4906,37 +4913,21 @@ async function performGoogleSearch(searchTerm, depth = 5) {
 
     let items = response.data.items || [];
     
-    // Filter out only the most obvious low-quality results
+    // Very minimal filtering - only exclude obvious junk
     items = items.filter(item => {
       const url = item.link.toLowerCase();
-      const title = item.title.toLowerCase();
       
-      // Only exclude the most obvious junk
+      // Only exclude very obvious non-articles
       const excludePatterns = [
         'news.google.com/home',
         'google.com/search',
-        'youtube.com/watch',
-        'twitter.com/status',
-        'facebook.com/posts'
+        'youtube.com/watch'
       ];
       
       const isJunk = excludePatterns.some(pattern => url.includes(pattern));
       
-      // Very permissive content check - just needs to be somewhat relevant
-      const hasRelevance = 
-        title.includes('ipo') || 
-        title.includes('listing') || 
-        title.includes('asx') ||
-        title.includes('virgin') ||
-        title.includes('stock') ||
-        title.includes('market') ||
-        item.snippet.toLowerCase().includes('ipo') ||
-        item.snippet.toLowerCase().includes('listing') ||
-        item.snippet.toLowerCase().includes('asx') ||
-        item.snippet.toLowerCase().includes('virgin') ||
-        item.snippet.toLowerCase().includes('stock');
-      
-      return !isJunk && hasRelevance;
+      // Accept almost everything - very permissive
+      return !isJunk && item.link && item.title && item.snippet;
     });
 
     console.log(`📊 Filtered ${items.length} relevant results from ${response.data.items?.length || 0} total results`);
@@ -4970,30 +4961,27 @@ async function processWebContent(searchResults, originalTopic, maxSources = 5) {
   const researchData = [];
   const processedUrls = new Set(); // Avoid duplicates
   
-  // Light filtering for quality results  
+  // Minimal filtering - accept almost everything
   const filteredResults = searchResults.filter(item => {
     if (!item.link || processedUrls.has(item.link)) return false;
     
     const url = item.link.toLowerCase();
     
-    // Only skip the most obvious junk
+    // Only skip obvious non-content
     const skipPatterns = [
       'news.google.com/home',
       'google.com/search', 
-      'youtube.com/watch',
-      'twitter.com/status',
-      'facebook.com/posts',
-      'reddit.com/r/'
+      'youtube.com/watch'
     ];
     
     const shouldSkip = skipPatterns.some(pattern => url.includes(pattern));
     if (shouldSkip) {
-      console.log(`⏭️ Skipping low-quality source: ${item.title}`);
+      console.log(`⏭️ Skipping non-article: ${item.title}`);
       return false;
     }
     
-    // Very permissive - just needs basic indicators
-    return item.snippet && item.snippet.length > 20;
+    // Accept basically everything else
+    return item.title && item.link;
   });
   
   console.log(`📊 Filtered to ${filteredResults.length} quality sources from ${searchResults.length} total results`);
@@ -5010,15 +4998,15 @@ async function processWebContent(searchResults, originalTopic, maxSources = 5) {
       
       // Scrape webpage content
       const webContent = await scrapeWebContent(item.link);
-      if (!webContent || webContent.length < 100) {
-        console.log(`⏭️ Skipping - insufficient content (${webContent?.length || 0} chars)`);
+      if (!webContent || webContent.length < 50) {
+        console.log(`⏭️ Skipping - no readable content (${webContent?.length || 0} chars)`);
         continue;
       }
       
       // Summarize content relevant to original topic
       const summary = await summarizeWebContent(webContent, originalTopic);
-      if (!summary || summary.length < 20) {
-        console.log(`⏭️ Skipping - poor summary quality`);
+      if (!summary || summary.length < 10) {
+        console.log(`⏭️ Skipping - no meaningful summary`);
         continue;
       }
       
