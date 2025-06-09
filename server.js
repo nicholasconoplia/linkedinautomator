@@ -4600,18 +4600,18 @@ app.post('/api/automation/process-queue', requireAuth, async (req, res) => {
   }
 });
 
-// Public webhook for external cron services (no auth required for background automation)
-app.post('/webhook/process-automation', async (req, res) => {
+// Standard API endpoint for external cron services following Vercel best practices
+app.post('/api/cron-automation', async (req, res) => {
   try {
-    console.log('🔄 Webhook trigger received for automation processing');
+    console.log('🔄 Cron trigger received for automation processing');
     
-    // Optional security: check for a webhook secret
-    const webhookSecret = req.headers['x-webhook-secret'];
-    const expectedSecret = process.env.WEBHOOK_SECRET || 'automation-webhook-secret';
+    // Standard Bearer token authentication as per Vercel guide
+    const authHeader = req.headers.authorization;
+    const expectedSecret = process.env.CRON_SECRET || 'secretwebhook12345';
     
-    if (webhookSecret !== expectedSecret) {
-      console.warn('⚠️ Invalid webhook secret');
-      return res.status(401).json({ error: 'Invalid webhook secret' });
+    if (authHeader !== `Bearer ${expectedSecret}`) {
+      console.warn('⚠️ Unauthorized cron request');
+      return res.status(401).json({ error: 'Unauthorized' });
     }
     
     // Get all users who might have pending queue items
