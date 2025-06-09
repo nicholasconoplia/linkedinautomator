@@ -703,6 +703,15 @@ class EmploymentApp {
             console.warn('⚠️ Generate queue button not found');
         }
 
+        // Process queue button
+        const processQueueBtn = document.getElementById('processQueueBtn');
+        if (processQueueBtn) {
+            console.log('✅ Adding process queue button listener');
+            processQueueBtn.addEventListener('click', this.handleProcessQueue.bind(this));
+        } else {
+            console.warn('⚠️ Process queue button not found');
+        }
+
         // View toggle buttons
         const calendarViewBtn = document.getElementById('queueViewCalendar');
         const listViewBtn = document.getElementById('queueViewList');
@@ -739,6 +748,7 @@ class EmploymentApp {
             'automationToggle',
             'automationForm',
             'generateQueueBtn',
+            'processQueueBtn',
             'queueViewCalendar',
             'queueViewList',
             'previewScheduleBtn'
@@ -873,7 +883,45 @@ class EmploymentApp {
             if (response.ok) {
                 const result = await response.json();
                 console.log('✅ Queue generated:', result);
-                this.showSuccess(`Generated ${result.generated} posts for your automation queue!`);
+                
+                // Automatically process the queue to check for posts that should be posted immediately
+                console.log('🔄 Processing queue for immediate posts...');
+                try {
+                    const processResponse = await fetch('/api/automation/process-queue', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include'
+                    });
+
+                    if (processResponse.ok) {
+                        const processResult = await processResponse.json();
+                        console.log('✅ Queue processed:', processResult);
+                        
+                        const immediatelyPosted = processResult.results?.filter(r => r.action === 'posted_immediately').length || 0;
+                        const scheduledForLater = processResult.results?.filter(r => r.action === 'scheduled_for_later').length || 0;
+                        const failed = processResult.results?.filter(r => !r.success).length || 0;
+
+                        let message = `Generated ${result.generated} posts for your automation queue!`;
+                        if (immediatelyPosted > 0) {
+                            message += ` ${immediatelyPosted} post(s) were posted immediately.`;
+                        }
+                        if (scheduledForLater > 0) {
+                            message += ` ${scheduledForLater} post(s) scheduled for later.`;
+                        }
+                        if (failed > 0) {
+                            message += ` ${failed} post(s) had errors.`;
+                        }
+                        
+                        this.showSuccess(message);
+                    } else {
+                        console.warn('⚠️ Queue processing failed, but queue was generated successfully');
+                        this.showSuccess(`Generated ${result.generated} posts for your automation queue! Processing will happen on next check.`);
+                    }
+                } catch (processError) {
+                    console.warn('⚠️ Error processing queue:', processError);
+                    this.showSuccess(`Generated ${result.generated} posts for your automation queue! Processing will happen on next check.`);
+                }
+                
                 await this.loadAutomationQueue();
                 await this.loadAutomationAnalytics();
             } else {
@@ -896,6 +944,80 @@ class EmploymentApp {
             if (generateBtn) {
                 generateBtn.innerHTML = '✨ Generate Queue';
                 generateBtn.disabled = false;
+            }
+        }
+    }
+
+    async handleProcessQueue() {
+        console.log('🚀 Process queue manually triggered');
+        try {
+            const processBtn = document.getElementById('processQueueBtn');
+            if (!processBtn) {
+                console.error('❌ Process button not found');
+                return;
+            }
+
+            const originalText = processBtn.innerHTML;
+            processBtn.innerHTML = '⏳ Processing...';
+            processBtn.disabled = true;
+
+            console.log('📡 Requesting queue processing...');
+            const response = await fetch('/api/automation/process-queue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+
+            console.log('📡 Process queue response status:', response.status);
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('✅ Queue processed:', result);
+                
+                const immediatelyPosted = result.results?.filter(r => r.action === 'posted_immediately').length || 0;
+                const scheduledForLater = result.results?.filter(r => r.action === 'scheduled_for_later').length || 0;
+                const failed = result.results?.filter(r => !r.success).length || 0;
+                const processed = result.processed || 0;
+
+                if (processed === 0) {
+                    this.showSuccess('No posts were ready for processing at this time.');
+                } else {
+                    let message = `Processed ${processed} posts from your queue!`;
+                    if (immediatelyPosted > 0) {
+                        message += ` ${immediatelyPosted} post(s) were posted to LinkedIn immediately.`;
+                    }
+                    if (scheduledForLater > 0) {
+                        message += ` ${scheduledForLater} post(s) scheduled for later.`;
+                    }
+                    if (failed > 0) {
+                        message += ` ${failed} post(s) had errors.`;
+                    }
+                    
+                    this.showSuccess(message);
+                }
+                
+                await this.loadAutomationQueue();
+                await this.loadAutomationAnalytics();
+            } else {
+                const errorData = await response.text();
+                console.error('❌ Process queue failed:', errorData);
+                let errorMessage = 'Failed to process automation queue';
+                try {
+                    const errorJson = JSON.parse(errorData);
+                    errorMessage = errorJson.error || errorMessage;
+                } catch (e) {
+                    console.warn('Error parsing response as JSON');
+                }
+                this.showError(errorMessage);
+            }
+        } catch (error) {
+            console.error('❌ Error processing queue:', error);
+            this.showError('Failed to process automation queue');
+        } finally {
+            const processBtn = document.getElementById('processQueueBtn');
+            if (processBtn) {
+                processBtn.innerHTML = '🚀 Process Queue Now';
+                processBtn.disabled = false;
             }
         }
     }

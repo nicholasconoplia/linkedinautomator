@@ -4450,6 +4450,276 @@ app.delete('/api/automation/queue/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Process automation queue items into actual posts (VERCEL SERVERLESS COMPATIBLE)
+app.post('/api/automation/process-queue', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log(`🔄 Processing automation queue for user ${userId}...`);
+
+    // Get pending automation queue items that are ready to be processed
+    const result = await pool.query(`
+      SELECT * FROM automation_queue 
+      WHERE user_id = $1 AND status = 'pending' AND scheduled_for <= CURRENT_TIMESTAMP + INTERVAL '5 minutes'
+      ORDER BY scheduled_for ASC
+      LIMIT 10
+    `, [userId]);
+
+    if (result.rows.length === 0) {
+      return res.json({ success: true, processed: 0, message: 'No items ready for processing' });
+    }
+
+    let processed = 0;
+    const results = [];
+
+    for (const queueItem of result.rows) {
+      try {
+        console.log(`📝 Processing queue item: ${queueItem.topic} scheduled for ${queueItem.scheduled_for}`);
+
+        // Generate post content
+        const postData = await generatePost(queueItem.topic, queueItem.tone);
+        
+        if (postData && postData.post) {
+          // Create scheduled post entry
+          const scheduledPost = await PostsDB.createScheduledPost(userId, {
+            topic: queueItem.topic,
+            tone: queueItem.tone,
+            post_content: postData.post,
+            image_url: postData.image?.url || null,
+            article_url: postData.article?.url || null,
+            scheduled_for: queueItem.scheduled_for
+          });
+
+          // Update queue item status to processed
+          await pool.query(
+            'UPDATE automation_queue SET status = $1, processed_at = CURRENT_TIMESTAMP WHERE id = $2',
+            ['processed', queueItem.id]
+          );
+
+          // If the scheduled time is now or in the past, post immediately
+          const scheduleTime = new Date(queueItem.scheduled_for);
+          const now = new Date();
+          
+          if (scheduleTime <= now) {
+            console.log(`🚀 Posting immediately (scheduled time has passed): ${queueItem.topic}`);
+            
+            try {
+              const accessToken = await LinkedInService.ensureValidToken(userId);
+              const postResult = await LinkedInService.createPost(
+                accessToken,
+                postData.post,
+                postData.image?.url
+              );
+
+              if (postResult.success) {
+                await PostsDB.updatePostStatus(scheduledPost.id, 'posted', postResult.postId);
+                console.log(`✅ Posted successfully: ${postResult.postId}`);
+                results.push({
+                  success: true,
+                  topic: queueItem.topic,
+                  scheduled_for: queueItem.scheduled_for,
+                  action: 'posted_immediately',
+                  linkedin_post_id: postResult.postId
+                });
+              } else {
+                await PostsDB.updatePostStatus(scheduledPost.id, 'failed', null, postResult.error);
+                console.error(`❌ Failed to post: ${postResult.error}`);
+                results.push({
+                  success: false,
+                  topic: queueItem.topic,
+                  scheduled_for: queueItem.scheduled_for,
+                  action: 'post_failed',
+                  error: postResult.error
+                });
+              }
+            } catch (postError) {
+              console.error(`❌ Error posting: ${postError.message}`);
+              await PostsDB.updatePostStatus(scheduledPost.id, 'failed', null, postError.message);
+              results.push({
+                success: false,
+                topic: queueItem.topic,
+                scheduled_for: queueItem.scheduled_for,
+                action: 'post_error',
+                error: postError.message
+              });
+            }
+          } else {
+            console.log(`⏰ Scheduled for later: ${scheduleTime.toISOString()}`);
+            results.push({
+              success: true,
+              topic: queueItem.topic,
+              scheduled_for: queueItem.scheduled_for,
+              action: 'scheduled_for_later',
+              will_post_at: scheduleTime.toISOString()
+            });
+          }
+
+          processed++;
+
+        } else {
+          console.error(`❌ Failed to generate content for: ${queueItem.topic}`);
+          await pool.query(
+            'UPDATE automation_queue SET status = $1, error_message = $2 WHERE id = $3',
+            ['failed', 'Failed to generate content', queueItem.id]
+          );
+          results.push({
+            success: false,
+            topic: queueItem.topic,
+            scheduled_for: queueItem.scheduled_for,
+            action: 'content_generation_failed',
+            error: 'Failed to generate content'
+          });
+        }
+
+      } catch (itemError) {
+        console.error(`❌ Error processing queue item ${queueItem.id}:`, itemError);
+        await pool.query(
+          'UPDATE automation_queue SET status = $1, error_message = $2 WHERE id = $3',
+          ['failed', itemError.message, queueItem.id]
+        );
+        results.push({
+          success: false,
+          topic: queueItem.topic,
+          scheduled_for: queueItem.scheduled_for,
+          action: 'processing_error',
+          error: itemError.message
+        });
+      }
+    }
+
+    console.log(`✅ Processed ${processed} automation queue items`);
+    res.json({ 
+      success: true, 
+      processed, 
+      total_found: result.rows.length,
+      results 
+    });
+
+  } catch (error) {
+    console.error('❌ Error processing automation queue:', error);
+    res.status(500).json({ error: 'Failed to process automation queue' });
+  }
+});
+
+// Trigger queue processing (can be called externally or via webhook)
+app.post('/api/automation/trigger-processing', async (req, res) => {
+  try {
+    console.log('🔄 Manual trigger for queue processing received');
+    
+    // Get all users who might have pending queue items
+    const usersResult = await pool.query(`
+      SELECT DISTINCT user_id FROM automation_queue 
+      WHERE status = 'pending' AND scheduled_for <= CURRENT_TIMESTAMP + INTERVAL '5 minutes'
+    `);
+
+    let totalProcessed = 0;
+    const userResults = [];
+
+    for (const user of usersResult.rows) {
+      try {
+        // Process queue for this user
+        const processResult = await processUserQueue(user.user_id);
+        totalProcessed += processResult.processed;
+        userResults.push({
+          user_id: user.user_id,
+          processed: processResult.processed,
+          results: processResult.results
+        });
+      } catch (userError) {
+        console.error(`❌ Error processing queue for user ${user.user_id}:`, userError);
+        userResults.push({
+          user_id: user.user_id,
+          processed: 0,
+          error: userError.message
+        });
+      }
+    }
+
+    console.log(`🎯 Total processed across all users: ${totalProcessed}`);
+    res.json({
+      success: true,
+      total_processed: totalProcessed,
+      users_processed: usersResult.rows.length,
+      user_results: userResults
+    });
+
+  } catch (error) {
+    console.error('❌ Error in trigger processing:', error);
+    res.status(500).json({ error: 'Failed to trigger processing' });
+  }
+});
+
+// Helper function to process queue for a specific user
+async function processUserQueue(userId) {
+  const result = await pool.query(`
+    SELECT * FROM automation_queue 
+    WHERE user_id = $1 AND status = 'pending' AND scheduled_for <= CURRENT_TIMESTAMP + INTERVAL '5 minutes'
+    ORDER BY scheduled_for ASC
+    LIMIT 10
+  `, [userId]);
+
+  let processed = 0;
+  const results = [];
+
+  for (const queueItem of result.rows) {
+    try {
+      const postData = await generatePost(queueItem.topic, queueItem.tone);
+      
+      if (postData && postData.post) {
+        const scheduledPost = await PostsDB.createScheduledPost(userId, {
+          topic: queueItem.topic,
+          tone: queueItem.tone,
+          post_content: postData.post,
+          image_url: postData.image?.url || null,
+          article_url: postData.article?.url || null,
+          scheduled_for: queueItem.scheduled_for
+        });
+
+        await pool.query(
+          'UPDATE automation_queue SET status = $1, processed_at = CURRENT_TIMESTAMP WHERE id = $2',
+          ['processed', queueItem.id]
+        );
+
+        const scheduleTime = new Date(queueItem.scheduled_for);
+        const now = new Date();
+        
+        if (scheduleTime <= now) {
+          try {
+            const accessToken = await LinkedInService.ensureValidToken(userId);
+            const postResult = await LinkedInService.createPost(
+              accessToken,
+              postData.post,
+              postData.image?.url
+            );
+
+            if (postResult.success) {
+              await PostsDB.updatePostStatus(scheduledPost.id, 'posted', postResult.postId);
+              results.push({ success: true, action: 'posted', linkedin_post_id: postResult.postId });
+            } else {
+              await PostsDB.updatePostStatus(scheduledPost.id, 'failed', null, postResult.error);
+              results.push({ success: false, action: 'post_failed', error: postResult.error });
+            }
+          } catch (postError) {
+            await PostsDB.updatePostStatus(scheduledPost.id, 'failed', null, postError.message);
+            results.push({ success: false, action: 'post_error', error: postError.message });
+          }
+        } else {
+          results.push({ success: true, action: 'scheduled_for_later' });
+        }
+
+        processed++;
+      }
+    } catch (itemError) {
+      await pool.query(
+        'UPDATE automation_queue SET status = $1, error_message = $2 WHERE id = $3',
+        ['failed', itemError.message, queueItem.id]
+      );
+      results.push({ success: false, action: 'processing_error', error: itemError.message });
+    }
+  }
+
+  return { processed, results };
+}
+
 // Get automation analytics
 app.get('/api/automation/analytics', requireAuth, async (req, res) => {
   try {
