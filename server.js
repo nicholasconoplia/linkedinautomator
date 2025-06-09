@@ -4941,12 +4941,12 @@ app.get('/test-migrate', (req, res) => {
 // BYOB (Bring Your Own Browser) Web Research Functions
 async function performWebResearch(topic, searchDepth = 5, requiredKeywords = '') {
   try {
-    console.log(`🔍 Starting BYOB web research for: ${topic}`);
+    console.log(`🔍 🚀 PERFORMING WEB RESEARCH v3.0 - VERCEL DEPLOYMENT for: ${topic}`);
     console.log(`🔑 Required keywords: "${requiredKeywords}"`);
-    console.log('✅ Using free Google News scraping (no API keys required)');
+    console.log('✅ Using 50+ premium RSS feeds (no API keys required)');
     
-    // Step 1: Search Google News directly using free scraping
-    console.log('📰 Searching Google News tab...');
+    // Step 1: Use our comprehensive RSS system
+    console.log('📰 🚀 Starting comprehensive RSS v3.0 search...');
     const newsResults = await searchGoogleNewsFree(topic, searchDepth, requiredKeywords);
     
     if (!newsResults || newsResults.length === 0) {
@@ -4973,7 +4973,7 @@ async function performWebResearch(topic, searchDepth = 5, requiredKeywords = '')
 // Free News Search Function using direct RSS feeds (bypasses Google News redirect issues)
 async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = '') {
   try {
-    console.log(`📰 🚀 COMPREHENSIVE RSS v2.0 - USING 50+ PREMIUM SOURCES for: "${topic}"`);
+    console.log(`📰 🚀 COMPREHENSIVE RSS v3.0 VERCEL DEPLOYMENT - USING 50+ PREMIUM SOURCES for: "${topic}"`);
     console.log(`🔑 Required keywords filter: "${requiredKeywords}"`);
     
     // Parse required keywords
