@@ -43,19 +43,7 @@
     { "source": "/subscription/(.*)", "destination": "server.js" },
     { "source": "/", "destination": "server.js" }
   ],
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "linkedinautomator-*.vercel.app"
-        }
-      ],
-      "destination": "https://linkedinautomator.vercel.app/:path*",
-      "permanent": true
-    }
-  ],
+  "redirects": [],
   "headers": [
     {
       "source": "/(.*)",
