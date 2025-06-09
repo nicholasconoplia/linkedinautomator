@@ -3220,7 +3220,75 @@ async function fetchNewsArticles(topic) {
     }
   }
 
-  throw new Error('Failed to fetch articles from any news source');
+  // If all APIs fail, try Google News as fallback
+  console.log('📰 Trying Google News as fallback...');
+  return await fetchGoogleNews(topic);
+}
+
+async function fetchGoogleNews(topic) {
+  try {
+    const googleApiKey = process.env.GOOGLE_API_KEY;
+    const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+    
+    if (!googleApiKey || !searchEngineId) {
+      console.warn('⚠️ Google API credentials not configured');
+      throw new Error('Google News search not available');
+    }
+
+    console.log(`🔍 Searching Google News for: ${topic}`);
+    
+    const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
+      params: {
+        key: googleApiKey,
+        cx: searchEngineId,
+        q: topic,
+        searchType: 'news',
+        sort: 'date',
+        num: 10,
+        dateRestrict: 'd7' // Last 7 days
+      }
+    });
+
+    if (!response.data.items || response.data.items.length === 0) {
+      // Try broader search without date restriction
+      console.log('🔍 Trying broader Google News search...');
+      const broadResponse = await axios.get('https://www.googleapis.com/customsearch/v1', {
+        params: {
+          key: googleApiKey,
+          cx: searchEngineId,
+          q: topic,
+          searchType: 'news',
+          sort: 'date',
+          num: 10
+        }
+      });
+
+      if (!broadResponse.data.items || broadResponse.data.items.length === 0) {
+        throw new Error('No Google News results found');
+      }
+
+      response.data.items = broadResponse.data.items;
+    }
+
+    // Convert Google results to our article format
+    const articles = response.data.items.map(item => ({
+      title: item.title,
+      description: item.snippet,
+      url: item.link,
+      source: { 
+        name: item.displayLink || 'Google News'
+      },
+      publishedAt: item.pagemap?.metatags?.[0]?.['article:published_time'] || new Date().toISOString(),
+      content: item.snippet
+    }));
+
+    console.log(`✅ Found ${articles.length} articles from Google News`);
+    return articles;
+
+  } catch (error) {
+    console.error('❌ Google News search failed:', error.message);
+    throw new Error('Failed to fetch articles from Google News');
+  }
 }
 
 function selectBestArticle(articles) {
