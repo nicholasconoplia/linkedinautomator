@@ -5018,7 +5018,7 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
       { 
         name: 'TechCrunch', 
         url: 'https://techcrunch.com/feed/',
-        categories: ['technology', 'tech', 'startup', 'ai', 'software', 'innovation', 'venture'],
+        categories: ['technology', 'tech', 'startup', 'ai', 'artificial intelligence', 'artificial', 'intelligence', 'software', 'innovation', 'venture'],
         isUniversal: false
       },
       { 
@@ -5304,7 +5304,7 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
       { 
         name: 'VentureBeat AI', 
         url: 'https://venturebeat.com/category/ai/feed/',
-        categories: ['ai', 'technology', 'artificial intelligence', 'machine learning', 'innovation'],
+        categories: ['ai', 'technology', 'artificial intelligence', 'artificial', 'intelligence', 'machine learning', 'innovation'],
         isUniversal: false
       }
     ];
@@ -5319,7 +5319,7 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
       business: ['business', 'finance', 'financial', 'economy', 'market', 'stock', 'trading', 'investment', 'company', 'corporate', 'revenue', 'profit', 'earnings', 'bloomberg', 'cnbc', 'asx', 'nasdaq', 'dow', 'ftse', 'nikkei', 'ceo', 'ipo', 'acquisition', 'merger'],
       
       // Technology & Innovation  
-      technology: ['technology', 'tech', 'ai', 'artificial intelligence', 'software', 'hardware', 'digital', 'innovation', 'startup', 'silicon valley', 'app', 'platform', 'coding', 'programming', 'computer', 'internet', 'web', 'mobile', 'robot', 'automation', 'machine learning', 'data', 'cloud', 'cryptocurrency', 'blockchain'],
+      technology: ['technology', 'tech', 'ai', 'artificial intelligence', 'artificial', 'intelligence', 'machine learning', 'deep learning', 'neural network', 'software', 'hardware', 'digital', 'innovation', 'startup', 'silicon valley', 'app', 'platform', 'coding', 'programming', 'computer', 'internet', 'web', 'mobile', 'robot', 'automation', 'data', 'cloud', 'cryptocurrency', 'blockchain', 'algorithm', 'chatgpt', 'openai', 'claude', 'llm'],
       
       // Science & Health
       science: ['science', 'scientific', 'research', 'study', 'discovery', 'breakthrough', 'medicine', 'medical', 'health', 'treatment', 'disease', 'biology', 'physics', 'chemistry', 'laboratory', 'experiment', 'academic', 'university', 'nature', 'space', 'nasa', 'vaccine', 'clinical', 'genome', 'dna'],
