@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const cheerio = require('cheerio');
 
 // Import our modules
 const { initializeDatabase, UserDB, PreferencesDB, PostsDB, SubscriptionDB, UsageDB, AccessKeysDB, pool } = require('./database');
@@ -2877,9 +2878,25 @@ app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async 
 
   } catch (error) {
     console.error('❌ Error in /api/generate-research-post:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Request body:', req.body);
+    
+    // Check for specific error types
+    if (error.message.includes('cheerio')) {
+      console.error('❌ Cheerio-related error detected');
+    }
+    if (error.message.includes('Google')) {
+      console.error('❌ Google API-related error detected');
+    }
+    if (error.message.includes('OpenAI')) {
+      console.error('❌ OpenAI API-related error detected');
+    }
+    
     res.status(500).json({ 
       error: 'Failed to generate research-based post', 
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      errorType: error.name
     });
   }
 });
@@ -4762,29 +4779,51 @@ async function performWebResearch(topic, searchDepth = 5) {
   try {
     console.log(`🔍 Starting BYOB web research for: ${topic}`);
     
+    // Check Google API configuration first
+    if (!process.env.GOOGLE_API_KEY || !process.env.GOOGLE_SEARCH_ENGINE_ID) {
+      throw new Error('Google API configuration missing. Please check GOOGLE_API_KEY and GOOGLE_SEARCH_ENGINE_ID environment variables.');
+    }
+    console.log('✅ Google API configuration verified');
+    
     // Step 1: Generate optimized search terms
+    console.log('📝 Generating search terms...');
     const searchTerms = await generateSearchTerms(topic);
     console.log(`🎯 Search terms generated: ${searchTerms.join(', ')}`);
+    
+    if (!searchTerms || searchTerms.length === 0) {
+      throw new Error('Failed to generate search terms');
+    }
     
     // Step 2: Perform web searches for each term
     let allResults = [];
     for (const searchTerm of searchTerms) {
       try {
+        console.log(`🔍 Searching for: "${searchTerm}"`);
         const results = await performGoogleSearch(searchTerm, searchDepth);
         allResults = allResults.concat(results);
+        console.log(`📊 Found ${results.length} results for "${searchTerm}"`);
       } catch (error) {
         console.warn(`⚠️ Search failed for term "${searchTerm}":`, error.message);
       }
     }
     
+    if (allResults.length === 0) {
+      console.log('❌ No search results found across all search terms');
+      return [];
+    }
+    
+    console.log(`📊 Total search results collected: ${allResults.length}`);
+    
     // Step 3: Scrape and summarize web content
-    const researchData = await processWebContent(allResults, topic, searchDepth);
+    console.log('📄 Processing web content...');
+    const researchData = await processWebContent(allResults, topic, Math.min(searchDepth, 5));
     
     console.log(`✅ BYOB research complete: ${researchData.length} sources processed`);
     return researchData;
     
   } catch (error) {
     console.error('❌ BYOB web research failed:', error);
+    console.error('❌ Research error stack:', error.stack);
     throw error;
   }
 }
@@ -4919,7 +4958,6 @@ async function scrapeWebContent(url, maxTokens = 50000) {
     });
     
     // Parse HTML content
-    const cheerio = require('cheerio');
     const $ = cheerio.load(response.data);
     
     // Remove scripts, styles, and other non-content elements

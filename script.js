@@ -207,6 +207,8 @@ class EmploymentApp {
         const contentTypeSelect = document.getElementById('contentType');
         if (contentTypeSelect) {
             contentTypeSelect.addEventListener('change', this.handleContentTypeChange.bind(this));
+            // Show research explanation by default since BYOB is now default
+            this.handleContentTypeChange();
         }
 
         // Initialize navigation
