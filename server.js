@@ -97,6 +97,29 @@ app.use(helmet({
 app.use(cors());
 app.use(express.json());
 
+// Explicit favicon handling to prevent redirect loops
+app.get('/favicon.ico', (req, res) => {
+  const faviconPath = path.join(__dirname, 'favicon.ico');
+  if (fs.existsSync(faviconPath)) {
+    res.sendFile(faviconPath);
+  } else {
+    res.status(204).send(); // Return empty 204 response if favicon not found
+  }
+});
+
+// Explicit handling for static JS and CSS files to prevent redirect loops
+app.use((req, res, next) => {
+  if (req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.ico')) {
+    const filePath = path.join(__dirname, req.path);
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
+    } else {
+      return res.status(404).send('File not found');
+    }
+  }
+  next();
+});
+
 // Serve static files from the root directory with cache control
 const staticPath = path.join(__dirname);
 console.log(`📁 Setting up static files from: ${staticPath}`);
