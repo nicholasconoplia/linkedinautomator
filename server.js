@@ -4600,6 +4600,64 @@ app.post('/api/automation/process-queue', requireAuth, async (req, res) => {
   }
 });
 
+// Public webhook for external cron services (no auth required for background automation)
+app.post('/webhook/process-automation', async (req, res) => {
+  try {
+    console.log('🔄 Webhook trigger received for automation processing');
+    
+    // Optional security: check for a webhook secret
+    const webhookSecret = req.headers['x-webhook-secret'];
+    const expectedSecret = process.env.WEBHOOK_SECRET || 'automation-webhook-secret';
+    
+    if (webhookSecret !== expectedSecret) {
+      console.warn('⚠️ Invalid webhook secret');
+      return res.status(401).json({ error: 'Invalid webhook secret' });
+    }
+    
+    // Get all users who might have pending queue items
+    const usersResult = await pool.query(`
+      SELECT DISTINCT user_id FROM automation_queue 
+      WHERE status = 'pending' AND scheduled_for <= CURRENT_TIMESTAMP + INTERVAL '10 minutes'
+    `);
+
+    let totalProcessed = 0;
+    const userResults = [];
+
+    for (const user of usersResult.rows) {
+      try {
+        // Process queue for this user
+        const processResult = await processUserQueue(user.user_id);
+        totalProcessed += processResult.processed;
+        userResults.push({
+          user_id: user.user_id,
+          processed: processResult.processed,
+          results: processResult.results
+        });
+      } catch (userError) {
+        console.error(`❌ Error processing queue for user ${user.user_id}:`, userError);
+        userResults.push({
+          user_id: user.user_id,
+          processed: 0,
+          error: userError.message
+        });
+      }
+    }
+
+    console.log(`🎯 Webhook processed: ${totalProcessed} posts across ${usersResult.rows.length} users`);
+    res.json({
+      success: true,
+      total_processed: totalProcessed,
+      users_processed: usersResult.rows.length,
+      user_results: userResults,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error in webhook processing:', error);
+    res.status(500).json({ error: 'Webhook processing failed', details: error.message });
+  }
+});
+
 // Trigger queue processing (can be called externally or via webhook)
 app.post('/api/automation/trigger-processing', async (req, res) => {
   try {
@@ -4719,6 +4777,55 @@ async function processUserQueue(userId) {
 
   return { processed, results };
 }
+
+// Get automation status for debugging and monitoring
+app.get('/api/automation/status', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get queue status
+    const queueResult = await pool.query(`
+      SELECT 
+        status,
+        COUNT(*) as count,
+        MIN(scheduled_for) as next_scheduled
+      FROM automation_queue 
+      WHERE user_id = $1 
+      GROUP BY status
+    `, [userId]);
+
+    // Get scheduled posts status  
+    const scheduledResult = await pool.query(`
+      SELECT 
+        status,
+        COUNT(*) as count,
+        MIN(scheduled_for) as next_scheduled
+      FROM scheduled_posts 
+      WHERE user_id = $1 
+      GROUP BY status
+    `, [userId]);
+
+    // Get recent activity
+    const recentResult = await pool.query(`
+      SELECT * FROM scheduled_posts 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC 
+      LIMIT 5
+    `, [userId]);
+
+    res.json({
+      user_id: userId,
+      automation_queue: queueResult.rows,
+      scheduled_posts: scheduledResult.rows,
+      recent_activity: recentResult.rows,
+      last_check: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting automation status:', error);
+    res.status(500).json({ error: 'Failed to get automation status' });
+  }
+});
 
 // Get automation analytics
 app.get('/api/automation/analytics', requireAuth, async (req, res) => {
