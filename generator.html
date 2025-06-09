@@ -449,6 +449,15 @@
                                 </div>
                             </div>
 
+                            <!-- Required Keywords for Research -->
+                            <div id="requiredKeywords" style="display: none;" class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Required Keywords</p>
+                                    <input id="keywords" name="keywords" type="text" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal" placeholder="e.g., ASX, IPO, Australia (comma-separated)" />
+                                    <p class="text-[#49749c] text-sm mt-1">Specify words that MUST appear in news articles to ensure relevance</p>
+                                </label>
+                            </div>
+
                             <!-- Viral Format Templates -->
                             <div id="viralTemplates" style="display: none;" class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
                                 <label class="flex flex-col min-w-40 flex-1">
@@ -521,6 +530,18 @@
                                 <div class="text-center py-12 text-[#49749c]">
                                     <div class="text-4xl mb-4">✨</div>
                                     <p>Generate content to see your posts here.</p>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div id="actionButtons" style="display: none;" class="mt-4 mb-4">
+                                <div class="flex flex-wrap gap-3">
+                                    <button id="copyBtn" class="flex items-center justify-center gap-2 rounded-full h-10 px-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors">
+                                        📋 Copy to Clipboard
+                                    </button>
+                                    <button id="regenerateBtn" class="flex items-center justify-center gap-2 rounded-full h-10 px-4 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium transition-colors">
+                                        🔄 Regenerate
+                                    </button>
                                 </div>
                             </div>
 

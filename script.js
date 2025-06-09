@@ -2705,8 +2705,9 @@ class EmploymentApp {
                     await this.generatePost(topic, tone, length, engagementOptions);
                     break;
                 case 'research':
-                    console.log(`🔍 Generating research-based content for: ${topic}`);
-                    await this.generateResearchPost(topic, tone, length, engagementOptions);
+                    const keywords = document.getElementById('keywords')?.value?.trim() || '';
+                    console.log(`🔍 Generating research-based content for: ${topic} with keywords: ${keywords}`);
+                    await this.generateResearchPost(topic, tone, length, engagementOptions, keywords);
                     break;
                 case 'viral':
                     const viralFormat = document.getElementById('viralFormat')?.value || 'open-loop';
@@ -2749,16 +2750,19 @@ class EmploymentApp {
         const tweetInput = document.getElementById('tweetInput');
         const manualInput = document.getElementById('manualInput');
         const researchExplanation = document.getElementById('researchExplanation');
+        const requiredKeywords = document.getElementById('requiredKeywords');
         
         if (viralTemplates) viralTemplates.style.display = 'none';
         if (tweetInput) tweetInput.style.display = 'none';
         if (manualInput) manualInput.style.display = 'none';
         if (researchExplanation) researchExplanation.style.display = 'none';
+        if (requiredKeywords) requiredKeywords.style.display = 'none';
         
         // Show relevant section based on content type
         switch (contentType) {
             case 'research':
                 if (researchExplanation) researchExplanation.style.display = 'block';
+                if (requiredKeywords) requiredKeywords.style.display = 'block';
                 break;
             case 'viral':
                 if (viralTemplates) viralTemplates.style.display = 'block';
@@ -3292,13 +3296,10 @@ class EmploymentApp {
         
         // Show action buttons and post options
         console.log('🔘 Showing action buttons...');
-        if (this.copyBtn) {
-            this.copyBtn.style.display = 'inline-flex';
-            console.log('✅ Copy button shown');
-        }
-        if (this.regenerateBtn) {
-            this.regenerateBtn.style.display = 'inline-flex';
-            console.log('✅ Regenerate button shown');
+        const actionButtons = document.getElementById('actionButtons');
+        if (actionButtons) {
+            actionButtons.style.display = 'block';
+            console.log('✅ Action buttons container shown');
         }
         
         // Add edit button if it doesn't exist
@@ -4237,7 +4238,7 @@ class EmploymentApp {
         }
     }
 
-    async generateResearchPost(topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
+    async generateResearchPost(topic, tone = 'professional', length = 'medium', engagementOptions = {}, keywords = '') {
         try {
             // Store current topic for image refresh
             this.currentTopic = topic;
@@ -4258,7 +4259,8 @@ class EmploymentApp {
                 topic,
                 tone,
                 length,
-                engagement_options: engagementOptions
+                engagement_options: engagementOptions,
+                required_keywords: keywords
             };
             
             console.log('📤 Sending request to generate research post:', requestData);

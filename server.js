@@ -2188,6 +2188,162 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Article extraction API using @extractus/article-extractor (for local testing)
+app.get('/api/extract-article', async (req, res) => {
+  const { url } = req.query;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'Missing URL parameter' });
+  }
+
+  try {
+    console.log(`🌐 Local article extraction from: ${url}`);
+    
+    // Import the article extractor
+    const { extract } = await import('@extractus/article-extractor');
+    
+    // First, try to resolve Google News redirects
+    let finalUrl = url;
+    
+    if (url.includes('news.google.com')) {
+      console.log(`🔗 Detected Google News URL, attempting to resolve...`);
+      
+      try {
+        // Try to follow redirects to get the actual article URL
+        const response = await axios.get(url, {
+          maxRedirects: 5,
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        });
+        
+        finalUrl = response.request.res.responseUrl || response.config.url || url;
+        console.log(`✅ Resolved to: ${finalUrl}`);
+        
+        // If still a Google URL after redirects, try base64 decoding
+        if (finalUrl.includes('google.com') && url.includes('CBM')) {
+          console.log(`🧩 Attempting base64 decode...`);
+          try {
+            const match = url.match(/CBM[a-zA-Z0-9+/=]+/);
+            if (match) {
+              const base64Part = match[0].substring(3); // Remove 'CBM' prefix
+              const decoded = Buffer.from(base64Part, 'base64').toString('utf-8');
+              
+              // Look for URLs in the decoded content
+              const urlMatch = decoded.match(/https?:\/\/[^\s"'<>]+/);
+              if (urlMatch) {
+                finalUrl = urlMatch[0];
+                console.log(`🎯 Decoded URL: ${finalUrl}`);
+              }
+            }
+          } catch (decodeError) {
+            console.log(`⚠️ Base64 decode failed: ${decodeError.message}`);
+          }
+        }
+        
+      } catch (redirectError) {
+        console.log(`⚠️ Redirect resolution failed: ${redirectError.message}, using original URL`);
+      }
+    }
+
+    // Extract article content using @extractus/article-extractor
+    console.log(`📄 Extracting content from final URL: ${finalUrl}`);
+    
+    const articleData = await extract(finalUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+
+    if (!articleData || !articleData.content) {
+      console.log(`⚠️ No content extracted from ${finalUrl}`);
+      return res.status(400).json({ 
+        error: 'Could not extract article content',
+        url: finalUrl
+      });
+    }
+
+    // Clean and validate content
+    const cleanContent = articleData.content
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
+
+    if (cleanContent.length < 100) {
+      console.log(`⚠️ Content too short: ${cleanContent.length} characters`);
+      return res.status(400).json({ 
+        error: 'Article content too short',
+        contentLength: cleanContent.length,
+        url: finalUrl
+      });
+    }
+
+    console.log(`✅ Local extraction successful: ${cleanContent.length} characters from ${articleData.title || 'article'}`);
+    
+    return res.json({
+      success: true,
+      title: articleData.title || '',
+      author: articleData.author || '',
+      description: articleData.description || '',
+      content: cleanContent.substring(0, 8000), // Limit for performance
+      contentLength: cleanContent.length,
+      publishedTime: articleData.published || '',
+      url: finalUrl,
+      originalUrl: url
+    });
+
+  } catch (error) {
+    console.error(`❌ Local article extraction failed from ${url}:`, error.message);
+    
+    // Try a fallback extraction method for stubborn URLs
+    if (url.includes('google.com')) {
+      console.log(`🔄 Trying fallback method for Google News URL...`);
+      
+      try {
+        // Try to fetch the page directly and parse with basic HTML extraction
+        const response = await axios.get(url, {
+          timeout: 8000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        // Look for redirects in HTML content
+        const html = response.data;
+        const urlMatch = html.match(/url=([^"&]+)/i) || html.match(/href="([^"]+)"/i);
+        
+        if (urlMatch && urlMatch[1] && !urlMatch[1].includes('google.com')) {
+          const fallbackUrl = decodeURIComponent(urlMatch[1]);
+          console.log(`🎯 Found fallback URL: ${fallbackUrl}`);
+          
+          const { extract } = await import('@extractus/article-extractor');
+          const fallbackData = await extract(fallbackUrl);
+          if (fallbackData && fallbackData.content && fallbackData.content.length > 100) {
+            return res.json({
+              success: true,
+              title: fallbackData.title || '',
+              content: fallbackData.content.substring(0, 8000),
+              contentLength: fallbackData.content.length,
+              url: fallbackUrl,
+              originalUrl: url,
+              extractionMethod: 'fallback'
+            });
+          }
+        }
+      } catch (fallbackError) {
+        console.log(`⚠️ Fallback method also failed: ${fallbackError.message}`);
+      }
+    }
+    
+    return res.status(500).json({ 
+      error: 'Failed to extract article content',
+      details: error.message,
+      url: url
+    });
+  }
+});
+
 // Test login endpoint for local development
 app.post('/api/test-login', async (req, res) => {
   if (process.env.NODE_ENV === 'production') {
@@ -2805,7 +2961,7 @@ app.get('/manage-subscription', (req, res) => {
 // Generate research-based post endpoint (BYOB)
 app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async (req, res) => {
   try {
-    const { topic, tone = 'professional', length = 'medium', engagement_options = {} } = req.body;
+    const { topic, tone = 'professional', length = 'medium', engagement_options = {}, required_keywords = '' } = req.body;
     
     if (!topic) {
       return res.status(400).json({ error: 'Topic is required' });
@@ -2814,6 +2970,7 @@ app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async 
     console.log('🔬 ===== BYOB Research Generation Started =====');
     console.log(`👤 User: ${req.user.name} (${req.user.email})`);
     console.log(`📝 Topic: "${topic}"`);
+    console.log(`🔑 Required keywords: "${required_keywords}"`);
     console.log(`🎯 Tone: ${tone}, Length: ${length}`);
     console.log(`⚙️ Engagement options:`, engagement_options);
 
@@ -2828,7 +2985,7 @@ app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async 
 
     // Perform comprehensive web research
     console.log('🔍 Starting comprehensive web research...');
-    const researchData = await performWebResearch(topic, 5);
+    const researchData = await performWebResearch(topic, 5, required_keywords);
     
     if (!researchData || researchData.length === 0) {
       console.log('⚠️ No research data found, falling back to general post');
@@ -4782,14 +4939,15 @@ app.get('/test-migrate', (req, res) => {
 });
 
 // BYOB (Bring Your Own Browser) Web Research Functions
-async function performWebResearch(topic, searchDepth = 5) {
+async function performWebResearch(topic, searchDepth = 5, requiredKeywords = '') {
   try {
     console.log(`🔍 Starting BYOB web research for: ${topic}`);
+    console.log(`🔑 Required keywords: "${requiredKeywords}"`);
     console.log('✅ Using free Google News scraping (no API keys required)');
     
     // Step 1: Search Google News directly using free scraping
     console.log('📰 Searching Google News tab...');
-    const newsResults = await searchGoogleNewsFree(topic, searchDepth);
+    const newsResults = await searchGoogleNewsFree(topic, searchDepth, requiredKeywords);
     
     if (!newsResults || newsResults.length === 0) {
       console.log('❌ No news articles found');
@@ -4812,86 +4970,177 @@ async function performWebResearch(topic, searchDepth = 5) {
   }
 }
 
-// Free Google News Search Function using RSS (Reliable & Fast)
-async function searchGoogleNewsFree(topic, maxResults = 5) {
+// Free News Search Function using direct RSS feeds (bypasses Google News redirect issues)
+async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = '') {
   try {
-    console.log(`📰 Searching Google News RSS for: "${topic}"`);
+    console.log(`📰 Searching direct RSS feeds for: "${topic}"`);
+    console.log(`🔑 Required keywords filter: "${requiredKeywords}"`);
     
-    // Use Australian Google News RSS for better ASX coverage
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=en&gl=AU&ceid=AU:en`;
-    console.log(`📡 RSS URL: ${rssUrl}`);
+    // Parse required keywords
+    const keywordsList = requiredKeywords ? requiredKeywords.toLowerCase().split(',').map(k => k.trim()).filter(k => k) : [];
+    console.log(`🔍 Parsed keywords:`, keywordsList);
     
-    const response = await axios.get(rssUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
-        'Accept': 'application/rss+xml, application/xml, text/xml, text/html'
+    // Expanded RSS sources for variety (randomize order each time)
+    const allRSSFeeds = [
+      { 
+        name: 'SmartCompany', 
+        url: 'https://www.smartcompany.com.au/feed/',
+        keywords: ['asx', 'ipo', 'listing', 'startup', 'business', 'flotation', 'public offering'],
+        requiredTerms: ['ipo', 'listing', 'asx', 'business', 'market']
       },
-      timeout: 15000
-    });
+      { 
+        name: 'The Motley Fool Australia', 
+        url: 'https://www.fool.com.au/feed/',
+        keywords: ['asx', 'ipo', 'listing', 'stock', 'shares', 'investment', 'market'],
+        requiredTerms: ['asx', 'ipo', 'listing', 'shares', 'investment']
+      },
+      { 
+        name: 'Financial Review RSS', 
+        url: 'https://www.afr.com/rss/companies',
+        keywords: ['asx', 'ipo', 'listing', 'stock', 'shares', 'market', 'companies'],
+        requiredTerms: ['asx', 'ipo', 'listing', 'shares', 'market']
+      },
+      { 
+        name: 'Business Insider Australia', 
+        url: 'https://www.businessinsider.com.au/rss',
+        keywords: ['business', 'startup', 'tech', 'finance', 'asx', 'market'],
+        requiredTerms: ['business', 'startup', 'tech', 'finance']
+      },
+      { 
+        name: 'TechCrunch', 
+        url: 'https://techcrunch.com/feed/',
+        keywords: ['startup', 'tech', 'funding', 'ipo', 'venture', 'business'],
+        requiredTerms: ['startup', 'tech', 'funding', 'business']
+      },
+      { 
+        name: 'Fortune', 
+        url: 'https://fortune.com/feed/',
+        keywords: ['business', 'fortune', 'company', 'market', 'ipo', 'finance'],
+        requiredTerms: ['business', 'company', 'market', 'finance']
+      }
+    ];
     
-    const xml2js = require('xml2js');
-    const parsed = await xml2js.parseStringPromise(response.data, { 
-      trim: true, 
-      explicitArray: false 
-    });
+    // Randomize feed order for variety (use timestamp for different results each time)
+    const seed = Date.now() % 1000000; // Use timestamp for variety
+    const directRSSFeeds = allRSSFeeds.sort((a, b) => (a.name.charCodeAt(0) * seed) - (b.name.charCodeAt(0) * seed)).slice(0, 4);
+    console.log(`🎲 Selected RSS feeds for this search:`, directRSSFeeds.map(f => f.name));
     
-    const items = parsed.rss?.channel?.item || [];
-    const articles = Array.isArray(items) ? items : [items];
+    let allNewsResults = [];
+    const searchTerms = topic.toLowerCase().split(' ');
     
-    const newsResults = articles.slice(0, maxResults).map(item => {
-      // Extract clean URL (Google News sometimes wraps URLs)
-      let cleanUrl = item.link;
-      if (cleanUrl && cleanUrl.includes('news.google.com/articles/')) {
-        // Try to extract original URL from Google News redirect
-        try {
-          const urlParams = new URLSearchParams(cleanUrl.split('?')[1]);
-          const originalUrl = urlParams.get('url');
-          if (originalUrl) {
-            cleanUrl = decodeURIComponent(originalUrl);
+    for (const feed of directRSSFeeds) {
+      try {
+        console.log(`📡 Trying ${feed.name}: ${feed.url}`);
+        
+        const response = await axios.get(feed.url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
+            'Accept': 'application/rss+xml, application/xml, text/xml'
+          },
+          timeout: 10000
+        });
+        
+        const xml2js = require('xml2js');
+        const parsed = await xml2js.parseStringPromise(response.data, { 
+          trim: true, 
+          explicitArray: false 
+        });
+        
+        const items = parsed.rss?.channel?.item || [];
+        const articles = Array.isArray(items) ? items : [items];
+        
+        // Filter articles that match our topic with strict financial content validation
+        const relevantArticles = articles.filter(item => {
+          const title = (item.title || '').toLowerCase();
+          const description = (item.description || '').toLowerCase();
+          const content = title + ' ' + description;
+          
+          // First check: If user specified required keywords, those must be present
+          if (keywordsList.length > 0) {
+            const hasUserKeyword = keywordsList.some(keyword => content.includes(keyword));
+            if (!hasUserKeyword) {
+              console.log(`❌ Article rejected (missing user keywords): "${title}"`);
+              return false;
+            }
+          } else {
+            // Default check: Must contain at least one required financial term
+            const hasRequiredTerm = feed.requiredTerms.some(term => content.includes(term));
+            if (!hasRequiredTerm) return false;
           }
-        } catch (e) {
-          // Keep original URL if extraction fails
-        }
+          
+          // Second check: Must not be about unrelated topics
+          const excludeTerms = ['gaza', 'israel', 'war', 'politics', 'election', 'trump', 'biden', 'climate', 'thunberg', 'flotilla', 'defence', 'military', 'alliance'];
+          const isExcluded = excludeTerms.some(term => content.includes(term));
+          if (isExcluded) {
+            console.log(`❌ Article rejected (excluded topic): "${title}"`);
+            return false;
+          }
+          
+          // Third check: Should match topic search terms or financial keywords
+          const topicMatches = searchTerms.some(term => term.length > 2 && content.includes(term));
+          const keywordMatches = feed.keywords.some(keyword => content.includes(keyword));
+          
+          const isRelevant = topicMatches || keywordMatches;
+          if (isRelevant) {
+            console.log(`✅ Article accepted: "${title}"`);
+          }
+          return isRelevant;
+        }).slice(0, 2); // Max 2 articles per feed
+        
+        const feedResults = relevantArticles.map(item => ({
+          title: item.title,
+          link: item.link,
+          snippet: item.description || item.title?.substring(0, 150) + '...',
+          source: feed.name,
+          date: item.pubDate || new Date().toISOString(),
+          thumbnail: null
+        }));
+        
+        allNewsResults = allNewsResults.concat(feedResults);
+        console.log(`📊 ${feed.name} found ${feedResults.length} relevant articles`);
+        
+        feedResults.forEach((article, i) => {
+          console.log(`📄 - ${article.title}`);
+        });
+        
+      } catch (feedError) {
+        console.log(`⚠️ ${feed.name} RSS failed: ${feedError.message}`);
+        continue;
       }
-      
-      // Extract source from item.source or fallback to domain
-      const source = item.source?._ || item.source || extractDomainFromUrl(cleanUrl);
-      
-      // Clean up title (remove source prefix if present)
-      let cleanTitle = item.title;
-      if (typeof cleanTitle === 'string' && source) {
-        const sourcePrefix = source.split('.')[0];
-        if (cleanTitle.startsWith(`${sourcePrefix} - `)) {
-          cleanTitle = cleanTitle.replace(`${sourcePrefix} - `, '');
-        }
-      }
-      
-      return {
-        title: cleanTitle,
-        link: cleanUrl,
-        snippet: item.description || cleanTitle.substring(0, 150) + '...',
-        source: source,
-        date: item.pubDate || new Date().toISOString(),
-        thumbnail: null
-      };
-    }).filter(article => article.title && article.link);
+    }
     
-    console.log(`📊 RSS found ${newsResults.length} news articles`);
-    newsResults.forEach((article, i) => {
-      console.log(`📄 ${i+1}. ${article.title} (${article.source})`);
+    // If we still need more articles, try Google News as fallback
+    if (allNewsResults.length < 3) {
+      console.log(`📰 Adding Google News RSS as fallback...`);
+      try {
+        const googleResults = await searchGoogleNewsRSS(topic, Math.max(3 - allNewsResults.length, 2));
+        allNewsResults = allNewsResults.concat(googleResults);
+      } catch (googleError) {
+        console.log(`⚠️ Google News fallback failed: ${googleError.message}`);
+      }
+    }
+    
+    // Remove duplicates and limit results
+    const uniqueResults = allNewsResults.filter((article, index, self) => 
+      index === self.findIndex(a => a.link === article.link)
+    ).slice(0, maxResults);
+    
+    console.log(`📊 Total found ${uniqueResults.length} news articles from direct RSS feeds`);
+    uniqueResults.forEach((article, i) => {
+      console.log(`📄 ${i+1}. ${article.title} - ${article.source}`);
     });
     
-    return newsResults;
+    return uniqueResults;
     
   } catch (error) {
-    console.error('❌ Google News RSS search failed:', error.message);
+    console.error('❌ Direct RSS search failed:', error.message);
     
-    // Fallback to US RSS if Australian RSS fails
+    // Final fallback to original Google News method
     try {
-      console.log('🔄 Trying US RSS fallback...');
+      console.log('🔄 Trying Google News RSS as final fallback...');
       return await searchGoogleNewsRSS(topic, maxResults);
     } catch (rssError) {
-      console.error('❌ US RSS fallback also failed:', rssError.message);
+      console.error('❌ Final RSS fallback also failed:', rssError.message);
       return [];
     }
   }
@@ -5005,6 +5254,34 @@ async function processNewsArticles(newsResults, originalTopic, maxSources = 5) {
         continue;
       }
       
+      // Validate that content is actually relevant to the topic before summarizing
+      const contentLower = fullContent.toLowerCase();
+      const topicLower = originalTopic.toLowerCase();
+      const topicTerms = topicLower.split(' ').filter(term => term.length > 2);
+      
+      // Check if article content actually relates to the topic
+      const relevanceScore = topicTerms.filter(term => contentLower.includes(term)).length / topicTerms.length;
+      
+      // For very specific topics like "ASX IPO listings", be more flexible with relevance
+      const isSpecificTopic = topicLower.includes('ipo') || topicLower.includes('listing') || topicLower.includes('asx');
+      const minRelevance = isSpecificTopic ? 0.15 : 0.3; // Lower threshold for specific topics
+      
+      if (relevanceScore < minRelevance) {
+        console.log(`⏭️ Skipping - content not relevant to topic (${Math.round(relevanceScore * 100)}% match, need ${Math.round(minRelevance * 100)}%)`);
+        continue;
+      }
+      
+      console.log(`✅ Content relevance: ${Math.round(relevanceScore * 100)}% (threshold: ${Math.round(minRelevance * 100)}%)`);
+      
+      // Additional check for financial topics
+      if (topicLower.includes('ipo') || topicLower.includes('asx') || topicLower.includes('listing')) {
+        const hasFinancialContent = ['ipo', 'asx', 'listing', 'stock', 'shares', 'market', 'flotation', 'public offering'].some(term => contentLower.includes(term));
+        if (!hasFinancialContent) {
+          console.log(`⏭️ Skipping - no financial content detected in article`);
+          continue;
+        }
+      }
+
       // Summarize content relevant to original topic
       const summary = await summarizeWebContent(fullContent, originalTopic);
       if (!summary || summary.length < 10) {
@@ -5032,34 +5309,139 @@ async function processNewsArticles(newsResults, originalTopic, maxSources = 5) {
   }
   
   console.log(`🎯 Final research data: ${researchData.length} high-quality articles processed`);
+  
+  // If no specific matches found, try broader search for very specific topics
+  if (researchData.length === 0) {
+    console.log('⚠️ No specific research data found, trying broader search...');
+    
+    // Try again with broader terms for very specific topics
+    const broaderTerms = originalTopic.toLowerCase().includes('ipo') ? 
+      ['asx', 'stock market', 'australian companies', 'shares', 'investment'] :
+      originalTopic.toLowerCase().split(' ').filter(term => term.length > 3).slice(0, 3);
+      
+    console.log(`🔍 Searching with broader terms: ${broaderTerms.join(', ')}`);
+    
+    // Retry with lower relevance threshold for broader search  
+    for (const article of newsResults.slice(0, 3)) { // Try top 3 articles again
+      try {
+        const fullContent = await extractArticleContent(article.link || article.url);
+        if (!fullContent || fullContent.length < 100) continue;
+        
+        // Lower relevance threshold for broader search (20% instead of 30%)
+        const contentLower = fullContent.toLowerCase();
+        const relevanceScore = broaderTerms.filter(term => contentLower.includes(term)).length / broaderTerms.length;
+        
+        if (relevanceScore >= 0.2) { // 20% match for broader search
+          console.log(`📰 Including broader content (${Math.round(relevanceScore * 100)}% match): ${article.title}`);
+          
+          // Summarize content with broader context
+          const summary = await summarizeWebContent(fullContent, `ASX market and ${originalTopic}`);
+          if (summary && summary.length > 10) {
+            researchData.push({
+              url: article.link || article.url,
+              title: article.title,
+              summary: summary,
+              publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
+              source: article.source || extractDomainFromUrl(article.link || article.url),
+              contentLength: fullContent.length,
+              searchType: 'broader_match'
+            });
+            
+            console.log(`✅ Successfully processed broader match: ${article.title} (${fullContent.length} chars, ${summary.length} char summary)`);
+            
+            // Stop after finding 1-2 broader matches to avoid irrelevant content
+            if (researchData.length >= 2) break;
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Error processing broader search for ${article.title}:`, error.message);
+        continue;
+      }
+    }
+    
+    if (researchData.length > 0) {
+      console.log(`✅ Found ${researchData.length} articles with broader search`);
+    } else {
+      console.log('⚠️ No research data found even with broader search');
+    }
+  }
+  
   return researchData;
 }
 
-// Resolve Google News redirect URLs to actual article URLs
+// Smart Google News URL resolver with base64 decoding + Puppeteer fallback
 async function resolveFinalUrl(googleUrl) {
   try {
     console.log(`🔗 Resolving redirect URL: ${googleUrl.substring(0, 100)}...`);
     
-    // First try to extract direct URL from Google News RSS format
+    // For Google News RSS URLs, try to decode the base64 encoded URL first
     if (googleUrl.includes('news.google.com/rss/articles/')) {
       try {
-        // Follow the redirect to get the final URL
-        const response = await axios.get(googleUrl, {
-          maxRedirects: 5,
-          validateStatus: () => true, // Don't throw on redirects
-          timeout: 10000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+        // Extract the base64 encoded part from the URL
+        const urlMatch = googleUrl.match(/articles\/([^?]+)/);
+        if (urlMatch && urlMatch[1]) {
+          const encodedPart = urlMatch[1];
+          console.log(`🧩 Attempting to decode base64 URL: ${encodedPart.substring(0, 50)}...`);
+          
+          try {
+            // Try to decode as base64
+            const decoded = Buffer.from(encodedPart, 'base64').toString('utf-8');
+            console.log(`🔍 Decoded content: ${decoded.substring(0, 100)}...`);
+            
+            // Look for URL patterns in the decoded content
+            const urlPattern = /https?:\/\/[^\s"]+/g;
+            const urls = decoded.match(urlPattern);
+            
+            if (urls && urls.length > 0) {
+              const realUrl = urls.find(url => 
+                !url.includes('google.com') && 
+                !url.includes('youtube.com') &&
+                (url.includes('.com') || url.includes('.au') || url.includes('.org'))
+              );
+              
+              if (realUrl) {
+                console.log(`✅ Decoded real URL: ${realUrl}`);
+                return realUrl;
+              }
+            }
+          } catch (decodeError) {
+            console.log(`⚠️ Base64 decode failed: ${decodeError.message}`);
           }
-        });
+        }
         
-        // Get the final URL after redirects
-        const finalUrl = response.request.res ? response.request.res.responseUrl : response.config.url;
-        console.log(`✅ Resolved to: ${finalUrl}`);
-        return finalUrl;
+        // If base64 decoding fails, try the traditional redirect approach
+        console.log(`🔄 Trying redirect resolution...`);
+        let currentUrl = googleUrl;
+        let attempts = 0;
+        const maxAttempts = 5; // Reduced attempts
+        
+        while (attempts < maxAttempts && currentUrl.includes('news.google.com')) {
+          attempts++;
+          console.log(`🔄 Redirect attempt ${attempts}: ${currentUrl.substring(0, 80)}...`);
+          
+          const response = await axios.get(currentUrl, {
+            maxRedirects: 3,
+            timeout: 10000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
+          
+          const finalUrl = response.request?.res?.responseUrl || response.config.url;
+          if (!finalUrl.includes('news.google.com')) {
+            console.log(`✅ Resolved via redirect: ${finalUrl}`);
+            return finalUrl;
+          }
+          
+          break; // Don't loop if we're still on Google
+        }
+        
+        console.log(`⚠️ Could not resolve Google News URL, will use Puppeteer fallback`);
+        return googleUrl; // Return original URL for Puppeteer extraction
+        
       } catch (error) {
         console.warn(`⚠️ Failed to resolve Google redirect: ${error.message}`);
-        return googleUrl; // Fallback to original URL
+        return googleUrl;
       }
     }
     
@@ -5067,98 +5449,145 @@ async function resolveFinalUrl(googleUrl) {
     
   } catch (error) {
     console.warn(`⚠️ URL resolution failed: ${error.message}`);
-    return googleUrl; // Fallback to original URL
+    return googleUrl;
   }
 }
 
-// Extract article content using Mercury Parser with URL resolution
+// Extract article content using Mercury Parser + Puppeteer fallback
 async function extractArticleContent(url) {
   try {
     // First resolve the actual URL if it's a Google News redirect
     const resolvedUrl = await resolveFinalUrl(url);
     console.log(`🌐 Extracting content from: ${resolvedUrl}`);
     
-    // Import Mercury Parser (now @postlight/parser)
-    const Mercury = require('@postlight/parser');
-    
-    const result = await Mercury.parse(resolvedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+    // Use our improved article extraction API for all URLs
+    console.log(`🌐 Local article extraction from: ${resolvedUrl}`);
+    try {
+      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+      const apiUrl = `${baseUrl}/api/extract-article?url=${encodeURIComponent(resolvedUrl)}`;
+      
+      const response = await axios.get(apiUrl, { timeout: 20000 });
+      
+      if (response.data.success && response.data.content) {
+        console.log(`✅ Local extraction successful: ${response.data.contentLength} characters from ${response.data.title || 'article'}`);
+        return response.data.content;
+      } else {
+        console.log(`⚠️ Local extraction failed: ${response.data.error}`);
+        // Continue to Mercury Parser fallback
       }
-    });
-    
-    if (!result || !result.content) {
-      console.log(`⚠️ Mercury Parser returned no content for ${resolvedUrl}`);
-      return null;
+    } catch (extractionError) {
+      console.warn(`⚠️ Local extraction API failed: ${extractionError.message}`);
+      // Continue to Mercury Parser fallback
     }
     
-    // Clean HTML and extract text
-    const cheerio = require('cheerio');
-    const $ = cheerio.load(result.content);
-    
-    // Remove unwanted elements
-    $('script, style, nav, header, footer, aside, .advertisement, .ads, .paywall').remove();
-    
-    const textContent = $.text()
-      .replace(/\s+/g, ' ')
-      .replace(/\n\s*\n/g, '\n')
-      .trim();
-    
-    console.log(`✅ Extracted ${textContent.length} characters from ${resolvedUrl}`);
-    return textContent;
-    
-  } catch (error) {
-    console.warn(`⚠️ Failed to extract content from ${url}:`, error.message);
-    
-    // Fallback: try basic axios request for article text
+    // For regular URLs, use Mercury Parser first
     try {
-      console.log(`🔄 Trying fallback extraction...`);
-      const response = await axios.get(url, {
+      // First fetch the HTML manually for better control
+      const response = await axios.get(resolvedUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate',
+          'Cache-Control': 'no-cache'
         },
-        timeout: 10000
+        timeout: 15000
       });
       
+      // Use JSDOM for better Mercury compatibility
+      const { JSDOM } = require('jsdom');
+      const dom = new JSDOM(response.data, { url: resolvedUrl });
+      
+      // Import Mercury Parser (now @postlight/parser)
+      const Mercury = require('@postlight/parser');
+      
+      const result = await Mercury.parse(resolvedUrl, {
+        html: dom.serialize()
+      });
+      
+      if (result && result.content && result.content.length > 100) {
+        // Clean HTML and extract text
+        const cheerio = require('cheerio');
+        const $ = cheerio.load(result.content);
+        
+        // Remove unwanted elements
+        $('script, style, nav, header, footer, aside, .advertisement, .ads, .paywall, .subscribe').remove();
+        
+        const textContent = $.text()
+          .replace(/\s+/g, ' ')
+          .replace(/\n\s*\n/g, '\n')
+          .trim();
+        
+        if (textContent.length > 200) {
+          console.log(`✅ Mercury extracted ${textContent.length} characters from ${resolvedUrl}`);
+          return textContent;
+        }
+      }
+      
+      console.log(`⚠️ Mercury Parser returned insufficient content, trying Puppeteer...`);
+      
+      // Mercury failed, fallback handled by main extraction above - skip duplicate API call
+      
+      // Final fallback: direct HTML parsing with common selectors
+      console.log(`⚠️ Trying direct HTML parsing fallback...`);
       const cheerio = require('cheerio');
       const $ = cheerio.load(response.data);
       
+      // Remove unwanted elements first
+      $('script, style, nav, header, footer, aside, .advertisement, .ads, .paywall, .subscribe, .social-share').remove();
+      
       // Try to extract main content using common selectors
       const contentSelectors = [
+        'article .article-content',
+        'article .content',
+        'article .entry-content', 
+        'article .post-content',
         'article',
-        '.article-content',
-        '.content',
-        '.post-content',
-        '.entry-content',
-        'main',
-        '.story-body'
+        '.article-body',
+        '.story-content',
+        '.story-body',
+        '.content-body',
+        '.post-body',
+        'main article',
+        'main .content',
+        '.main-content',
+        '#article-content',
+        '#story-content'
       ];
       
       let content = '';
       for (const selector of contentSelectors) {
         const element = $(selector);
-        if (element.length && element.text().length > 100) {
-          content = element.text();
-          break;
+        if (element.length) {
+          const text = element.text().trim();
+          if (text.length > 200 && text.length > content.length) {
+            content = text;
+          }
         }
       }
       
-      if (content.length > 50) {
+      if (content.length > 200) {
         const cleanContent = content
           .replace(/\s+/g, ' ')
           .replace(/\n\s*\n/g, '\n')
           .trim()
-          .substring(0, 2000); // Limit to 2000 chars for fallback
+          .substring(0, 3000); // Limit to 3000 chars for fallback
           
-        console.log(`✅ Fallback extracted ${cleanContent.length} characters`);
+        console.log(`✅ HTML fallback extracted ${cleanContent.length} characters from ${resolvedUrl}`);
         return cleanContent;
       }
       
+      console.log(`⚠️ No sufficient content found for ${resolvedUrl}`);
       return null;
-    } catch (fallbackError) {
-      console.warn(`⚠️ Fallback extraction also failed: ${fallbackError.message}`);
+      
+    } catch (error) {
+      console.warn(`⚠️ Failed to extract content from ${url}:`, error.message);
       return null;
     }
+    
+  } catch (error) {
+    console.warn(`⚠️ Failed to extract content from ${url}:`, error.message);
+    return null;
   }
 }
 
@@ -5439,10 +5868,19 @@ async function scrapeWebContent(url, maxTokens = 50000) {
 
 async function summarizeWebContent(content, originalTopic, characterLimit = 800) {
   try {
-    const prompt = `You are an AI research assistant. Summarize the following web content as it relates to "${originalTopic}".
+    const prompt = `You are an AI research assistant. Analyze the following web content and determine if it has business/financial relevance to "${originalTopic}".
 
-Requirements:
-- Focus on insights, data, trends, and key points relevant to "${originalTopic}"
+For specific topics like "ASX IPO listings 2025", be flexible and accept related business content about:
+- ASX stock market news and analysis
+- Australian business/corporate developments  
+- Investment and trading topics
+- Financial market insights
+- Company announcements and business news
+
+ONLY respond with "IRRELEVANT CONTENT" if the content is completely unrelated to business/finance (e.g., sports, entertainment, unrelated politics).
+
+If the content has ANY business/financial relevance, provide a summary with these requirements:
+- Focus on insights, data, trends, and key points that could relate to "${originalTopic}"
 - Maximum ${characterLimit} characters
 - Use clear, professional language suitable for LinkedIn content
 - Include specific facts, statistics, or quotes if available
@@ -5451,14 +5889,19 @@ Requirements:
 Web Content:
 ${content}
 
-Summary:`;
+Response:`;
 
-    const summary = await callOpenAI(prompt, 'research_summarizer');
+    const response = await callOpenAI(prompt, 'research_summarizer');
+    
+    // Check if content was deemed irrelevant
+    if (response.trim() === "IRRELEVANT CONTENT") {
+      console.log(`⏭️ AI determined content is irrelevant to topic`);
+      return null;
+    }
     
     // Ensure we don't exceed character limit
-    if (summary.length > characterLimit) {
-      return summary.substring(0, characterLimit - 3) + '...';
-    }
+    const summary = response.length > characterLimit ? 
+      response.substring(0, characterLimit - 3) + '...' : response;
     
     return summary;
     
@@ -5472,12 +5915,22 @@ async function generateRAGPost(researchData, topic, tone, length = 'medium', eng
   try {
     console.log(`🎯 Generating RAG post from ${researchData.length} research sources`);
     
-    // Prepare research context
-    const researchContext = researchData.map((item, index) => 
-      `Source ${index + 1}: ${item.title}
+    // Prepare research context with quotes for better authenticity
+    const researchContext = researchData.map((item, index) => {
+      // Extract potential quotes from the summary (look for sentences with specific data/insights)
+      const sentences = item.summary.split('.').filter(s => s.trim().length > 20);
+      const bestQuote = sentences.find(s => 
+        s.includes('$') || s.includes('%') || s.includes('million') || s.includes('billion') ||
+        s.toLowerCase().includes('according to') || s.toLowerCase().includes('report') ||
+        s.toLowerCase().includes('data') || s.toLowerCase().includes('analysis')
+      ) || sentences[0];
+      
+      return `Source ${index + 1}: ${item.title}
 Summary: ${item.summary}
-URL: ${item.url}`
-    ).join('\n\n');
+Key Quote: "${bestQuote.trim()}."
+Source: ${item.source}
+URL: ${item.url}`;
+    }).join('\n\n');
     
     const lengthGuide = {
       short: '50-100 words, punchy and direct',
@@ -5491,12 +5944,14 @@ ${researchContext}
 
 Instructions:
 - Synthesize insights from multiple sources into one cohesive post
+- Include 1-2 specific quotes from the sources in italics using *text* format
 - Include specific data points, trends, or insights from the research
 - Write in ${tone} tone
 - Length: ${lengthGuide[length] || lengthGuide.medium}
 - Format for LinkedIn with appropriate line breaks
 - Don't use hashtags (LinkedIn algorithm doesn't favor them)
-- Make it engaging and valuable for a professional audience`;
+- Make it engaging and valuable for a professional audience
+- Use italics (*text*) for direct quotes to add credibility`;
 
     // Add engagement options
     if (engagementOptions.curiosity_hook) {

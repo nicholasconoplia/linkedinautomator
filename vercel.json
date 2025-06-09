@@ -60,5 +60,11 @@
   "env": {
     "NODE_ENV": "production"
   },
+  "functions": {
+    "api/extract-article.js": {
+      "memory": 1024,
+      "maxDuration": 15
+    }
+  },
   "alias": ["employment.vercel.app"]
 } 
