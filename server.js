@@ -4785,16 +4785,11 @@ app.get('/test-migrate', (req, res) => {
 async function performWebResearch(topic, searchDepth = 5) {
   try {
     console.log(`🔍 Starting BYOB web research for: ${topic}`);
+    console.log('✅ Using free Google News scraping (no API keys required)');
     
-    // Check SerpAPI configuration
-    if (!process.env.SERP_API_KEY) {
-      throw new Error('SerpAPI configuration missing. Please check SERP_API_KEY environment variable.');
-    }
-    console.log('✅ SerpAPI configuration verified');
-    
-    // Step 1: Search Google News directly using SerpAPI
+    // Step 1: Search Google News directly using free scraping
     console.log('📰 Searching Google News tab...');
-    const newsResults = await searchGoogleNews(topic, searchDepth);
+    const newsResults = await searchGoogleNewsFree(topic, searchDepth);
     
     if (!newsResults || newsResults.length === 0) {
       console.log('❌ No news articles found');
@@ -4817,43 +4812,97 @@ async function performWebResearch(topic, searchDepth = 5) {
   }
 }
 
-// SerpAPI Google News Search Function
-async function searchGoogleNews(topic, maxResults = 5) {
+// Free Google News Search Function (based on serping/express-scraper)
+async function searchGoogleNewsFree(topic, maxResults = 5) {
   try {
-    const serpApiKey = process.env.SERP_API_KEY;
     console.log(`📰 Searching Google News for: "${topic}"`);
     
-    const searchParams = {
-      q: topic,
-      tbm: 'nws', // Google News tab
-      api_key: serpApiKey,
-      num: Math.min(maxResults, 10), // Limit results
-      hl: 'en', // English language
-      gl: 'us', // Global results (can be changed based on topic)
-      tbs: 'qdr:m6' // Last 6 months
-    };
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(topic)}&tbm=nws&hl=en&gl=us&num=${Math.min(maxResults, 10)}`;
+    console.log(`🔍 Search URL: ${searchUrl}`);
     
-    const response = await axios.get('https://serpapi.com/search.json', {
-      params: searchParams,
-      timeout: 10000
+    const gotScraping = require('got-scraping');
+    
+    const response = await gotScraping({
+      url: searchUrl,
+      headerGeneratorOptions: {
+        browsers: [
+          {
+            name: 'chrome',
+            minVersion: 87,
+            maxVersion: 114
+          }
+        ],
+        devices: ['desktop'],
+        locales: ['en-US'],
+        operatingSystems: ['windows', 'macos', 'linux']
+      },
+      timeout: {
+        request: 15000
+      }
     });
 
-    const newsResults = response.data.news_results || [];
+    const cheerio = require('cheerio');
+    const $ = cheerio.load(response.body);
     
-    console.log(`📊 SerpAPI returned ${newsResults.length} news articles`);
+    const newsResults = [];
     
-    // Format results to match our expected structure
-    return newsResults.map(article => ({
-      title: article.title,
-      link: article.link,
-      snippet: article.snippet || article.excerpt || '',
-      source: article.source,
-      date: article.date,
-      thumbnail: article.thumbnail
-    }));
+    // Parse Google News results
+    $('div[data-ved]').each((i, element) => {
+      const $element = $(element);
+      
+      // Extract title and link
+      const titleElement = $element.find('h3').first();
+      const linkElement = $element.find('a[href*="/url?"]').first();
+      
+      if (titleElement.length && linkElement.length) {
+        const title = titleElement.text().trim();
+        const href = linkElement.attr('href');
+        
+        // Extract real URL from Google's redirect
+        let realUrl = null;
+        if (href) {
+          const urlMatch = href.match(/\/url\?.*?&url=([^&]+)/);
+          if (urlMatch) {
+            realUrl = decodeURIComponent(urlMatch[1]);
+          } else {
+            // Try q parameter
+            const qMatch = href.match(/\/url\?.*?q=([^&]+)/);
+            if (qMatch) {
+              realUrl = decodeURIComponent(qMatch[1]);
+            }
+          }
+        }
+        
+        // Extract snippet/description
+        const snippetElement = $element.find('span').filter((i, el) => {
+          const text = $(el).text();
+          return text.length > 50 && !text.includes('·') && !text.includes('ago');
+        }).first();
+        
+        // Extract source and date
+        const sourceElement = $element.find('span').filter((i, el) => {
+          const text = $(el).text();
+          return text.includes('·') || text.includes('ago') || text.match(/\d+\s+(hour|day|week|month)s?\s+ago/i);
+        }).first();
+        
+        if (title && realUrl && realUrl.startsWith('http')) {
+          newsResults.push({
+            title: title,
+            link: realUrl,
+            snippet: snippetElement.text().trim() || '',
+            source: sourceElement.text().split('·')[0]?.trim() || 'Unknown',
+            date: new Date().toISOString(), // Default to current date
+            thumbnail: null
+          });
+        }
+      }
+    });
+    
+    console.log(`📊 Free scraper found ${newsResults.length} news articles`);
+    return newsResults.slice(0, maxResults);
     
   } catch (error) {
-    console.error('❌ SerpAPI search failed:', error.message);
+    console.error('❌ Free Google News search failed:', error.message);
     return [];
   }
 }
