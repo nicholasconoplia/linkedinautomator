@@ -2347,8 +2347,9 @@ app.get('/', (req, res) => {
   // Set CSP headers for all pages
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
+    "img-src 'self' data: https: http:; " +
     "connect-src 'self' https://api.stripe.com; " +
     "frame-src https://js.stripe.com https://hooks.stripe.com; " +
     "font-src 'self' https://fonts.gstatic.com;"
@@ -2528,8 +2529,9 @@ app.get('/subscribe', (req, res) => {
   // Set CSP headers to allow Stripe
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
+    "img-src 'self' data: https: http:; " +
     "connect-src 'self' https://api.stripe.com; " +
     "frame-src https://js.stripe.com https://hooks.stripe.com; " +
     "font-src 'self' https://fonts.gstatic.com;"
