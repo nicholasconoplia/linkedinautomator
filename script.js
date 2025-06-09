@@ -1,5 +1,5 @@
-// PostPilot - AI-Driven LinkedIn Content Platform
-class PostPilotApp {
+// Employment - AI-Driven LinkedIn Content Platform
+class EmploymentApp {
     // Utility function to get auth token from localStorage or cookies
     getAuthToken() {
         // First try localStorage
@@ -17,7 +17,7 @@ class PostPilotApp {
     }
 
     constructor() {
-        console.log('🏗️ Constructing PostPilotApp v20250609-001...');
+        console.log('🏗️ Constructing EmploymentApp v20250609-001...');
         console.log('🔧 Automation fixes applied - debugging enabled');
         
         // Core elements
@@ -80,7 +80,7 @@ class PostPilotApp {
     }
     
     async init() {
-        console.log('🚀 PostPilot initializing for page:', this.currentPage);
+                        console.log('🚀 Employment initializing for page:', this.currentPage);
         
         // Setup base event listeners (auth, etc.)
         this.setupAuthEventListeners();
@@ -106,7 +106,7 @@ class PostPilotApp {
             // Show welcome message and check subscription after LinkedIn auth
             setTimeout(async () => {
                 if (this.isLoggedIn) {
-                    this.showSuccess('🎉 LinkedIn connected successfully! Welcome to PostPilot!');
+                    this.showSuccess('🎉 LinkedIn connected successfully! Welcome to Employment!');
                     
                     // Check subscription status after successful authentication
                     const hasAccess = await this.checkSubscriptionLimit();
@@ -117,7 +117,7 @@ class PostPilotApp {
             }, 1500);
         }
         
-        console.log('✅ PostPilot ready for', this.currentPage, 'page!');
+                    console.log('✅ Employment ready for', this.currentPage, 'page!');
     }
 
     setupGeneratorPage() {
@@ -3771,20 +3771,20 @@ class PostPilotApp {
 
 // Global functions for HTML onclick handlers
 function copyToClipboard() {
-    if (window.postPilot) {
-        window.postPilot.copyToClipboard();
+    if (window.employment) {
+        window.employment.copyToClipboard();
     }
 }
 
 function regeneratePost() {
-    if (window.postPilot) {
-        window.postPilot.regeneratePost();
+    if (window.employment) {
+        window.employment.regeneratePost();
     }
 }
 
 function postToLinkedIn() {
-    if (window.postPilot) {
-        window.postPilot.handlePostToLinkedIn();
+    if (window.employment) {
+        window.employment.handlePostToLinkedIn();
     }
 }
 
@@ -3807,11 +3807,11 @@ async function logout() {
         }
         
         if (data.success) {
-            if (window.postPilot) {
-                window.postPilot.isLoggedIn = false;
-                window.postPilot.currentUser = null;
-                window.postPilot.showUnauthenticatedState();
-                window.postPilot.updatePostButtonState();
+                if (window.employment) {
+        window.employment.isLoggedIn = false;
+        window.employment.currentUser = null;
+        window.employment.showUnauthenticatedState();
+        window.employment.updatePostButtonState();
             }
             console.log('✅ User logged out');
         } else {
@@ -3819,8 +3819,8 @@ async function logout() {
         }
     } catch (error) {
         console.error('❌ Error logging out:', error);
-        if (window.postPilot) {
-            window.postPilot.showError('Failed to logout');
+        if (window.employment) {
+            window.employment.showError('Failed to logout');
         }
     }
 }
@@ -3835,8 +3835,8 @@ function closeLinkedInPreview() {
 }
 
 function confirmLinkedInPost() {
-    if (window.postPilot) {
-        window.postPilot.confirmLinkedInPost();
+    if (window.employment) {
+        window.employment.confirmLinkedInPost();
     }
 }
 
@@ -3917,37 +3917,37 @@ function showAccessKeyMessage(message, type) {
 
 // Automation queue management functions
 function editQueueItem(id) {
-    if (window.postPilot) {
-        window.postPilot.editQueueItem(id);
+    if (window.employment) {
+        window.employment.editQueueItem(id);
     }
 }
 
 function deleteQueueItem(id) {
-    if (window.postPilot) {
-        window.postPilot.deleteQueueItem(id);
+    if (window.employment) {
+        window.employment.deleteQueueItem(id);
     }
 }
 
 function closeEditQueueModal() {
-    if (window.postPilot) {
-        window.postPilot.closeEditQueueModal();
+    if (window.employment) {
+        window.employment.closeEditQueueModal();
     }
 }
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎬 DOM Content Loaded - Initializing PostPilot...');
-    try {
-        window.postPilot = new PostPilotApp();
-        console.log('✅ PostPilot initialized successfully!');
-    } catch (error) {
-        console.error('❌ Failed to initialize PostPilot:', error);
-    }
+    console.log('🎬 DOM Content Loaded - Initializing Employment...');
+try {
+    window.employment = new EmploymentApp();
+    console.log('✅ Employment initialized successfully!');
+} catch (error) {
+    console.error('❌ Failed to initialize Employment:', error);
+}
 });
 
 // Console welcome message
 console.log(`
-🚀 PostPilot - AI-Driven LinkedIn Content Platform
+🚀 Employment - AI-Driven LinkedIn Content Platform
 ✨ Ready to create amazing content!
 
 Keyboard shortcuts:
