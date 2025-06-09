@@ -3989,7 +3989,7 @@ app.post('/api/refresh-image', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('❌ Error refreshing image:', error);
     res.status(500).json({ error: 'Failed to refresh image' });
-  }
+    }
 });
 
 // Legacy automation endpoint - keeping for compatibility
@@ -4615,6 +4615,19 @@ app.all('/cron-trigger', async (req, res) => {
     }
     
     // Get all users who might have pending queue items
+    console.log('🔍 Debug: Checking for pending queue items...');
+    console.log('🕐 Current server time:', new Date().toISOString());
+    console.log('🕐 Checking items scheduled up to:', new Date(Date.now() + 10 * 60 * 1000).toISOString());
+    
+    // First, let's see ALL queue items for debugging
+    const allQueueResult = await pool.query(`
+      SELECT user_id, topic, scheduled_for, status, created_at 
+      FROM automation_queue 
+      ORDER BY scheduled_for DESC 
+      LIMIT 5
+    `);
+    console.log('🔍 All queue items (latest 5):', allQueueResult.rows);
+    
     const usersResult = await pool.query(`
       SELECT DISTINCT user_id FROM automation_queue 
       WHERE status = 'pending' AND scheduled_for <= CURRENT_TIMESTAMP + INTERVAL '10 minutes'
