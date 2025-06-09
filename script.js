@@ -1443,6 +1443,79 @@ class EmploymentApp {
         }
     }
 
+    // Refresh image for the current generated content
+    async refreshImage(topic) {
+        if (!topic) {
+            this.showError('Unable to refresh image - topic not found');
+            return;
+        }
+
+        const imageElement = document.getElementById('generated-image');
+        const refreshBtn = document.getElementById('refresh-image-btn');
+        
+        if (!imageElement || !refreshBtn) {
+            this.showError('Unable to refresh image - elements not found');
+            return;
+        }
+
+        try {
+            console.log('🔄 Refreshing image for topic:', topic);
+            
+            // Show loading state
+            refreshBtn.innerHTML = `
+                <svg class="w-4 h-4 text-gray-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            `;
+            refreshBtn.disabled = true;
+
+            const response = await fetch('/api/refresh-image', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ topic })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ New image fetched:', data.image);
+                
+                // Update the image
+                imageElement.src = data.image.url;
+                
+                // Update photographer credit if it exists
+                const creditElement = imageElement.parentElement.parentElement.querySelector('.text-xs.text-gray-500');
+                if (creditElement && data.image.photographer) {
+                    creditElement.textContent = `Photo by ${data.image.photographer} on ${data.image.source || 'Pexels'}`;
+                }
+                
+                // Update current post data if available
+                if (this.currentPost && this.currentPost.image) {
+                    this.currentPost.image = data.image;
+                }
+                
+                this.showSuccess('✨ New image loaded!');
+            } else {
+                const error = await response.json();
+                console.error('❌ Image refresh failed:', error);
+                this.showError('Failed to get new image: ' + (error.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('❌ Image refresh error:', error);
+            this.showError('Error refreshing image. Please try again.');
+        } finally {
+            // Restore refresh button
+            refreshBtn.innerHTML = `
+                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            `;
+            refreshBtn.disabled = false;
+        }
+    }
+
     displaySubscriptionStatus(data) {
         // Support both old and new subscription layouts
         const subscriptionSection = document.getElementById('subscriptionStatusSection') || document.getElementById('subscriptionCard');
@@ -2798,6 +2871,9 @@ class EmploymentApp {
     
     async generatePost(topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
         try {
+            // Store current topic for image refresh
+            this.currentTopic = topic;
+            
             // Get auth token from localStorage or cookie
             const authToken = this.getAuthToken();
             
@@ -2903,9 +2979,24 @@ class EmploymentApp {
                 <div class="text-[#0d151c] text-base font-normal leading-normal whitespace-pre-wrap mb-4">${this.formatPostText(data.post)}</div>
                 ${data.image && data.image.url ? `
                     <div class="mt-4">
-                        <img src="${data.image.url}" alt="Generated content image" 
-                             class="w-full max-w-md mx-auto rounded-lg shadow-md object-cover"
-                             style="max-height: 300px;" />
+                        <div class="relative max-w-md mx-auto">
+                            <img id="generated-image" src="${data.image.url}" alt="Generated content image" 
+                                 class="w-full rounded-lg shadow-md object-cover"
+                                 style="max-height: 300px;" />
+                            <button id="refresh-image-btn" 
+                                    class="absolute top-2 right-2 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-full p-2 shadow-lg transition-all duration-200 hover:scale-110"
+                                    title="Get a different image"
+                                    onclick="window.employment.refreshImage('${data.topic || this.currentTopic}')">
+                                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        ${data.image.photographer ? `
+                            <div class="text-center mt-2 text-xs text-gray-500">
+                                Photo by ${data.image.photographer} on ${data.image.source || 'Pexels'}
+                            </div>
+                        ` : ''}
                     </div>
                 ` : ''}
             </div>

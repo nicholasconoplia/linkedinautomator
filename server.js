@@ -3509,6 +3509,36 @@ app.get('/api/posts/recent', requireAuth, async (req, res) => {
     }
 });
 
+// Refresh image endpoint
+app.post('/api/refresh-image', requireAuth, async (req, res) => {
+  try {
+    const { topic } = req.body;
+    
+    if (!topic) {
+      return res.status(400).json({ error: 'Topic is required' });
+    }
+    
+    console.log('🔄 Refreshing image for topic:', topic);
+    const image = await fetchRelevantImage(topic);
+    
+    if (image) {
+      res.json({ 
+        success: true, 
+        image: {
+          url: image.url,
+          photographer: image.photographer,
+          source: image.source
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch new image' });
+    }
+  } catch (error) {
+    console.error('❌ Error refreshing image:', error);
+    res.status(500).json({ error: 'Failed to refresh image' });
+  }
+});
+
 // Legacy automation endpoint - keeping for compatibility
 app.post('/api/automation/settings-legacy', requireAuth, async (req, res) => {
     try {
