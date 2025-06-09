@@ -1411,6 +1411,38 @@ class EmploymentApp {
         return data;
     }
 
+    // Reset monthly usage (for subscription issues)
+    async resetMonthlyUsage() {
+        try {
+            console.log('🔧 Resetting monthly usage...');
+            const response = await fetch('/api/subscription/reset-usage', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Usage reset successful:', data);
+                this.showSuccess('✅ Monthly usage has been reset! You now have full access to your plan.');
+                // Force refresh the subscription status
+                await this.forceRefreshSubscription();
+                return data;
+            } else {
+                const error = await response.json();
+                console.error('❌ Usage reset failed:', error);
+                this.showError('Failed to reset usage: ' + (error.details || error.error));
+                return null;
+            }
+        } catch (error) {
+            console.error('❌ Usage reset error:', error);
+            this.showError('Error resetting usage. Please try again.');
+            return null;
+        }
+    }
+
     displaySubscriptionStatus(data) {
         // Support both old and new subscription layouts
         const subscriptionSection = document.getElementById('subscriptionStatusSection') || document.getElementById('subscriptionCard');
