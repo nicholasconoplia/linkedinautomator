@@ -4491,7 +4491,7 @@ app.post('/api/automation/process-queue', requireAuth, async (req, res) => {
 
           // Update queue item status to processed
           await pool.query(
-            'UPDATE automation_queue SET status = $1, processed_at = CURRENT_TIMESTAMP WHERE id = $2',
+            'UPDATE automation_queue SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
             ['processed', queueItem.id]
           );
 
@@ -4733,7 +4733,7 @@ async function processUserQueue(userId) {
         });
 
         await pool.query(
-          'UPDATE automation_queue SET status = $1, processed_at = CURRENT_TIMESTAMP WHERE id = $2',
+          'UPDATE automation_queue SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
           ['processed', queueItem.id]
         );
 
