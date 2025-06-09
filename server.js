@@ -4980,114 +4980,438 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
     const keywordsList = requiredKeywords ? requiredKeywords.toLowerCase().split(',').map(k => k.trim()).filter(k => k) : [];
     console.log(`🔍 Parsed keywords:`, keywordsList);
     
-    // Universal RSS sources covering diverse topics (randomize order each time)
+    // COMPREHENSIVE RSS FEED SYSTEM - Covers ALL possible topics
     const allRSSFeeds = [
-      // BUSINESS & FINANCE
+      // 🏦 BUSINESS & FINANCE
       { 
-        name: 'Reuters Business', 
-        url: 'https://feeds.reuters.com/reuters/businessNews',
-        categories: ['business', 'finance', 'economy', 'market', 'company'],
+        name: 'Bloomberg Markets', 
+        url: 'https://www.bloomberg.com/feed/podcast/etf-report.xml',
+        categories: ['business', 'finance', 'economy', 'market', 'company', 'stocks', 'investment', 'bloomberg'],
         isUniversal: false
       },
       { 
-        name: 'BBC Business', 
-        url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
-        categories: ['business', 'finance', 'economy', 'market'],
+        name: 'CNBC Top News', 
+        url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html',
+        categories: ['business', 'finance', 'economy', 'market', 'cnbc', 'financial', 'trading'],
         isUniversal: false
       },
-      
-      // TECHNOLOGY
+      { 
+        name: 'Financial Times', 
+        url: 'https://www.ft.com/rss/home/us',
+        categories: ['business', 'finance', 'economy', 'market', 'ft', 'financial', 'global'],
+        isUniversal: false
+      },
+      { 
+        name: 'Investopedia', 
+        url: 'https://www.investopedia.com/feedbuilder/feed/getfeed/?feedName=rss_headline',
+        categories: ['business', 'finance', 'investment', 'trading', 'education', 'financial'],
+        isUniversal: false
+      },
+      { 
+        name: 'Yahoo Finance', 
+        url: 'https://finance.yahoo.com/news/rssindex',
+        categories: ['business', 'finance', 'stocks', 'market', 'yahoo', 'earnings'],
+        isUniversal: false
+      },
+
+      // 💻 TECHNOLOGY & STARTUPS
       { 
         name: 'TechCrunch', 
         url: 'https://techcrunch.com/feed/',
-        categories: ['technology', 'tech', 'startup', 'ai', 'software', 'innovation'],
+        categories: ['technology', 'tech', 'startup', 'ai', 'software', 'innovation', 'venture'],
+        isUniversal: false
+      },
+      { 
+        name: 'The Verge', 
+        url: 'https://www.theverge.com/rss/index.xml',
+        categories: ['technology', 'tech', 'gadgets', 'software', 'hardware', 'review'],
+        isUniversal: false
+      },
+      { 
+        name: 'Wired Technology', 
+        url: 'https://www.wired.com/feed/category/technology/latest/rss',
+        categories: ['technology', 'tech', 'innovation', 'science', 'future', 'digital'],
         isUniversal: false
       },
       { 
         name: 'Ars Technica', 
-        url: 'https://feeds.arstechnica.com/arstechnica/index',
-        categories: ['technology', 'science', 'tech', 'research', 'innovation'],
+        url: 'http://feeds.arstechnica.com/arstechnica/index',
+        categories: ['technology', 'tech', 'science', 'research', 'innovation', 'computing'],
         isUniversal: false
       },
-      
-      // SCIENCE & HEALTH
       { 
-        name: 'Reuters Health', 
-        url: 'https://feeds.reuters.com/reuters/health',
-        categories: ['health', 'medical', 'medicine', 'research', 'treatment', 'study'],
+        name: 'Product Hunt', 
+        url: 'https://www.producthunt.com/feed',
+        categories: ['technology', 'startup', 'product', 'innovation', 'launch', 'app'],
+        isUniversal: false
+      },
+
+      // 🔬 SCIENCE & HEALTH
+      { 
+        name: 'Nature News', 
+        url: 'https://www.nature.com/subjects/news.rss',
+        categories: ['science', 'research', 'study', 'discovery', 'nature', 'breakthrough'],
+        isUniversal: false
+      },
+      { 
+        name: 'Live Science', 
+        url: 'https://www.livescience.com/home/feed/site.xml',
+        categories: ['science', 'research', 'discovery', 'biology', 'physics', 'space'],
+        isUniversal: false
+      },
+      { 
+        name: 'Medical News Today', 
+        url: 'https://www.medicalnewstoday.com/rss',
+        categories: ['health', 'medical', 'medicine', 'treatment', 'disease', 'healthcare'],
+        isUniversal: false
+      },
+      { 
+        name: 'ScienceDaily', 
+        url: 'https://www.sciencedaily.com/rss/top/science.xml',
+        categories: ['science', 'research', 'study', 'discovery', 'breakthrough', 'academic'],
         isUniversal: false
       },
       { 
         name: 'Scientific American', 
-        url: 'https://rss.sciam.com/ScientificAmerican-Global',
-        categories: ['science', 'research', 'study', 'discovery', 'breakthrough'],
+        url: 'https://www.scientificamerican.com/feed/rss/',
+        categories: ['science', 'research', 'discovery', 'innovation', 'technology', 'nature'],
         isUniversal: false
       },
-      
-      // ENVIRONMENT & ENERGY
+
+      // 🌱 ENVIRONMENT & ENERGY
       { 
-        name: 'Reuters Environment', 
-        url: 'https://feeds.reuters.com/reuters/environment',
-        categories: ['environment', 'climate', 'energy', 'renewable', 'sustainability'],
+        name: 'Inside Climate News', 
+        url: 'https://insideclimatenews.org/feed/',
+        categories: ['environment', 'climate', 'energy', 'renewable', 'sustainability', 'green'],
         isUniversal: false
       },
-      
-      // GENERAL NEWS (UNIVERSAL - works for any topic)
+      { 
+        name: 'Grist', 
+        url: 'https://grist.org/feed/',
+        categories: ['environment', 'climate', 'sustainability', 'green', 'renewable', 'energy'],
+        isUniversal: false
+      },
+      { 
+        name: 'Yale Environment 360', 
+        url: 'https://e360.yale.edu/rss',
+        categories: ['environment', 'climate', 'sustainability', 'conservation', 'ecology'],
+        isUniversal: false
+      },
+      { 
+        name: 'Energy.gov', 
+        url: 'https://www.energy.gov/rss/news.xml',
+        categories: ['energy', 'renewable', 'government', 'policy', 'power', 'electricity'],
+        isUniversal: false
+      },
+
+      // 🌍 WORLD NEWS / INTERNATIONAL (UNIVERSAL)
       { 
         name: 'Reuters World News', 
-        url: 'https://feeds.reuters.com/Reuters/worldNews',
-        categories: ['news', 'world', 'global', 'international'],
+        url: 'http://feeds.reuters.com/Reuters/worldNews',
+        categories: ['news', 'world', 'global', 'international', 'breaking'],
         isUniversal: true
       },
       { 
         name: 'BBC World News', 
-        url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
-        categories: ['news', 'world', 'global', 'international'],
+        url: 'http://feeds.bbci.co.uk/news/world/rss.xml',
+        categories: ['news', 'world', 'global', 'international', 'breaking'],
         isUniversal: true
       },
       { 
         name: 'Associated Press', 
-        url: 'https://feeds.apnews.com/rss/apf-topnews',
-        categories: ['news', 'breaking', 'latest', 'update'],
+        url: 'https://apnews.com/rss',
+        categories: ['news', 'breaking', 'latest', 'update', 'ap'],
         isUniversal: true
+      },
+      { 
+        name: 'Al Jazeera', 
+        url: 'https://www.aljazeera.com/xml/rss/all.xml',
+        categories: ['news', 'world', 'global', 'international', 'middle east'],
+        isUniversal: true
+      },
+      { 
+        name: 'NPR World', 
+        url: 'https://www.npr.org/rss/rss.php?id=1004',
+        categories: ['news', 'world', 'international', 'npr', 'radio'],
+        isUniversal: true
+      },
+
+      // 🇺🇸 US NEWS / POLITICS
+      { 
+        name: 'Politico', 
+        url: 'https://www.politico.com/rss/politics08.xml',
+        categories: ['politics', 'government', 'policy', 'election', 'washington', 'congress'],
+        isUniversal: false
+      },
+      { 
+        name: 'NPR Politics', 
+        url: 'https://www.npr.org/rss/rss.php?id=1014',
+        categories: ['politics', 'government', 'policy', 'npr', 'election'],
+        isUniversal: false
+      },
+      { 
+        name: 'The Hill', 
+        url: 'https://thehill.com/rss/syndicator/19110',
+        categories: ['politics', 'government', 'congress', 'washington', 'policy'],
+        isUniversal: false
+      },
+      { 
+        name: 'Axios', 
+        url: 'https://www.axios.com/feeds/news.xml',
+        categories: ['politics', 'government', 'news', 'policy', 'analysis'],
+        isUniversal: false
+      },
+
+      // 🏛️ GOVERNMENT & POLICY
+      { 
+        name: 'White House Briefings', 
+        url: 'https://www.whitehouse.gov/briefing-room/feed/',
+        categories: ['government', 'policy', 'white house', 'administration', 'official'],
+        isUniversal: false
+      },
+      { 
+        name: 'GovTech', 
+        url: 'https://www.govtech.com/rss',
+        categories: ['government', 'technology', 'policy', 'digital', 'public sector'],
+        isUniversal: false
+      },
+
+      // 🎭 ENTERTAINMENT & CULTURE
+      { 
+        name: 'Rolling Stone', 
+        url: 'https://www.rollingstone.com/feed/',
+        categories: ['entertainment', 'music', 'culture', 'celebrity', 'arts'],
+        isUniversal: false
+      },
+      { 
+        name: 'Variety', 
+        url: 'https://variety.com/v/film/news/feed/',
+        categories: ['entertainment', 'film', 'movie', 'hollywood', 'celebrity'],
+        isUniversal: false
+      },
+      { 
+        name: 'The Guardian Culture', 
+        url: 'https://www.theguardian.com/culture/rss',
+        categories: ['culture', 'arts', 'entertainment', 'books', 'theater'],
+        isUniversal: false
+      },
+      { 
+        name: 'Vulture', 
+        url: 'https://www.vulture.com/rss/index.xml',
+        categories: ['entertainment', 'culture', 'tv', 'movie', 'celebrity', 'review'],
+        isUniversal: false
+      },
+
+      // ⚽ SPORTS
+      { 
+        name: 'ESPN', 
+        url: 'https://www.espn.com/espn/rss/news',
+        categories: ['sports', 'athletics', 'espn', 'football', 'basketball', 'baseball'],
+        isUniversal: false
+      },
+      { 
+        name: 'Bleacher Report', 
+        url: 'https://bleacherreport.com/articles/feed',
+        categories: ['sports', 'athletics', 'football', 'basketball', 'baseball'],
+        isUniversal: false
+      },
+      { 
+        name: 'BBC Sport', 
+        url: 'http://feeds.bbci.co.uk/sport/rss.xml?edition=uk',
+        categories: ['sports', 'athletics', 'football', 'soccer', 'rugby'],
+        isUniversal: false
+      },
+
+      // 📱 SOCIAL MEDIA & VIRAL
+      { 
+        name: 'BuzzFeed News', 
+        url: 'https://www.buzzfeed.com/world.xml',
+        categories: ['viral', 'social media', 'trending', 'buzzfeed', 'popular'],
+        isUniversal: false
+      },
+      { 
+        name: 'Mashable Social Media', 
+        url: 'https://mashable.com/feeds/rss/social-media',
+        categories: ['social media', 'viral', 'trending', 'digital', 'internet'],
+        isUniversal: false
+      },
+
+      // 🧘‍♀️ LIFESTYLE & WELLNESS
+      { 
+        name: 'MindBodyGreen', 
+        url: 'https://www.mindbodygreen.com/rss',
+        categories: ['wellness', 'health', 'lifestyle', 'mental health', 'mindfulness'],
+        isUniversal: false
+      },
+      { 
+        name: 'Healthline', 
+        url: 'https://www.healthline.com/rss',
+        categories: ['health', 'wellness', 'medical', 'lifestyle', 'fitness'],
+        isUniversal: false
+      },
+      { 
+        name: 'Lifehacker', 
+        url: 'https://lifehacker.com/rss',
+        categories: ['lifestyle', 'productivity', 'tips', 'technology', 'life'],
+        isUniversal: false
+      },
+
+      // 🧑‍🏫 EDUCATION & CAREERS
+      { 
+        name: 'EdTech Magazine', 
+        url: 'https://edtechmagazine.com/higher/rss.xml',
+        categories: ['education', 'technology', 'learning', 'university', 'college'],
+        isUniversal: false
+      },
+      { 
+        name: 'Chronicle of Higher Education', 
+        url: 'https://www.chronicle.com/section/Home/5',
+        categories: ['education', 'university', 'college', 'academic', 'higher education'],
+        isUniversal: false
+      },
+      { 
+        name: 'Inside Higher Ed', 
+        url: 'https://www.insidehighered.com/rss/news',
+        categories: ['education', 'university', 'college', 'academic', 'higher education'],
+        isUniversal: false
+      },
+      { 
+        name: 'Harvard Business Review', 
+        url: 'https://hbr.org/rss',
+        categories: ['business', 'careers', 'management', 'leadership', 'harvard'],
+        isUniversal: false
+      },
+
+      // 🚀 FUTURE / INNOVATION / AI
+      { 
+        name: 'MIT Technology Review', 
+        url: 'https://www.technologyreview.com/feed/',
+        categories: ['technology', 'ai', 'innovation', 'future', 'research', 'mit'],
+        isUniversal: false
+      },
+      { 
+        name: 'Futurism', 
+        url: 'https://futurism.com/feed',
+        categories: ['future', 'innovation', 'ai', 'technology', 'science', 'breakthrough'],
+        isUniversal: false
+      },
+      { 
+        name: 'Singularity Hub', 
+        url: 'https://singularityhub.com/feed/',
+        categories: ['ai', 'technology', 'future', 'innovation', 'science', 'robotics'],
+        isUniversal: false
+      },
+      { 
+        name: 'VentureBeat AI', 
+        url: 'https://venturebeat.com/category/ai/feed/',
+        categories: ['ai', 'technology', 'artificial intelligence', 'machine learning', 'innovation'],
+        isUniversal: false
       }
     ];
     
-    // Smart feed selection based on topic
+    // ENHANCED SMART FEED SELECTION - Works for any topic worldwide
     const topicLower = topic.toLowerCase();
-    let selectedFeeds = [];
+    const searchTerms = topic.toLowerCase().split(' ');
     
-    // First, try to match topic-specific feeds
-    const categoryMatches = allRSSFeeds.filter(feed => {
-      if (feed.isUniversal) return false; // Skip universal feeds for now
-      return feed.categories.some(category => 
-        topicLower.includes(category) || 
-        searchTerms.some(term => term.includes(category) || category.includes(term))
+    // COMPREHENSIVE TOPIC MAPPING for universal coverage
+    const topicMapping = {
+      // Business & Finance
+      business: ['business', 'finance', 'financial', 'economy', 'market', 'stock', 'trading', 'investment', 'company', 'corporate', 'revenue', 'profit', 'earnings', 'bloomberg', 'cnbc', 'asx', 'nasdaq', 'dow', 'ftse', 'nikkei', 'ceo', 'ipo', 'acquisition', 'merger'],
+      
+      // Technology & Innovation  
+      technology: ['technology', 'tech', 'ai', 'artificial intelligence', 'software', 'hardware', 'digital', 'innovation', 'startup', 'silicon valley', 'app', 'platform', 'coding', 'programming', 'computer', 'internet', 'web', 'mobile', 'robot', 'automation', 'machine learning', 'data', 'cloud', 'cryptocurrency', 'blockchain'],
+      
+      // Science & Health
+      science: ['science', 'scientific', 'research', 'study', 'discovery', 'breakthrough', 'medicine', 'medical', 'health', 'treatment', 'disease', 'biology', 'physics', 'chemistry', 'laboratory', 'experiment', 'academic', 'university', 'nature', 'space', 'nasa', 'vaccine', 'clinical', 'genome', 'dna'],
+      
+      // Environment & Climate
+      environment: ['environment', 'climate', 'green', 'sustainability', 'renewable', 'energy', 'solar', 'wind', 'carbon', 'emissions', 'pollution', 'conservation', 'ecology', 'earth', 'global warming', 'clean', 'electric', 'battery', 'fossil fuel', 'greenhouse'],
+      
+      // Politics & Government
+      politics: ['politics', 'political', 'government', 'policy', 'election', 'voting', 'congress', 'senate', 'president', 'administration', 'white house', 'washington', 'legislation', 'law', 'regulation', 'democracy', 'campaign', 'diplomat', 'international', 'treaty'],
+      
+      // Entertainment & Culture
+      entertainment: ['entertainment', 'movie', 'film', 'music', 'celebrity', 'culture', 'arts', 'theater', 'television', 'tv', 'show', 'hollywood', 'streaming', 'netflix', 'disney', 'concert', 'album', 'book', 'author', 'festival'],
+      
+      // Sports & Athletics
+      sports: ['sports', 'sport', 'athletics', 'football', 'basketball', 'baseball', 'soccer', 'rugby', 'tennis', 'golf', 'olympics', 'championship', 'team', 'player', 'game', 'match', 'tournament', 'league', 'coach', 'athlete'],
+      
+      // Education & Learning
+      education: ['education', 'school', 'university', 'college', 'learning', 'student', 'teacher', 'academic', 'curriculum', 'degree', 'scholarship', 'online learning', 'mooc', 'graduation'],
+      
+      // Lifestyle & Wellness
+      lifestyle: ['lifestyle', 'wellness', 'fitness', 'nutrition', 'mental health', 'mindfulness', 'productivity', 'self-improvement', 'tips', 'diet', 'exercise', 'meditation', 'work-life balance'],
+      
+      // Social Media & Viral
+      viral: ['viral', 'social media', 'trending', 'meme', 'twitter', 'facebook', 'instagram', 'tiktok', 'youtube', 'influencer', 'hashtag', 'content creator']
+    };
+    
+    // Detect which main categories the topic belongs to
+    let detectedCategories = [];
+    for (const [mainCategory, relatedTerms] of Object.entries(topicMapping)) {
+      const hasMatch = relatedTerms.some(term => 
+        topicLower.includes(term) || searchTerms.some(keyword => keyword.includes(term) || term.includes(keyword))
       );
-    });
-    
-    // Always include at least 2 universal feeds for broad coverage
-    const universalFeeds = allRSSFeeds.filter(feed => feed.isUniversal);
-    
-    // Combine category-specific and universal feeds
-    selectedFeeds = [...categoryMatches.slice(0, 2), ...universalFeeds.slice(0, 2)];
-    
-    // If no category matches found, use more universal feeds
-    if (categoryMatches.length === 0) {
-      selectedFeeds = [...universalFeeds, ...allRSSFeeds.slice(0, 2)];
+      if (hasMatch) {
+        detectedCategories.push(mainCategory);
+      }
     }
     
-    // Randomize final selection for variety
-    const seed = Date.now() % 1000000;
-    const finalSelectedFeeds = selectedFeeds.sort((a, b) => (a.name.charCodeAt(0) * seed) - (b.name.charCodeAt(0) * seed)).slice(0, 4);
+    console.log(`🔍 Topic "${topic}" detected categories:`, detectedCategories);
     
-    console.log(`🎯 Topic analysis:`, { topic, topicLower, searchTerms });
-    console.log(`📊 Category matches found:`, categoryMatches.map(f => f.name));
+    // Select relevant feeds based on detected categories
+    let categoryMatches = [];
+    let universalFeeds = allRSSFeeds.filter(feed => feed.isUniversal);
+    
+    // Get feeds that match detected categories
+    for (const feed of allRSSFeeds) {
+      if (feed.isUniversal) continue;
+      
+      // Check if feed matches any detected category
+      const feedMatches = detectedCategories.some(category => {
+        const categoryTerms = topicMapping[category];
+        return feed.categories.some(feedCat => 
+          categoryTerms.some(term => feedCat.includes(term) || term.includes(feedCat))
+        );
+      });
+      
+      // Also check direct keyword matches
+      const directMatch = feed.categories.some(category => 
+        searchTerms.some(keyword => 
+          keyword.includes(category) || category.includes(keyword)
+        )
+      );
+      
+      if (feedMatches || directMatch) {
+        categoryMatches.push(feed);
+      }
+    }
+    
+    // Build final feed selection
+    let selectedFeeds = [];
+    
+    if (categoryMatches.length > 0) {
+      // Use 2-3 category-specific feeds + 2-3 universal feeds for breadth
+      selectedFeeds = [...categoryMatches.slice(0, 3), ...universalFeeds.slice(0, 2)];
+      console.log(`📊 Found ${categoryMatches.length} category-specific feeds:`, categoryMatches.map(f => f.name));
+    } else {
+      // No specific matches - use universal feeds plus some random category feeds for variety
+      const randomCategoryFeeds = allRSSFeeds.filter(f => !f.isUniversal).slice(0, 2);
+      selectedFeeds = [...universalFeeds, ...randomCategoryFeeds];
+      console.log(`📰 No category matches - using universal feeds + random variety`);
+    }
+    
+    // Randomize selection for variety on each search
+    const seed = Date.now() % 1000000;
+    const finalSelectedFeeds = selectedFeeds
+      .sort((a, b) => (a.name.charCodeAt(0) * seed) - (b.name.charCodeAt(0) * seed))
+      .slice(0, 5); // Use 5 feeds for better coverage
+    
+    console.log(`🎯 Topic analysis:`, { topic, topicLower, searchTerms, detectedCategories });
     console.log(`🌍 Universal feeds available:`, universalFeeds.map(f => f.name));
     console.log(`🎲 Final selected RSS feeds for this search:`, finalSelectedFeeds.map(f => f.name));
     
     let allNewsResults = [];
-    const searchTerms = topic.toLowerCase().split(' ');
     
     for (const feed of finalSelectedFeeds) {
       try {
