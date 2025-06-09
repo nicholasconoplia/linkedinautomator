@@ -4973,7 +4973,7 @@ async function performWebResearch(topic, searchDepth = 5, requiredKeywords = '')
 // Free News Search Function using direct RSS feeds (bypasses Google News redirect issues)
 async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = '') {
   try {
-    console.log(`📰 Searching direct RSS feeds for: "${topic}"`);
+    console.log(`📰 🚀 USING COMPREHENSIVE RSS SYSTEM with 50+ premium sources for: "${topic}"`);
     console.log(`🔑 Required keywords filter: "${requiredKeywords}"`);
     
     // Parse required keywords
@@ -5408,8 +5408,9 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
       .slice(0, 5); // Use 5 feeds for better coverage
     
     console.log(`🎯 Topic analysis:`, { topic, topicLower, searchTerms, detectedCategories });
+    console.log(`📊 Category-specific feeds found:`, categoryMatches.length);
     console.log(`🌍 Universal feeds available:`, universalFeeds.map(f => f.name));
-    console.log(`🎲 Final selected RSS feeds for this search:`, finalSelectedFeeds.map(f => f.name));
+    console.log(`🎲 Final selected RSS feeds for this search (${finalSelectedFeeds.length}):`, finalSelectedFeeds.map(f => f.name));
     
     let allNewsResults = [];
     
@@ -5497,15 +5498,18 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
       }
     }
     
-    // If we still need more articles, try Google News as fallback
-    if (allNewsResults.length < 3) {
-      console.log(`📰 Adding Google News RSS as fallback...`);
+    // Only use Google News if we have ZERO articles from premium sources
+    if (allNewsResults.length === 0) {
+      console.log(`📰 No articles from premium RSS feeds, trying Google News RSS as final fallback...`);
       try {
-        const googleResults = await searchGoogleNewsRSS(topic, Math.max(3 - allNewsResults.length, 2));
+        const googleResults = await searchGoogleNewsRSS(topic, Math.min(maxResults, 3));
         allNewsResults = allNewsResults.concat(googleResults);
+        console.log(`📊 Google News fallback found ${googleResults.length} articles`);
       } catch (googleError) {
         console.log(`⚠️ Google News fallback failed: ${googleError.message}`);
       }
+    } else {
+      console.log(`✅ Successfully found ${allNewsResults.length} articles from premium RSS sources - no fallback needed!`);
     }
     
     // Remove duplicates and limit results
