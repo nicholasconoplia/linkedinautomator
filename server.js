@@ -2915,36 +2915,46 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
 
 async function generatePost(topic, tone, length = 'medium', engagementOptions = {}) {
   try {
-    // Step 1: Fetch recent news articles
-    const articles = await fetchNewsArticles(topic);
-    
-    if (!articles || articles.length === 0) {
-      throw new Error('No articles found for the given topic');
+    let selectedArticle = null;
+    let post;
+    let articleData = null;
+
+    // Step 1: Try to fetch news articles
+    try {
+      const articles = await fetchNewsArticles(topic);
+      if (articles && articles.length > 0) {
+        selectedArticle = selectBestArticle(articles);
+      }
+    } catch (newsError) {
+      console.warn('⚠️ No articles found from any news source:', newsError.message);
     }
 
-    // Step 2: Select a good article with randomization
-    const selectedArticle = selectBestArticle(articles);
-    
-    if (!selectedArticle) {
-      throw new Error('No suitable article found');
+    if (selectedArticle) {
+      // Step 2: Generate LinkedIn post with news article
+      console.log('📰 Generating content based on article:', selectedArticle.title);
+      post = await generateLinkedInPost(selectedArticle, topic, tone, length, engagementOptions);
+      
+      articleData = {
+        title: selectedArticle.title,
+        url: cleanUrl(selectedArticle.url) || selectedArticle.url,
+        source: selectedArticle.source?.name || 'News Source',
+        publishedAt: selectedArticle.publishedAt
+      };
+    } else {
+      // Step 3: Generate general topic-based content
+      console.log('💡 Generating general content for topic:', topic);
+      post = await generateGeneralPost(topic, tone, length, engagementOptions);
     }
-
-    // Step 3: Generate LinkedIn post with engagement options
-    const post = await generateLinkedInPost(selectedArticle, topic, tone, length, engagementOptions);
     
     // Step 4: Fetch relevant image (only if requested)
     const image = engagementOptions.include_image !== false ? await fetchRelevantImage(topic) : null;
     
     return {
       post: post,
-      article: {
-        title: selectedArticle.title,
-        url: cleanUrl(selectedArticle.url) || selectedArticle.url,
-        source: selectedArticle.source?.name || 'News Source',
-        publishedAt: selectedArticle.publishedAt
-      },
+      article: articleData,
       image: image,
-      post_type: 'news'
+      post_type: selectedArticle ? 'news' : 'general',
+      topic: topic
     };
   } catch (error) {
     console.error('❌ Error in generatePost:', error);
@@ -3221,8 +3231,14 @@ async function fetchNewsArticles(topic) {
   }
 
   // If all APIs fail, try Google News as fallback
-  console.log('📰 Trying Google News as fallback...');
-  return await fetchGoogleNews(topic);
+  try {
+    console.log('📰 Trying Google News as fallback...');
+    return await fetchGoogleNews(topic);
+  } catch (googleError) {
+    console.warn('⚠️ Google News also failed:', googleError.message);
+    // Return empty array to trigger general content generation
+    throw new Error('No articles found from any source');
+  }
 }
 
 async function fetchGoogleNews(topic) {
@@ -3230,41 +3246,52 @@ async function fetchGoogleNews(topic) {
     const googleApiKey = process.env.GOOGLE_API_KEY;
     const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
     
+    console.log(`🔧 Google API Key available: ${!!googleApiKey}`);
+    console.log(`🔧 Search Engine ID available: ${!!searchEngineId}`);
+    
     if (!googleApiKey || !searchEngineId) {
       console.warn('⚠️ Google API credentials not configured');
-      throw new Error('Google News search not available');
+      throw new Error('Google News search not available - missing credentials');
     }
 
     console.log(`🔍 Searching Google News for: ${topic}`);
     
+    // Try regular Google search first (without searchType: 'news')
+    const searchParams = {
+      key: googleApiKey,
+      cx: searchEngineId,
+      q: `${topic} news`,
+      sort: 'date',
+      num: 10,
+      dateRestrict: 'd7' // Last 7 days
+    };
+    
+    console.log(`🔧 Search params:`, { ...searchParams, key: 'HIDDEN' });
+    
     const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
-      params: {
-        key: googleApiKey,
-        cx: searchEngineId,
-        q: topic,
-        searchType: 'news',
-        sort: 'date',
-        num: 10,
-        dateRestrict: 'd7' // Last 7 days
-      }
+      params: searchParams
     });
+
+    console.log(`🔧 Google API response status: ${response.status}`);
+    console.log(`🔧 Items found: ${response.data.items?.length || 0}`);
 
     if (!response.data.items || response.data.items.length === 0) {
       // Try broader search without date restriction
-      console.log('🔍 Trying broader Google News search...');
+      console.log('🔍 Trying broader Google search...');
       const broadResponse = await axios.get('https://www.googleapis.com/customsearch/v1', {
         params: {
           key: googleApiKey,
           cx: searchEngineId,
-          q: topic,
-          searchType: 'news',
+          q: `${topic} news`,
           sort: 'date',
           num: 10
         }
       });
 
+      console.log(`🔧 Broad search items found: ${broadResponse.data.items?.length || 0}`);
+
       if (!broadResponse.data.items || broadResponse.data.items.length === 0) {
-        throw new Error('No Google News results found');
+        throw new Error('No Google search results found');
       }
 
       response.data.items = broadResponse.data.items;
@@ -3276,18 +3303,20 @@ async function fetchGoogleNews(topic) {
       description: item.snippet,
       url: item.link,
       source: { 
-        name: item.displayLink || 'Google News'
+        name: item.displayLink || 'Google Search'
       },
       publishedAt: item.pagemap?.metatags?.[0]?.['article:published_time'] || new Date().toISOString(),
       content: item.snippet
     }));
 
-    console.log(`✅ Found ${articles.length} articles from Google News`);
+    console.log(`✅ Found ${articles.length} articles from Google Search`);
+    console.log(`🔧 First article: ${articles[0]?.title}`);
     return articles;
 
   } catch (error) {
     console.error('❌ Google News search failed:', error.message);
-    throw new Error('Failed to fetch articles from Google News');
+    console.error('❌ Error details:', error.response?.data || error);
+    throw error;
   }
 }
 
@@ -3352,6 +3381,60 @@ async function callOpenAI(prompt, contentType = 'linkedin_post') {
   } catch (error) {
     console.error('❌ OpenAI API error:', error.response?.data || error.message);
     throw new Error('Failed to generate content');
+  }
+}
+
+// Generate general topic-based content when no news articles are available
+async function generateGeneralPost(topic, tone, length = 'medium', engagementOptions = {}) {
+  const lengthGuide = {
+    short: '100-150 words',
+    medium: '150-220 words',
+    long: '220-300 words'
+  };
+
+  let prompt = `Create an engaging LinkedIn post about "${topic}".
+
+Requirements:
+- Topic focus: ${topic}
+- Tone: ${tone}
+- Length: ${lengthGuide[length] || lengthGuide.medium}
+- Provide valuable insights, trends, or professional commentary about this topic
+- Include practical advice or actionable takeaways
+- Use maximum 1-2 emojis (not 3-5)
+- Write for a professional LinkedIn audience
+- Make it conversational and engaging
+- Base content on general industry knowledge and best practices`;
+
+  // Add engagement enhancements
+  if (engagementOptions.curiosity_hook) {
+    const hook = viralTemplates.getEngagementHook('curiosity');
+    prompt += `\n- Start with an engaging hook like: "${hook}"`;
+  }
+  
+  if (engagementOptions.strong_opinion) {
+    prompt += `\n- Include a strong opinion or perspective on this topic`;
+  }
+  
+  if (engagementOptions.soft_cta) {
+    const cta = viralTemplates.getRandomCTA();
+    prompt += `\n- End with this engagement question: "${cta}"`;
+  }
+
+  prompt += `\n\nFormat the response as just the LinkedIn post text, nothing else.`;
+
+  try {
+    let post = await callOpenAI(prompt, 'linkedin_post');
+    
+    // Clean markdown formatting
+    post = post.replace(/\*\*(.*?)\*\*/g, '$1');
+    post = post.replace(/\*(.*?)\*/g, '$1');
+    post = post.replace(/__(.*?)__/g, '$1');
+    post = post.replace(/_(.*?)_/g, '$1');
+
+    return post;
+  } catch (error) {
+    console.error('❌ Error generating general post:', error);
+    throw error;
   }
 }
 
