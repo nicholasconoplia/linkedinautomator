@@ -4837,31 +4837,44 @@ async function performWebResearch(topic, searchDepth = 5) {
 
 async function generateSearchTerms(topic) {
   try {
-    const prompt = `Generate 3-4 specific search terms for comprehensive research on: "${topic}"
+    const prompt = `Generate 3-4 specific search terms for finding recent news articles about: "${topic}"
 
 Requirements:
-- Include the main topic term
-- Add related terms for broader coverage  
-- Consider different angles (trends, analysis, news, case studies)
-- Make terms Google-search friendly (3-5 words each)
+- Include the main topic keywords
+- Add "news", "article", or "report" to find actual articles (not homepages)
+- Consider different news angles (recent developments, analysis, company announcements)
+- Make terms specific enough to find real articles, not generic pages
+- Focus on recent/current events and developments
 - Separate each term with a comma
 
 Examples:
 Input: "AI in healthcare"
-Output: AI healthcare applications, medical AI trends, healthcare artificial intelligence, AI healthcare case studies
+Output: AI healthcare news 2024, medical AI breakthrough article, healthcare artificial intelligence developments, AI medical technology announcements
 
-Input: "Remote work productivity" 
-Output: remote work productivity, work from home effectiveness, distributed team management, remote collaboration tools
+Input: "ASX IPO listings"
+Output: ASX IPO listings news 2024, recent ASX public offerings, upcoming Australian IPO announcements, ASX stock market listings
+
+Input: "Remote work productivity"
+Output: remote work productivity studies 2024, work from home research findings, remote team performance reports, hybrid work productivity news
 
 Generate search terms for: "${topic}"`;
 
     const response = await callOpenAI(prompt, 'research_helper');
     const searchTerms = response.split(',').map(term => term.trim()).filter(term => term.length > 0);
     
-    return searchTerms.slice(0, 4); // Limit to 4 terms to avoid rate limits
+    // Add current year to make searches more recent
+    const currentYear = new Date().getFullYear();
+    const enhancedTerms = searchTerms.map(term => {
+      if (!term.includes('2024') && !term.includes('2025')) {
+        return `${term} ${currentYear}`;
+      }
+      return term;
+    });
+    
+    return enhancedTerms.slice(0, 4); // Limit to 4 terms to avoid rate limits
   } catch (error) {
     console.warn('⚠️ Failed to generate search terms, using original topic');
-    return [topic];
+    return [`${topic} news 2024`, `${topic} article`, `${topic} recent developments`];
   }
 }
 
@@ -4876,34 +4889,77 @@ async function performGoogleSearch(searchTerm, depth = 5) {
 
     console.log(`🔍 Searching Google for: "${searchTerm}"`);
     
+    // Enhanced search parameters to find actual articles
     const searchParams = {
       key: googleApiKey,
       cx: searchEngineId,
-      q: searchTerm,
+      q: `${searchTerm} -site:news.google.com -site:google.com -site:youtube.com -site:twitter.com -site:facebook.com`,
       sort: 'date',
       num: Math.min(depth, 10), // Google API limit is 10
-      dateRestrict: 'd30' // Last 30 days for fresher content
+      dateRestrict: 'd30', // Last 30 days for fresher content
+      fileType: '', // Ensure we get web pages, not PDFs
+      siteSearch: '', // Don't restrict to any particular site
+      excludeTerms: 'homepage home index'
     };
     
     const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
       params: searchParams
     });
 
-    if (!response.data.items || response.data.items.length === 0) {
-      // Try broader search without date restriction
-      delete searchParams.dateRestrict;
+    let items = response.data.items || [];
+    
+    // Filter out unwanted results
+    items = items.filter(item => {
+      const url = item.link.toLowerCase();
+      const title = item.title.toLowerCase();
+      
+      // Exclude generic homepages and aggregators
+      const excludePatterns = [
+        'news.google.com',
+        '/home',
+        '/index',
+        'homepage',
+        'main page',
+        'front page'
+      ];
+      
+      const isExcluded = excludePatterns.some(pattern => 
+        url.includes(pattern) || title.includes(pattern)
+      );
+      
+      // Prefer articles with specific content indicators
+      const hasArticleIndicators = 
+        title.includes('ipo') || 
+        title.includes('listing') || 
+        title.includes('asx') ||
+        item.snippet.toLowerCase().includes('ipo') ||
+        item.snippet.toLowerCase().includes('listing') ||
+        item.snippet.toLowerCase().includes('asx');
+      
+      return !isExcluded && hasArticleIndicators;
+    });
+
+    console.log(`📊 Filtered ${items.length} relevant results from ${response.data.items?.length || 0} total results`);
+
+    if (items.length === 0) {
+      // Try broader search with less restrictive filtering
+      console.log('🔄 Trying broader search with relaxed filters...');
+      searchParams.q = `${searchTerm} article news`;
+      searchParams.dateRestrict = 'd90'; // Expand to 90 days
+      
       const broadResponse = await axios.get('https://www.googleapis.com/customsearch/v1', {
         params: searchParams
       });
       
-      if (!broadResponse.data.items) {
-        return [];
+      if (broadResponse.data.items) {
+        items = broadResponse.data.items.filter(item => {
+          const url = item.link.toLowerCase();
+          return !url.includes('news.google.com') && !url.includes('/home');
+        });
       }
-      
-      return broadResponse.data.items;
     }
 
-    return response.data.items;
+    return items;
   } catch (error) {
     console.error(`❌ Google search failed for "${searchTerm}":`, error.message);
     return [];
@@ -4914,23 +4970,78 @@ async function processWebContent(searchResults, originalTopic, maxSources = 5) {
   const researchData = [];
   const processedUrls = new Set(); // Avoid duplicates
   
+  // Enhanced filtering for quality results
+  const filteredResults = searchResults.filter(item => {
+    if (!item.link || processedUrls.has(item.link)) return false;
+    
+    const url = item.link.toLowerCase();
+    const title = item.title.toLowerCase();
+    const snippet = item.snippet.toLowerCase();
+    
+    // Skip low-quality sources
+    const skipPatterns = [
+      'news.google.com',
+      'google.com',
+      'youtube.com',
+      'twitter.com',
+      'facebook.com',
+      'linkedin.com/posts',
+      'reddit.com',
+      '/home',
+      '/index',
+      'homepage'
+    ];
+    
+    const shouldSkip = skipPatterns.some(pattern => url.includes(pattern));
+    if (shouldSkip) {
+      console.log(`⏭️ Skipping low-quality source: ${item.title}`);
+      return false;
+    }
+    
+    // Prefer sources with substantial content indicators
+    const hasGoodLength = snippet.length > 50;
+    const hasRelevantContent = title.includes(originalTopic.toLowerCase()) || 
+                              snippet.includes(originalTopic.toLowerCase());
+    
+    return hasGoodLength && hasRelevantContent;
+  });
+  
+  console.log(`📊 Filtered to ${filteredResults.length} quality sources from ${searchResults.length} total results`);
+  
   // Sort by relevance/recency and take top results
-  const topResults = searchResults
-    .filter(item => item.link && !processedUrls.has(item.link))
-    .slice(0, maxSources);
+  const topResults = filteredResults.slice(0, maxSources);
   
   for (const item of topResults) {
     try {
       console.log(`📄 Processing: ${item.title}`);
+      console.log(`📄 URL: ${item.link}`);
+      console.log(`📄 Source: ${item.displayLink || 'Unknown'}`);
       processedUrls.add(item.link);
       
       // Scrape webpage content
       const webContent = await scrapeWebContent(item.link);
-      if (!webContent) continue;
+      if (!webContent || webContent.length < 200) {
+        console.log(`⏭️ Skipping - insufficient content (${webContent?.length || 0} chars)`);
+        continue;
+      }
       
       // Summarize content relevant to original topic
       const summary = await summarizeWebContent(webContent, originalTopic);
-      if (!summary) continue;
+      if (!summary || summary.length < 50) {
+        console.log(`⏭️ Skipping - poor summary quality`);
+        continue;
+      }
+      
+      // Extract publish date more intelligently
+      let publishedAt = new Date().toISOString();
+      if (item.pagemap?.metatags?.[0]) {
+        const meta = item.pagemap.metatags[0];
+        publishedAt = meta['article:published_time'] || 
+                     meta['article:published'] ||
+                     meta['datePublished'] ||
+                     meta['publishedDate'] ||
+                     publishedAt;
+      }
       
       researchData.push({
         title: item.title,
@@ -4938,8 +5049,11 @@ async function processWebContent(searchResults, originalTopic, maxSources = 5) {
         snippet: item.snippet,
         summary: summary,
         source: item.displayLink || new URL(item.link).hostname,
-        publishedAt: item.pagemap?.metatags?.[0]?.['article:published_time'] || new Date().toISOString()
+        publishedAt: publishedAt,
+        contentLength: webContent.length
       });
+      
+      console.log(`✅ Successfully processed: ${item.title} (${webContent.length} chars, ${summary.length} char summary)`);
       
     } catch (error) {
       console.warn(`⚠️ Failed to process ${item.link}:`, error.message);
@@ -4947,6 +5061,7 @@ async function processWebContent(searchResults, originalTopic, maxSources = 5) {
     }
   }
   
+  console.log(`🎯 Final research data: ${researchData.length} high-quality sources processed`);
   return researchData;
 }
 
