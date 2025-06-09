@@ -449,6 +449,20 @@ const UserDB = {
     }
   },
 
+  // Get user by email
+  getUserByEmail: async (email) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        'SELECT * FROM users WHERE email = $1',
+        [email]
+      );
+      return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  },
+
   // Update user tokens
   updateTokens: async (userId, tokens) => {
     const client = await pool.connect();

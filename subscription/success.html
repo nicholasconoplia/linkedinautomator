@@ -356,10 +356,15 @@
         async function checkPaymentStatus() {
             const clientSecret = getUrlParameter('payment_intent_client_secret');
             const paymentIntentId = getUrlParameter('payment_intent');
+            const sessionId = getUrlParameter('session_id');
             
-            if (!clientSecret && !paymentIntentId) {
-                // No payment intent, redirect to dashboard
-                window.location.href = '/dashboard';
+            // For Payment Links, we might not have payment intent but could have session_id
+            if (!clientSecret && !paymentIntentId && !sessionId) {
+                console.log('🔧 No payment parameters found, checking for recent subscription...');
+                // Wait a moment for webhooks to process, then check subscription
+                setTimeout(async () => {
+                    await checkForRecentSubscription();
+                }, 3000);
                 return;
             }
 
@@ -464,10 +469,65 @@
             actionsDiv.innerHTML = `
                 <button class="btn btn-primary" onclick="attemptSubscriptionActivation()">Activate My Subscription</button>
                 <a href="/subscribe" class="btn btn-secondary">Try Payment Again</a>
-                <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+                <a href="/dashboard?subscription_updated=true" class="btn btn-secondary">Back to Dashboard</a>
             `;
             
             document.getElementById('failedSection').style.display = 'block';
+        }
+
+        // Check for recent subscription (for Payment Links)
+        async function checkForRecentSubscription() {
+            try {
+                console.log('🔧 Checking for recent subscription...');
+                const response = await fetch('/api/subscription/status', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('🔧 Subscription data:', data);
+                    
+                    if (data.subscription && data.subscription.status === 'active') {
+                        // Hide loading
+                        document.getElementById('loadingSection').style.display = 'none';
+                        // Show success
+                        displaySubscriptionDetails(data.subscription);
+                        document.getElementById('successSection').style.display = 'block';
+                        
+                        // Add a "Continue to Dashboard" button after 3 seconds
+                        setTimeout(() => {
+                            const successSection = document.getElementById('successSection');
+                            if (successSection) {
+                                const continueBtn = document.createElement('div');
+                                continueBtn.innerHTML = `
+                                    <div style="text-align: center; margin-top: 20px;">
+                                        <a href="/dashboard?subscription_updated=true" class="btn btn-primary">Continue to Dashboard</a>
+                                    </div>
+                                `;
+                                successSection.appendChild(continueBtn);
+                            }
+                        }, 3000);
+                        
+                        return;
+                    }
+                }
+                
+                // No subscription found, try again in 5 seconds (up to 30 seconds total)
+                if (window.subscriptionCheckAttempts < 6) {
+                    window.subscriptionCheckAttempts = (window.subscriptionCheckAttempts || 0) + 1;
+                    console.log(`🔧 Subscription not found, retrying... (${window.subscriptionCheckAttempts}/6)`);
+                    setTimeout(() => {
+                        checkForRecentSubscription();
+                    }, 5000);
+                } else {
+                    // Give up and show manual activation
+                    showManualActivation();
+                }
+                
+            } catch (error) {
+                console.error('Error checking for recent subscription:', error);
+                showManualActivation();
+            }
         }
 
         // Attempt to activate subscription manually

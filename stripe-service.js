@@ -161,32 +161,76 @@ class StripeService {
   // Handle successful checkout
   async handleCheckoutCompleted(session) {
     try {
-      const userId = parseInt(session.metadata.user_id);
-      const subscription = await stripe.subscriptions.retrieve(session.subscription);
+      console.log('🔔 Processing checkout completion:', session.id);
+      
+      // Get subscription if this is a subscription payment
+      let subscription = null;
+      if (session.subscription) {
+        subscription = await stripe.subscriptions.retrieve(session.subscription);
+      }
+      
+      // Try to get user ID from metadata (for regular checkout sessions)
+      let userId = session.metadata?.user_id ? parseInt(session.metadata.user_id) : null;
+      
+      // For Payment Links, metadata might not be available
+      // Try to find user by customer email or existing customer record
+      if (!userId && session.customer_details?.email) {
+        console.log('🔧 No user metadata found, trying to find user by email:', session.customer_details.email);
+        
+        // Try to find user by email in our database
+        const UserDB = require('./database').UserDB;
+        const user = await UserDB.getUserByEmail(session.customer_details.email);
+        if (user) {
+          userId = user.id;
+          console.log('✅ Found user by email:', userId);
+        }
+      }
+      
+      // If still no user found, try by existing stripe customer ID
+      if (!userId && session.customer) {
+        console.log('🔧 Trying to find user by Stripe customer ID:', session.customer);
+        const existingSubscription = await SubscriptionDB.getUserSubscriptionByCustomer(session.customer);
+        if (existingSubscription) {
+          userId = existingSubscription.user_id;
+          console.log('✅ Found user by existing customer record:', userId);
+        }
+      }
+      
+      if (!userId) {
+        console.error('❌ Could not determine user ID for checkout session:', session.id);
+        console.error('❌ Session customer_details:', session.customer_details);
+        console.error('❌ Session metadata:', session.metadata);
+        return;
+      }
       
       console.log('✅ Checkout completed for user:', userId);
       
-      // Get the plan from the price ID
-      const priceId = subscription.items.data[0].price.id;
-      const plans = await SubscriptionDB.getPlans();
-      const plan = plans.find(p => p.stripe_price_id === priceId);
-      
-      if (!plan) {
-        console.error('❌ Plan not found for price ID:', priceId);
-        return;
+      // Handle subscription payments
+      if (subscription) {
+        // Get the plan from the price ID
+        const priceId = subscription.items.data[0].price.id;
+        const plans = await SubscriptionDB.getPlans();
+        const plan = plans.find(p => p.stripe_price_id === priceId);
+        
+        if (!plan) {
+          console.error('❌ Plan not found for price ID:', priceId);
+          return;
+        }
+
+        // Update user subscription in database
+        await SubscriptionDB.upsertSubscription(userId, {
+          plan_id: plan.id,
+          stripe_customer_id: session.customer,
+          stripe_subscription_id: subscription.id,
+          status: 'active',
+          current_period_start: new Date(subscription.current_period_start * 1000),
+          current_period_end: new Date(subscription.current_period_end * 1000)
+        });
+
+        console.log('✅ Subscription updated in database for user:', userId);
+      } else {
+        console.log('ℹ️ Non-subscription payment completed for user:', userId);
       }
-
-      // Update user subscription in database
-      await SubscriptionDB.upsertSubscription(userId, {
-        plan_id: plan.id,
-        stripe_customer_id: session.customer,
-        stripe_subscription_id: subscription.id,
-        status: 'active',
-        current_period_start: new Date(subscription.current_period_start * 1000),
-        current_period_end: new Date(subscription.current_period_end * 1000)
-      });
-
-      console.log('✅ Subscription updated in database');
     } catch (error) {
       console.error('❌ Error handling checkout completion:', error);
     }

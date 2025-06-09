@@ -97,7 +97,7 @@ class EmploymentApp {
         // Check authentication status
         await this.checkAuthStatus();
         
-        // Check if user just authenticated
+        // Check if user just authenticated or returned from subscription
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('authenticated') === 'true') {
             window.history.replaceState({}, document.title, window.location.pathname);
@@ -115,6 +115,17 @@ class EmploymentApp {
                     }
                 }
             }, 1500);
+        }
+        
+        // Check if user returned from subscription success
+        if (urlParams.get('subscription_updated') === 'true') {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            // Force refresh subscription data
+            setTimeout(async () => {
+                console.log('🔧 Refreshing subscription data after payment...');
+                await this.forceRefreshSubscription();
+                this.showSuccess('🎉 Subscription updated successfully!');
+            }, 1000);
         }
         
                     console.log('✅ Employment ready for', this.currentPage, 'page!');
@@ -1370,14 +1381,34 @@ class EmploymentApp {
                 
                 console.log('📋 Subscription data:', data);
                 this.displaySubscriptionStatus(data);
+                return data;
             } else {
                 console.log('⚠️ Subscription status not available:', response.status);
                 this.hideSubscriptionStatus();
+                return null;
             }
         } catch (error) {
             console.error('❌ Failed to load subscription status:', error);
             this.hideSubscriptionStatus();
+            return null;
         }
+    }
+
+    // Force refresh subscription status and update all UI elements
+    async forceRefreshSubscription() {
+        console.log('🔄 Force refreshing subscription status...');
+        const data = await this.loadSubscriptionStatus();
+        if (data) {
+            this.displaySubscriptionStatus(data);
+            // Force refresh the posts remaining counter
+            const postsRemaining = data.subscription && data.subscription.posts_limit !== -1 ? data.subscription.posts_limit : 'Unlimited';
+            const remainingElement = document.getElementById('posts-remaining');
+            if (remainingElement) {
+                remainingElement.textContent = postsRemaining;
+            }
+            console.log('✅ Subscription status refreshed');
+        }
+        return data;
     }
 
     displaySubscriptionStatus(data) {
