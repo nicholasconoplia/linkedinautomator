@@ -2347,7 +2347,7 @@ app.get('/', (req, res) => {
   // Set CSP headers for all pages
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
     "img-src 'self' data: https: http:; " +
     "connect-src 'self' https://api.stripe.com; " +
@@ -2475,7 +2475,7 @@ app.get('/generator', (req, res) => {
   // Set CSP headers for content generator
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
     "script-src-attr 'unsafe-inline'; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
     "img-src 'self' data: https: http:; " +
@@ -2502,7 +2502,7 @@ app.get('/automation', (req, res) => {
   // Set CSP headers for automation page
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
     "script-src-attr 'unsafe-inline'; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
     "img-src 'self' data: https: http:; " +
@@ -2529,7 +2529,7 @@ app.get('/subscribe', (req, res) => {
   // Set CSP headers to allow Stripe
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.tailwindcss.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://cdn.tailwindcss.com; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
     "img-src 'self' data: https: http:; " +
     "connect-src 'self' https://api.stripe.com; " +
