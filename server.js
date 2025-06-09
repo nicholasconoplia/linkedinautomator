@@ -5035,18 +5035,60 @@ async function processNewsArticles(newsResults, originalTopic, maxSources = 5) {
   return researchData;
 }
 
-// Extract article content using Mercury Parser
+// Resolve Google News redirect URLs to actual article URLs
+async function resolveFinalUrl(googleUrl) {
+  try {
+    console.log(`🔗 Resolving redirect URL: ${googleUrl.substring(0, 100)}...`);
+    
+    // First try to extract direct URL from Google News RSS format
+    if (googleUrl.includes('news.google.com/rss/articles/')) {
+      try {
+        // Follow the redirect to get the final URL
+        const response = await axios.get(googleUrl, {
+          maxRedirects: 5,
+          validateStatus: () => true, // Don't throw on redirects
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+          }
+        });
+        
+        // Get the final URL after redirects
+        const finalUrl = response.request.res ? response.request.res.responseUrl : response.config.url;
+        console.log(`✅ Resolved to: ${finalUrl}`);
+        return finalUrl;
+      } catch (error) {
+        console.warn(`⚠️ Failed to resolve Google redirect: ${error.message}`);
+        return googleUrl; // Fallback to original URL
+      }
+    }
+    
+    return googleUrl; // Return as-is if not a Google News URL
+    
+  } catch (error) {
+    console.warn(`⚠️ URL resolution failed: ${error.message}`);
+    return googleUrl; // Fallback to original URL
+  }
+}
+
+// Extract article content using Mercury Parser with URL resolution
 async function extractArticleContent(url) {
   try {
-    console.log(`🌐 Extracting content from: ${url}`);
+    // First resolve the actual URL if it's a Google News redirect
+    const resolvedUrl = await resolveFinalUrl(url);
+    console.log(`🌐 Extracting content from: ${resolvedUrl}`);
     
     // Import Mercury Parser (now @postlight/parser)
     const Mercury = require('@postlight/parser');
     
-    const result = await Mercury.parse(url);
+    const result = await Mercury.parse(resolvedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+      }
+    });
     
     if (!result || !result.content) {
-      console.log(`⚠️ Mercury Parser returned no content for ${url}`);
+      console.log(`⚠️ Mercury Parser returned no content for ${resolvedUrl}`);
       return null;
     }
     
@@ -5055,19 +5097,68 @@ async function extractArticleContent(url) {
     const $ = cheerio.load(result.content);
     
     // Remove unwanted elements
-    $('script, style, nav, header, footer, aside, .advertisement, .ads').remove();
+    $('script, style, nav, header, footer, aside, .advertisement, .ads, .paywall').remove();
     
     const textContent = $.text()
       .replace(/\s+/g, ' ')
       .replace(/\n\s*\n/g, '\n')
       .trim();
     
-    console.log(`✅ Extracted ${textContent.length} characters from ${url}`);
+    console.log(`✅ Extracted ${textContent.length} characters from ${resolvedUrl}`);
     return textContent;
     
   } catch (error) {
     console.warn(`⚠️ Failed to extract content from ${url}:`, error.message);
-    return null;
+    
+    // Fallback: try basic axios request for article text
+    try {
+      console.log(`🔄 Trying fallback extraction...`);
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'
+        },
+        timeout: 10000
+      });
+      
+      const cheerio = require('cheerio');
+      const $ = cheerio.load(response.data);
+      
+      // Try to extract main content using common selectors
+      const contentSelectors = [
+        'article',
+        '.article-content',
+        '.content',
+        '.post-content',
+        '.entry-content',
+        'main',
+        '.story-body'
+      ];
+      
+      let content = '';
+      for (const selector of contentSelectors) {
+        const element = $(selector);
+        if (element.length && element.text().length > 100) {
+          content = element.text();
+          break;
+        }
+      }
+      
+      if (content.length > 50) {
+        const cleanContent = content
+          .replace(/\s+/g, ' ')
+          .replace(/\n\s*\n/g, '\n')
+          .trim()
+          .substring(0, 2000); // Limit to 2000 chars for fallback
+          
+        console.log(`✅ Fallback extracted ${cleanContent.length} characters`);
+        return cleanContent;
+      }
+      
+      return null;
+    } catch (fallbackError) {
+      console.warn(`⚠️ Fallback extraction also failed: ${fallbackError.message}`);
+      return null;
+    }
   }
 }
 
