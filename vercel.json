@@ -23,6 +23,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/cron-trigger", "destination": "server.js" },
     { "source": "/webhook/(.*)", "destination": "server.js" },
     { "source": "/test-static", "destination": "server.js" },
     { "source": "/serve-index", "destination": "server.js" },
