@@ -4619,12 +4619,13 @@ app.all('/cron-trigger', async (req, res) => {
     console.log('🕐 Current server time:', new Date().toISOString());
     console.log('🕐 Checking items scheduled up to:', new Date(Date.now() + 10 * 60 * 1000).toISOString());
     
-    // First, let's see ALL queue items for debugging
+    // First, let's see ALL pending items for debugging
     const allQueueResult = await pool.query(`
       SELECT user_id, topic, scheduled_for, status, created_at 
       FROM automation_queue 
-      ORDER BY scheduled_for DESC 
-      LIMIT 5
+      WHERE status = 'pending'
+      ORDER BY scheduled_for ASC 
+      LIMIT 10
     `);
     console.log('🔍 All queue items (latest 5):', allQueueResult.rows);
     
