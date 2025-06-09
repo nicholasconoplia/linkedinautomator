@@ -1107,7 +1107,7 @@ app.post('/api/stripe/billing-portal', requireAuth, async (req, res) => {
     // Create billing portal session
     const session = await stripeService.createBillingPortalSession(
       userId,
-      `${process.env.NODE_ENV === 'production' ? 'https://postpilot.vercel.app' : 'http://localhost:3000'}/manage-subscription`
+      `${process.env.NODE_ENV === 'production' ? 'https://employment.vercel.app' : 'http://localhost:3000'}/manage-subscription`
     );
     
     res.json({ url: session.url });

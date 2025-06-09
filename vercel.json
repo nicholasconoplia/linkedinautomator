@@ -60,5 +60,5 @@
   "env": {
     "NODE_ENV": "production"
   },
-  "alias": ["postpilot.vercel.app"]
+  "alias": ["employment.vercel.app"]
 } 
