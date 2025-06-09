@@ -4812,7 +4812,7 @@ async function performWebResearch(topic, searchDepth = 5) {
   }
 }
 
-// Free Google News Search Function (based on serping/express-scraper)
+// Free Google News Search Function (Vercel-compatible)
 async function searchGoogleNewsFree(topic, maxResults = 5) {
   try {
     console.log(`📰 Searching Google News for: "${topic}"`);
@@ -4820,89 +4820,172 @@ async function searchGoogleNewsFree(topic, maxResults = 5) {
     const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(topic)}&tbm=nws&hl=en&gl=us&num=${Math.min(maxResults, 10)}`;
     console.log(`🔍 Search URL: ${searchUrl}`);
     
-    const gotScraping = require('got-scraping');
-    
-    const response = await gotScraping({
-      url: searchUrl,
-      headerGeneratorOptions: {
-        browsers: [
-          {
-            name: 'chrome',
-            minVersion: 87,
-            maxVersion: 114
-          }
-        ],
-        devices: ['desktop'],
-        locales: ['en-US'],
-        operatingSystems: ['windows', 'macos', 'linux']
+    // Use axios with proper headers for Google scraping
+    const response = await axios.get(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1'
       },
-      timeout: {
-        request: 15000
-      }
+      timeout: 15000
     });
 
     const cheerio = require('cheerio');
-    const $ = cheerio.load(response.body);
+    const $ = cheerio.load(response.data);
     
     const newsResults = [];
     
-    // Parse Google News results
-    $('div[data-ved]').each((i, element) => {
-      const $element = $(element);
-      
-      // Extract title and link
-      const titleElement = $element.find('h3').first();
-      const linkElement = $element.find('a[href*="/url?"]').first();
-      
-      if (titleElement.length && linkElement.length) {
-        const title = titleElement.text().trim();
-        const href = linkElement.attr('href');
+    // Parse Google News results - Multiple selectors for robustness
+    const selectors = [
+      'div[data-ved]',
+      '.g',
+      '.tF2Cxc',
+      '.MjjYud',
+      'div[jscontroller]'
+    ];
+    
+    for (const selector of selectors) {
+      $(selector).each((i, element) => {
+        const $element = $(element);
         
-        // Extract real URL from Google's redirect
-        let realUrl = null;
-        if (href) {
-          const urlMatch = href.match(/\/url\?.*?&url=([^&]+)/);
-          if (urlMatch) {
-            realUrl = decodeURIComponent(urlMatch[1]);
-          } else {
-            // Try q parameter
-            const qMatch = href.match(/\/url\?.*?q=([^&]+)/);
-            if (qMatch) {
-              realUrl = decodeURIComponent(qMatch[1]);
+        // Extract title and link
+        const titleElement = $element.find('h3, .LC20lb, .DKV0Md').first();
+        const linkElement = $element.find('a[href*="/url?"], a[href^="http"]').first();
+        
+        if (titleElement.length && linkElement.length) {
+          const title = titleElement.text().trim();
+          const href = linkElement.attr('href');
+          
+          // Extract real URL from Google's redirect
+          let realUrl = null;
+          if (href) {
+            if (href.startsWith('http')) {
+              realUrl = href;
+            } else if (href.includes('/url?')) {
+              const urlMatch = href.match(/\/url\?.*?[&?]url=([^&]+)/);
+              const qMatch = href.match(/\/url\?.*?[&?]q=([^&]+)/);
+              if (urlMatch) {
+                realUrl = decodeURIComponent(urlMatch[1]);
+              } else if (qMatch) {
+                realUrl = decodeURIComponent(qMatch[1]);
+              }
             }
           }
+          
+          // Extract snippet/description
+          const snippetElement = $element.find('.VwiC3b, .s3v9rd, .st, span').filter((i, el) => {
+            const text = $(el).text();
+            return text.length > 30 && text.length < 300 && !text.includes('·') && !text.includes('ago');
+          }).first();
+          
+          // Extract source and date
+          const sourceElement = $element.find('.NUnG9d, .iUh30, cite, span').filter((i, el) => {
+            const text = $(el).text();
+            return (text.includes('·') || text.includes('ago') || text.match(/\d+\s+(hour|day|week|month)s?\s+ago/i)) && text.length < 100;
+          }).first();
+          
+          if (title && realUrl && realUrl.startsWith('http') && !newsResults.find(r => r.link === realUrl)) {
+            newsResults.push({
+              title: title,
+              link: realUrl,
+              snippet: snippetElement.text().trim() || title.substring(0, 150) + '...',
+              source: sourceElement.text().split('·')[0]?.trim() || extractDomainFromUrl(realUrl),
+              date: new Date().toISOString(),
+              thumbnail: null
+            });
+          }
         }
-        
-        // Extract snippet/description
-        const snippetElement = $element.find('span').filter((i, el) => {
-          const text = $(el).text();
-          return text.length > 50 && !text.includes('·') && !text.includes('ago');
-        }).first();
-        
-        // Extract source and date
-        const sourceElement = $element.find('span').filter((i, el) => {
-          const text = $(el).text();
-          return text.includes('·') || text.includes('ago') || text.match(/\d+\s+(hour|day|week|month)s?\s+ago/i);
-        }).first();
-        
-        if (title && realUrl && realUrl.startsWith('http')) {
-          newsResults.push({
-            title: title,
-            link: realUrl,
-            snippet: snippetElement.text().trim() || '',
-            source: sourceElement.text().split('·')[0]?.trim() || 'Unknown',
-            date: new Date().toISOString(), // Default to current date
-            thumbnail: null
-          });
-        }
-      }
-    });
+      });
+      
+      // If we found enough results, break
+      if (newsResults.length >= maxResults) break;
+    }
     
     console.log(`📊 Free scraper found ${newsResults.length} news articles`);
     return newsResults.slice(0, maxResults);
     
   } catch (error) {
     console.error('❌ Free Google News search failed:', error.message);
+    
+    // Fallback to RSS approach
+    try {
+      console.log('🔄 Trying RSS fallback...');
+      return await searchGoogleNewsRSS(topic, maxResults);
+    } catch (rssError) {
+      console.error('❌ RSS fallback also failed:', rssError.message);
+      return [];
+    }
+  }
+}
+
+// Helper function to extract domain from URL
+function extractDomainFromUrl(url) {
+  try {
+    const domain = new URL(url).hostname;
+    return domain.replace('www.', '');
+  } catch {
+    return 'Unknown Source';
+  }
+}
+
+// RSS Fallback for Google News
+async function searchGoogleNewsRSS(topic, maxResults = 5) {
+  try {
+    console.log(`📡 Searching Google News RSS for: "${topic}"`);
+    
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=en&gl=us&ceid=US:en`;
+    
+    const response = await axios.get(rssUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
+        'Accept': 'application/rss+xml, application/xml, text/xml'
+      },
+      timeout: 10000
+    });
+    
+    const cheerio = require('cheerio');
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    
+    const newsResults = [];
+    
+    $('item').each((i, element) => {
+      if (i >= maxResults) return false;
+      
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+      const source = $item.find('source').text().trim() || extractDomainFromUrl(link);
+      
+      if (title && link) {
+        newsResults.push({
+          title: title,
+          link: link,
+          snippet: description || title.substring(0, 150) + '...',
+          source: source,
+          date: pubDate || new Date().toISOString(),
+          thumbnail: null
+        });
+      }
+    });
+    
+    console.log(`📡 RSS found ${newsResults.length} news articles`);
+    return newsResults;
+    
+  } catch (error) {
+    console.error('❌ RSS search failed:', error.message);
     return [];
   }
 }
