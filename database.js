@@ -891,6 +891,25 @@ const UsageDB = {
     } finally {
       client.release();
     }
+  },
+
+  // Reset monthly usage for a user (used when starting new subscription)
+  resetMonthlyUsage: async (userId) => {
+    const client = await pool.connect();
+    try {
+      // Delete all usage tracking for this month for this user
+      await client.query(`
+        DELETE FROM usage_tracking 
+        WHERE user_id = $1 
+        AND action_type = 'post_generation'
+        AND created_at >= date_trunc('month', CURRENT_TIMESTAMP)
+      `, [userId]);
+      
+      console.log('✅ Reset monthly usage for user:', userId);
+      return true;
+    } finally {
+      client.release();
+    }
   }
 };
 

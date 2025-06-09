@@ -1340,6 +1340,42 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
   }
 });
 
+// Manual endpoint to reset monthly usage (for fixing subscription issues)
+app.post('/api/subscription/reset-usage', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log('🔧 Manual usage reset requested for user:', userId);
+    
+    // Check if user has an active subscription
+    const subscription = await SubscriptionDB.getUserSubscription(userId);
+    if (!subscription || subscription.status !== 'active') {
+      return res.status(400).json({ 
+        error: 'No active subscription found',
+        details: 'You need an active subscription to reset usage'
+      });
+    }
+    
+    // Reset the usage
+    await UsageDB.resetMonthlyUsage(userId);
+    
+    // Get updated usage info
+    const usageLimit = await UsageDB.checkUsageLimit(userId);
+    
+    console.log('✅ Manual usage reset completed for user:', userId);
+    
+    res.json({
+      success: true,
+      message: 'Monthly usage has been reset',
+      subscription,
+      usageLimit,
+      postsRemaining: usageLimit.postsRemaining
+    });
+  } catch (error) {
+    console.error('❌ Error resetting usage:', error);
+    res.status(500).json({ error: 'Failed to reset usage' });
+  }
+});
+
 // Create customer endpoint (following Stripe guide)
 app.post('/api/subscription/create-customer', requireAuth, async (req, res) => {
   try {

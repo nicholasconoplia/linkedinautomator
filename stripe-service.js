@@ -228,6 +228,16 @@ class StripeService {
         });
 
         console.log('✅ Subscription updated in database for user:', userId);
+        
+        // Reset monthly usage for new subscription
+        try {
+          const UsageDB = require('./database').UsageDB;
+          await UsageDB.resetMonthlyUsage(userId);
+          console.log('✅ Monthly usage reset for new subscription');
+        } catch (resetError) {
+          console.error('⚠️ Failed to reset monthly usage:', resetError);
+          // Don't fail the entire process if usage reset fails
+        }
       } else {
         console.log('ℹ️ Non-subscription payment completed for user:', userId);
       }
