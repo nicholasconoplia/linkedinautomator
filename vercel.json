@@ -58,5 +58,5 @@
   "env": {
     "NODE_ENV": "production"
   },
-  "alias": ["linkedinautomator.vercel.app"]
+  "alias": ["postpilot.vercel.app"]
 } 
