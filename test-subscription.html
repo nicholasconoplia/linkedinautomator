@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Subscription Testing - PostPilot</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* PostPilot Testing Page Theme */
+        body {
+            background: linear-gradient(135deg, var(--linkedin-blue) 0%, var(--linkedin-blue-dark) 50%, var(--navy-blue) 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(233, 69, 96, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 107, 138, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: var(--spacing-xl);
+            position: relative;
+            z-index: 1;
+        }
+
+        .main-header {
+            background: var(--pure-white);
+            padding: var(--spacing-2xl);
+            border-radius: var(--radius-xl);
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-light);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .main-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--accent-gradient);
+        }
+
+        .main-header h1 {
+            font-size: var(--font-size-4xl);
+            font-weight: var(--font-weight-black);
+            margin-bottom: var(--spacing-md);
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .main-header p {
+            color: var(--text-secondary);
+            font-size: var(--font-size-lg);
+            font-weight: var(--font-weight-medium);
+        }
+
+        .test-section {
+            background: var(--pure-white);
+            margin: var(--spacing-xl) 0;
+            padding: var(--spacing-2xl);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-light);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .test-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary-gradient);
+        }
+
+        .test-section h3 {
+            color: var(--text-primary);
+            font-size: var(--font-size-xl);
+            font-weight: var(--font-weight-bold);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .test-section p {
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-lg);
+            font-weight: var(--font-weight-medium);
+        }
+
+        .success { color: var(--success-gradient); }
+        .error { color: var(--postpilot-red); }
+        .info { color: var(--linkedin-blue); }
+
+        button {
+            background: var(--primary-gradient);
+            color: var(--pure-white);
+            border: none;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            margin: var(--spacing-xs);
+            font-weight: var(--font-weight-semibold);
+            font-size: var(--font-size-sm);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover { 
+            background: var(--accent-gradient);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.3);
+        }
+
+        .result {
+            margin-top: var(--spacing-lg);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            border-left: 4px solid var(--linkedin-blue);
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: var(--font-size-xs);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .auth-section {
+            background: linear-gradient(135deg, #F0F8FF 0%, var(--pure-white) 100%);
+            border: 2px solid var(--linkedin-blue);
+        }
+
+        .auth-section::before {
+            background: var(--linkedin-blue);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-header">
+            <h1>🧪 Local Subscription Testing</h1>
+            <p class="info">Testing PostPilot subscription features on localhost:3000</p>
+        </div>
+        
+        <div class="test-section auth-section">
+            <h3>🔐 Authentication</h3>
+            <p>First, you need to authenticate. Since this is local development, we'll simulate login:</p>
+            <button onclick="simulateLogin()">Simulate Login (Test User)</button>
+            <button onclick="checkAuthStatus()">Check Auth Status</button>
+            <div id="auth-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Subscription Status</h3>
+            <button onclick="getSubscriptionStatus()">Get Subscription Status</button>
+            <div id="subscription-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📝 Post Generation</h3>
+            <button onclick="generatePost()">Generate Test Post</button>
+            <button onclick="generatePostWithImage()">Generate Post with Image</button>
+            <div id="generation-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📅 Post Scheduling</h3>
+            <button onclick="schedulePost()">Schedule Test Post</button>
+            <button onclick="getScheduledPosts()">Get Scheduled Posts</button>
+            <div id="schedule-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>⚙️ User Preferences</h3>
+            <button onclick="getPreferences()">Get Preferences</button>
+            <button onclick="updatePreferences()">Update Preferences</button>
+            <div id="preferences-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>💳 Subscription Plans</h3>
+            <button onclick="getPlans()">Get Available Plans</button>
+            <div id="plans-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        
+        function showResult(elementId, content, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent = typeof content === 'object' ? JSON.stringify(content, null, 2) : content;
+            element.style.borderLeftColor = isError ? '#dc3545' : '#28a745';
+        }
+        
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    credentials: 'include', // Include cookies
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
+                        ...options.headers
+                    }
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(JSON.stringify(error, null, 2));
+                }
+                
+                return await response.json();
+            } catch (error) {
+                throw error;
+            }
+        }
+        
+        async function simulateLogin() {
+            try {
+                // For local testing, we'll create a session by calling a test endpoint
+                // In a real app, this would be done through LinkedIn OAuth
+                const result = await fetch('/api/test-login', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        linkedin_id: 'test-user-123',
+                        name: 'Nick Conoplia',
+                        email: 'nick@example.com'
+                    })
+                });
+                
+                if (result.ok) {
+                    const data = await result.json();
+                    showResult('auth-result', '✅ Login successful! Session created.');
+                } else {
+                    showResult('auth-result', '❌ Login failed. Using direct API calls instead.', true);
+                }
+            } catch (error) {
+                showResult('auth-result', `❌ Login error: ${error.message}`, true);
+            }
+        }
+        
+        async function checkAuthStatus() {
+            try {
+                const result = await apiCall('/api/user/profile');
+                showResult('auth-result', `✅ Authenticated as: ${result.name} (${result.email})`);
+            } catch (error) {
+                showResult('auth-result', `❌ Not authenticated: ${error.message}`, true);
+            }
+        }
+        
+        async function getSubscriptionStatus() {
+            try {
+                const result = await apiCall('/api/subscription/status');
+                showResult('subscription-result', result);
+            } catch (error) {
+                showResult('subscription-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+        
+        async function generatePost() {
+            try {
+                const result = await apiCall('/api/generate', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        topic: 'Local Development Testing',
+                        tone: 'professional',
+                        includeImage: false
+                    })
+                });
+                showResult('generation-result', result);
+            } catch (error) {
+                showResult('generation-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+        
+        async function generatePostWithImage() {
+            try {
+                const result = await apiCall('/api/generate', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        topic: 'AI Technology Trends',
+                        tone: 'professional',
+                        includeImage: true
+                    })
+                });
+                showResult('generation-result', result);
+            } catch (error) {
+                showResult('generation-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+        
+        async function schedulePost() {
+            try {
+                const scheduledFor = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                const result = await apiCall('/api/schedule', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        topic: 'Automated Scheduling Test',
+                        tone: 'professional',
+                        scheduledFor: scheduledFor
+                    })
+                });
+                showResult('schedule-result', result);
+            } catch (error) {
+                showResult('schedule-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+        
+        async function getScheduledPosts() {
+            try {
+                const result = await apiCall('/api/scheduled-posts');
+                showResult('schedule-result', result);
+            } catch (error) {
+                showResult('schedule-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+        
+        async function getPreferences() {
+            try {
+                const result = await apiCall('/api/preferences');
+                showResult('preferences-result', result);
+            } catch (error) {
+                showResult('preferences-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+        
+        async function updatePreferences() {
+            try {
+                const result = await apiCall('/api/preferences', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        posts_per_week: 5,
+                        posting_days: '1,2,3,4,5',
+                        posting_time: '10:00',
+                        topics: 'Technology,AI,Innovation,Leadership',
+                        tone: 'professional',
+                        auto_posting_enabled: true
+                    })
+                });
+                showResult('preferences-result', result);
+            } catch (error) {
+                showResult('preferences-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+        
+        async function getPlans() {
+            try {
+                const result = await apiCall('/api/subscription/plans');
+                showResult('plans-result', result);
+            } catch (error) {
+                showResult('plans-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+        
+        // Auto-load plans on page load
+        window.onload = () => {
+            getPlans();
+        };
+    </script>
+</body>
+</html> 

@@ -215,6 +215,23 @@ function initializeDatabase() {
           )
         `);
 
+        // User usage table (monthly tracking)
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS user_usage (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            month_year TEXT NOT NULL,
+            posts_used INTEGER DEFAULT 0,
+            posts_limit INTEGER DEFAULT 5,
+            cost_used DECIMAL(10,6) DEFAULT 0,
+            tokens_used INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, month_year),
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `);
+
         // Access keys table
         await client.query(`
           CREATE TABLE IF NOT EXISTS access_keys (
@@ -258,6 +275,86 @@ function initializeDatabase() {
             console.log('ℹ️ Unique constraint on subscription_plans.name already exists');
           }
         }
+
+        // Automation settings table
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS automation_settings (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL UNIQUE,
+            enabled BOOLEAN DEFAULT false,
+            frequency TEXT DEFAULT 'weekly' CHECK (frequency IN ('daily', 'weekly', 'biweekly')),
+            posting_times TEXT DEFAULT 'afternoon',
+            content_mix TEXT DEFAULT 'balanced' CHECK (content_mix IN ('news_heavy', 'balanced', 'viral_heavy', 'professional')),
+            default_tone TEXT DEFAULT 'professional',
+            topic_pool JSONB DEFAULT '["Artificial Intelligence", "Leadership", "Digital Marketing"]',
+            posting_days JSONB DEFAULT '["monday", "wednesday", "friday"]',
+            auto_approve BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `);
+
+        // Automation queue table
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS automation_queue (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            automation_settings_id INTEGER REFERENCES automation_settings(id),
+            topic TEXT NOT NULL,
+            content_type TEXT DEFAULT 'news' CHECK (content_type IN ('news', 'viral', 'manual')),
+            viral_format TEXT,
+            tone TEXT NOT NULL,
+            content TEXT,
+            image_url TEXT,
+            scheduled_for TIMESTAMP NOT NULL,
+            status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'generating', 'ready', 'posted', 'failed', 'cancelled')),
+            posted_at TIMESTAMP,
+            linkedin_post_id TEXT,
+            engagement_data JSONB,
+            error_message TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `);
+
+        // Create indexes for automation_queue
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_automation_queue_user_scheduled 
+          ON automation_queue (user_id, scheduled_for)
+        `);
+        
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_automation_queue_status 
+          ON automation_queue (status)
+        `);
+
+        // Automation analytics table
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS automation_analytics (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            automation_queue_id INTEGER REFERENCES automation_queue(id),
+            posted_at TIMESTAMP NOT NULL,
+            impressions INTEGER DEFAULT 0,
+            likes INTEGER DEFAULT 0,
+            comments INTEGER DEFAULT 0,
+            shares INTEGER DEFAULT 0,
+            clicks INTEGER DEFAULT 0,
+            engagement_rate DECIMAL(5,4) DEFAULT 0,
+            topic TEXT,
+            content_type TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `);
+
+        // Create indexes for automation_analytics
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_automation_analytics_user_posted 
+          ON automation_analytics (user_id, posted_at)
+        `);
 
         // Insert default subscription plans
         await client.query(`

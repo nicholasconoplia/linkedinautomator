@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; img-src 'self' data: https: http:; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com; font-src 'self' https://fonts.gstatic.com;">
+    <title>Content Generator - PostPilot</title>
+    
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+      rel="stylesheet"
+      as="style"
+      onload="this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    />
+    
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <meta name="description" content="Generate AI-powered LinkedIn content with PostPilot's advanced content creation tools.">
+    <meta name="keywords" content="LinkedIn content generator, AI content creation, social media posts">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+    
+    <style>
+        /* Subscription Modal Styles */
+        .subscription-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            position: relative;
+            background: white;
+            border-radius: 16px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-header h2 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0d151c;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .usage-info {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #f59e0b;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .usage-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .usage-icon {
+            font-size: 32px;
+            flex-shrink: 0;
+        }
+
+        .usage-text h3 {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0d151c;
+            margin: 0 0 8px 0;
+        }
+
+        .usage-text p {
+            color: #6b7280;
+            margin: 0;
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .plan-card-modal {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .plan-card-modal.popular {
+            border-color: #0b80ee;
+            transform: scale(1.05);
+        }
+
+        .plan-card-modal.popular::before {
+            content: "Most Popular";
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0b80ee;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .plan-name-modal {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0d151c;
+            margin-bottom: 12px;
+        }
+
+        .plan-price-modal {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0b80ee;
+            margin-bottom: 8px;
+        }
+
+        .plan-price-modal .crossed {
+            text-decoration: line-through;
+            color: #6b7280;
+            font-size: 18px;
+            margin-right: 8px;
+        }
+
+        .plan-posts-modal {
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+
+        .plan-features-modal {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 24px 0;
+        }
+
+        .plan-features-modal li {
+            padding: 8px 0;
+            color: #374151;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .plan-features-modal li:last-child {
+            border-bottom: none;
+        }
+
+        .plan-button-modal {
+            width: 100%;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .plan-button-modal.primary {
+            background: #0b80ee;
+            color: white;
+        }
+
+        .plan-button-modal.secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .plan-button-modal:hover {
+            transform: translateY(-2px);
+        }
+
+        .access-key-section {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .access-key-header h3 {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0d151c;
+            margin: 0 0 8px 0;
+        }
+
+        .access-key-header p {
+            color: #6b7280;
+            margin: 0 0 20px 0;
+        }
+
+        .access-key-form {
+            display: flex;
+            gap: 12px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .access-key-form input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .access-key-btn {
+            padding: 12px 24px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .access-key-btn:hover {
+            background: #059669;
+        }
+
+        .access-key-message {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .access-key-message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .access-key-message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc2626;
+        }
+
+        .mb-6 {
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="relative flex size-full min-h-screen flex-col bg-slate-50 group/design-root overflow-x-hidden"
+         style="--checkbox-tick-svg: url('data:image/svg+xml,%3csvg viewBox=%270 0 16 16%27 fill=%27rgb(248,250,252)%27 xmlns=%27http://www.w3.org/2000/svg%27%3e%3cpath d=%27M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z%27/%3e%3c/svg%3e'); --select-button-svg: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(73,116,156)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e'); font-family: Inter, 'Noto Sans', sans-serif;">
+        
+        <div class="layout-container flex h-full grow flex-col">
+            <!-- Header -->
+            <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e7edf4] px-10 py-3">
+                <div class="flex items-center gap-4 text-[#0d151c]">
+                    <div class="size-4">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 42.4379C4 42.4379 14.0962 36.0744 24 41.1692C35.0664 46.8624 44 42.2078 44 42.2078L44 7.01134C44 7.01134 35.068 11.6577 24.0031 5.96913C14.0971 0.876274 4 7.27094 4 7.27094L4 42.4379Z" fill="currentColor"></path>
+                    </svg>
+                    </div>
+                    <h2 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em]">PostPilot</h2>
+                </div>
+                
+                <div class="flex flex-1 justify-end gap-8">
+                    <div class="flex items-center gap-9">
+                        <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal">Dashboard</a>
+                        <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">Content Generator</a>
+                        <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
+                    </div>
+                    
+                    <!-- Authentication buttons -->
+                    <div id="authSection">
+                        <div id="loginSection">
+                            <a href="/auth/linkedin" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em]">
+                                <span class="truncate">Connect LinkedIn</span>
+                            </a>
+                        </div>
+                        
+                        <div id="userSection" style="display: none;">
+                            <div class="flex items-center gap-3">
+                                <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full border border-[#e7edf4]" style="display: none;">
+                                <span class="text-[#0d151c] text-sm font-medium" id="userName">User</span>
+                                <button data-action="logout" class="text-[#49749c] text-sm font-medium hover:text-[#0d151c]">Sign Out</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <div class="px-40 flex flex-1 justify-center py-5">
+                <div class="layout-content-container flex flex-col max-w-[960px] flex-1">
+                    
+                    <!-- Content Generator Section -->
+                    <section class="content-section active" id="content-generator-section">
+                        <div class="flex flex-wrap justify-between gap-3 p-4">
+                            <p class="text-[#0d151c] tracking-light text-[32px] font-bold leading-tight min-w-72">Content Generator</p>
+                        </div>
+
+                        <form id="postForm">
+                            <!-- Topic Input -->
+                            <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">What's on your mind?</p>
+                                    <textarea id="topic" name="topic" placeholder="Share your thoughts or choose a topic" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] min-h-36 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal"></textarea>
+                                </label>
+                            </div>
+
+                            <!-- Topic Chips -->
+                            <div class="flex gap-3 p-3 flex-wrap pr-4" id="topicChips">
+                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Artificial Intelligence">
+                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">🤖 AI & Tech</p>
+                                </div>
+                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Leadership">
+                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">👑 Leadership</p>
+                                </div>
+                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Entrepreneurship">
+                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">🚀 Startup</p>
+                                </div>
+                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Digital Marketing">
+                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">📱 Marketing</p>
+                                </div>
+                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Remote Work">
+                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">🏠 Remote Work</p>
+                                </div>
+                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Career Development">
+                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">📈 Career Growth</p>
+                                </div>
+                            </div>
+
+                            <!-- Form Controls -->
+                            <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Content Tone</p>
+                                    <select id="tone" name="tone" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="professional">🎯 Professional</option>
+                                        <option value="conversational">💬 Conversational</option>
+                                        <option value="inspirational">✨ Inspirational</option>
+                                        <option value="educational">📚 Educational</option>
+                                        <option value="thought-provoking">🤔 Thought-Provoking</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Post Length</p>
+                                    <select id="length" name="length" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="short">📝 Short</option>
+                                        <option value="medium" selected>📄 Medium</option>
+                                        <option value="long">📖 Long</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <!-- Content Generation Mode -->
+                            <h3 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Content Generation Mode</h3>
+                            <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Content Type</p>
+                                    <select id="contentType" name="contentType" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="news">🔁 News-Based Post</option>
+                                        <option value="viral">🔥 Viral Format Post</option>
+                                        <option value="tweet">🔄 Repurpose Tweet</option>
+                                        <option value="manual">🧠 Manual Content</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <!-- Viral Format Templates -->
+                            <div id="viralTemplates" style="display: none;" class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Viral Template</p>
+                                    <select id="viralFormat" name="viralFormat" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="open-loop">🧠 Open Loop Hook - Curiosity-driven suspense</option>
+                                        <option value="contrarian">🔥 Contrarian Opinion - Bold, polarizing take</option>
+                                        <option value="confession">🧍‍♂️ Confession + Lesson - Personal story of failure → redemption</option>
+                                        <option value="framework">🧩 Framework/List - 3-5 tips for solving a problem</option>
+                                        <option value="experience">📈 Insight from Experience - Career/business insight</option>
+                                        <option value="data-driven">🧪 Data-Driven Post - Key data point with analysis</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <!-- Tweet Input -->
+                            <div id="tweetInput" style="display: none;" class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Tweet Content</p>
+                                    <textarea id="tweetText" name="tweetText" rows="4" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] min-h-24 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal" placeholder="Paste the tweet content you want to repurpose for LinkedIn..."></textarea>
+                                </label>
+                            </div>
+
+                            <!-- Manual Content Input -->
+                            <div id="manualInput" style="display: none;" class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Your Content Idea</p>
+                                    <textarea id="customContent" name="customContent" rows="4" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] min-h-24 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal" placeholder="Enter your content idea, topic, or raw content..."></textarea>
+                                </label>
+                            </div>
+
+                            <!-- Engagement Boosters -->
+                            <h3 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Engagement Boosters</h3>
+                            <div class="px-4">
+                                <label class="flex gap-x-3 py-3 flex-row">
+                                    <input type="checkbox" id="curiosityHook" name="curiosityHook" class="h-5 w-5 rounded border-[#cedce8] border-2 bg-transparent text-[#0b80ee] checked:bg-[#0b80ee] checked:border-[#0b80ee] checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:border-[#cedce8] focus:outline-none" />
+                                    <p class="text-[#0d151c] text-base font-normal leading-normal">Add Curiosity Hooks</p>
+                                </label>
+                                <label class="flex gap-x-3 py-3 flex-row">
+                                    <input type="checkbox" id="strongOpinion" name="strongOpinion" class="h-5 w-5 rounded border-[#cedce8] border-2 bg-transparent text-[#0b80ee] checked:bg-[#0b80ee] checked:border-[#0b80ee] checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:border-[#cedce8] focus:outline-none" />
+                                    <p class="text-[#0d151c] text-base font-normal leading-normal">Add a Strong Opinion</p>
+                                </label>
+                                <label class="flex gap-x-3 py-3 flex-row">
+                                    <input type="checkbox" id="softCTA" name="softCTA" class="h-5 w-5 rounded border-[#cedce8] border-2 bg-transparent text-[#0b80ee] checked:bg-[#0b80ee] checked:border-[#0b80ee] checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:border-[#cedce8] focus:outline-none" />
+                                    <p class="text-[#0d151c] text-base font-normal leading-normal">Include Engagement Call Actions</p>
+                                </label>
+                                <label class="flex gap-x-3 py-3 flex-row">
+                                    <input type="checkbox" id="includeImage" name="includeImage" checked class="h-5 w-5 rounded border-[#cedce8] border-2 bg-transparent text-[#0b80ee] checked:bg-[#0b80ee] checked:border-[#0b80ee] checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:border-[#cedce8] focus:outline-none" />
+                                    <p class="text-[#0d151c] text-base font-normal leading-normal">Add a Custom Relevant Image</p>
+                                </label>
+                            </div>
+
+                            <!-- Generate Button -->
+                            <div class="flex px-4 py-3 justify-start">
+                                <button type="submit" id="generateBtn" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 bg-[#0b80ee] text-slate-50 text-base font-bold leading-normal tracking-[0.015em]">
+                                    <span class="btn-text">Generate Content</span>
+                                    <div class="loader" id="loader" style="display: none;"></div>
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Generated Content Display -->
+                        <h2 class="text-[#0d151c] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Generated Content</h2>
+                        <div class="p-4">
+                            <div id="output">
+                                <div class="text-center py-12 text-[#49749c]">
+                                    <div class="text-4xl mb-4">✨</div>
+                                    <p>Generate content to see your posts here.</p>
+                                </div>
+                            </div>
+
+                            <div id="postOptions" style="display: none;" class="mt-4">
+                                <div class="flex gap-4 mb-4">
+                                    <label class="flex items-center gap-2">
+                                        <input type="radio" name="postType" value="image" checked class="text-[#0b80ee]">
+                                        <span class="text-[#0d151c]">🖼️ With Image</span>
+                                    </label>
+                                    <label class="flex items-center gap-2">
+                                        <input type="radio" name="postType" value="link" class="text-[#0b80ee]">
+                                        <span class="text-[#0d151c]">🔗 Article Link</span>
+                                    </label>
+                                </div>
+                                <button id="postBtn" data-action="post" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#0b80ee] text-slate-50 text-sm font-bold leading-normal tracking-[0.015em]">
+                                    <span class="truncate">Post to LinkedIn</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscription Modal -->
+    <div class="subscription-modal" id="subscriptionModal" style="display: none;">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Upgrade Your Plan</h2>
+                <button class="modal-close" data-action="close-modal" onclick="closeSubscriptionModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- Usage Information -->
+                <div id="usageInfo" class="usage-info mb-6">
+                    <div class="usage-card">
+                        <div class="usage-icon">⚡</div>
+                        <div class="usage-text">
+                            <h3>No Active Subscription</h3>
+                            <p>Subscribe to start generating AI-powered LinkedIn content or use an access key.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plans Grid -->
+                <div class="plans-grid" id="plansGrid">
+                    <div class="loading">Loading plans...</div>
+                </div>
+
+                <!-- Access Key Section -->
+                <div class="access-key-section">
+                    <div class="access-key-header">
+                        <h3>Have an Access Key?</h3>
+                        <p>Enter your special access code to unlock premium features</p>
+                    </div>
+                    <div class="access-key-form">
+                        <input type="text" id="accessKeyInput" placeholder="Enter access key..." />
+                        <button class="access-key-btn" data-action="activate-key" onclick="activateAccessKey()">Activate</button>
+                    </div>
+                    <div id="accessKeyMessage" class="access-key-message" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

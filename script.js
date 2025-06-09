@@ -1,6 +1,25 @@
 // PostPilot - AI-Driven LinkedIn Content Platform
 class PostPilotApp {
+    // Utility function to get auth token from localStorage or cookies
+    getAuthToken() {
+        // First try localStorage
+        const localToken = localStorage.getItem('auth_token');
+        if (localToken) return localToken;
+        
+        // Then try cookies
+        const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+            const [name, value] = cookie.trim().split('=');
+            acc[name] = value;
+            return acc;
+        }, {});
+        
+        return cookies.auth_token || null;
+    }
+
     constructor() {
+        console.log('🏗️ Constructing PostPilotApp v20250609-001...');
+        console.log('🔧 Automation fixes applied - debugging enabled');
+        
         // Core elements
         this.form = document.getElementById('postForm');
         this.generateBtn = document.getElementById('generateBtn');
@@ -10,6 +29,12 @@ class PostPilotApp {
         this.regenerateBtn = document.getElementById('regenerateBtn');
         this.postOptions = document.getElementById('postOptions');
         this.postBtn = document.getElementById('postBtn');
+        
+        console.log('🔍 Core elements check:');
+        console.log('  - form:', !!this.form, this.form);
+        console.log('  - generateBtn:', !!this.generateBtn, this.generateBtn);
+        console.log('  - output:', !!this.output, this.output);
+        console.log('  - loader:', !!this.loader, this.loader);
         
         // Topic input elements
         this.topicInput = document.getElementById('topic');
@@ -39,25 +64,38 @@ class PostPilotApp {
         this.isLoggedIn = false;
         this.currentUser = null;
         
+        // Determine which page we're on
+        this.currentPage = this.detectCurrentPage();
+        this.currentSection = this.currentPage === 'dashboard' ? 'dashboard' : this.currentPage;
+        console.log('📍 Current page:', this.currentPage);
+        
         this.init();
+    }
+
+    detectCurrentPage() {
+        const path = window.location.pathname;
+        if (path === '/generator') return 'generator';
+        if (path === '/automation') return 'automation';
+        return 'dashboard';
     }
     
     async init() {
-        console.log('🚀 PostPilot initializing...');
+        console.log('🚀 PostPilot initializing for page:', this.currentPage);
         
-        // Setup event listeners
-        this.setupEventListeners();
-        this.setupTopicChips();
-        this.addFormInteractions();
+        // Setup base event listeners (auth, etc.)
+        this.setupAuthEventListeners();
+        
+        // Page-specific initialization
+        if (this.currentPage === 'generator') {
+            this.setupGeneratorPage();
+        } else if (this.currentPage === 'automation') {
+            this.setupAutomationPage();
+        } else {
+            this.setupDashboardPage();
+        }
         
         // Check authentication status
         await this.checkAuthStatus();
-        
-        // Load recent activity
-        this.loadRecentActivity();
-        
-        // Load pricing on main page
-        await this.loadMainPagePricing();
         
         // Check if user just authenticated
         const urlParams = new URLSearchParams(window.location.search);
@@ -79,77 +117,1062 @@ class PostPilotApp {
             }, 1500);
         }
         
-        console.log('✅ PostPilot ready!');
+        console.log('✅ PostPilot ready for', this.currentPage, 'page!');
+    }
+
+    setupGeneratorPage() {
+        console.log('🎨 Setting up Content Generator page...');
+        this.setupEventListeners();
+        this.setupTopicChips();
+        this.addFormInteractions();
+    }
+
+    setupAutomationPage() {
+        console.log('🤖 Setting up Automation page...');
+        this.setupEventListeners();
+        this.loadAutomationData();
+    }
+
+    setupDashboardPage() {
+        console.log('📊 Setting up Dashboard page...');
+        this.setupEventListeners();
+        this.initializeNavigation();
+    }
+
+    setupAuthEventListeners() {
+        console.log('🔐 Setting up authentication event listeners...');
+        
+        // Add global event delegation for auth buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.getAttribute('data-action') === 'logout') {
+                e.preventDefault();
+                this.handleLogout(e);
+            }
+        });
     }
     
     setupEventListeners() {
-        // Form handlers
-        this.form.addEventListener('submit', this.handleFormSubmit.bind(this));
+        console.log('🎛️ Setting up event listeners...');
+        
+        // Form handlers - prioritize form submission over button clicks
+        if (this.form) {
+            console.log('✅ Form found, adding submit listener');
+            this.form.addEventListener('submit', this.handleFormSubmit.bind(this));
+        } else {
+            console.error('❌ Form not found!');
+        }
+        
+        // Only add button click listener if form is not found (fallback)
+        if (!this.form && this.generateBtn) {
+            console.log('⚠️ No form found, adding button click fallback');
+            this.generateBtn.addEventListener('click', (e) => {
+                console.log('🔥 Generate button clicked (fallback)');
+                e.preventDefault();
+                this.handleFormSubmit(e);
+            });
+        }
         
         if (this.copyBtn) {
-        this.copyBtn.addEventListener('click', this.copyToClipboard.bind(this));
+            this.copyBtn.addEventListener('click', this.copyToClipboard.bind(this));
         }
         
         if (this.regenerateBtn) {
-        this.regenerateBtn.addEventListener('click', this.regeneratePost.bind(this));
+            this.regenerateBtn.addEventListener('click', this.regeneratePost.bind(this));
         }
         
         if (this.postBtn) {
             this.postBtn.addEventListener('click', this.handlePostToLinkedIn.bind(this));
         }
         
+
+        
         // Keyboard shortcuts
         document.addEventListener('keydown', this.handleKeyboardShortcuts.bind(this));
         
         // Add global event delegation
         document.addEventListener('click', this.handleGlobalClicks.bind(this));
+        
+        // Content type change handler
+        const contentTypeSelect = document.getElementById('contentType');
+        if (contentTypeSelect) {
+            contentTypeSelect.addEventListener('change', this.handleContentTypeChange.bind(this));
+        }
+
+        // Initialize navigation
+        this.initializeNavigation();
+    }
+
+    initializeNavigation() {
+        console.log('🧭 Initializing navigation...');
+        
+        // Add navigation event listeners
+        const navTabs = document.querySelectorAll('.nav-tab');
+        console.log('Found nav tabs:', navTabs.length);
+        
+        navTabs.forEach((tab, index) => {
+            const sectionName = tab.getAttribute('data-section');
+            console.log(`Tab ${index}: ${sectionName}`);
+            
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('🔄 Switching to section:', sectionName);
+                this.switchSection(sectionName);
+            });
+        });
+
+        // Handle placeholder generate button
+        const placeholderBtn = document.getElementById('placeholderGenerateBtn');
+        if (placeholderBtn) {
+            placeholderBtn.addEventListener('click', () => {
+                this.switchSection('content-generator');
+            });
+        }
+
+        // Set initial section
+        console.log('🎯 Setting initial section to dashboard');
+        this.switchSection('dashboard');
+    }
+
+    switchSection(sectionName) {
+        console.log('🔄 Switching to section:', sectionName);
+        
+        // Update navigation tabs
+        const navTabs = document.querySelectorAll('.nav-tab');
+        navTabs.forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.getAttribute('data-section') === sectionName) {
+                tab.classList.add('active');
+                console.log('✅ Activated tab:', sectionName);
+            }
+        });
+
+        // Update content sections
+        const contentSections = document.querySelectorAll('.content-section');
+        contentSections.forEach(section => {
+            section.classList.remove('active');
+        });
+
+        const targetSection = document.getElementById(`${sectionName}-section`);
+        if (targetSection) {
+            targetSection.classList.add('active');
+            console.log('✅ Activated section:', sectionName);
+        } else {
+            console.error('❌ Section not found:', `${sectionName}-section`);
+        }
+
+        this.currentSection = sectionName;
+
+        // Load section-specific data
+        this.loadSectionData(sectionName);
+    }
+
+    async loadSectionData(sectionName) {
+        console.log('📊 Loading data for section:', sectionName);
+        
+        switch (sectionName) {
+            case 'dashboard':
+                await this.loadDashboardData();
+                break;
+            case 'content-generator':
+                // Content generator doesn't need additional data loading
+                console.log('✅ Content generator section loaded');
+                break;
+            case 'automation':
+                await this.loadAutomationData();
+                break;
+            default:
+                console.log(`No specific loader for section: ${sectionName}`);
+        }
+    }
+
+    async loadDashboardData() {
+        console.log('📊 Loading dashboard data...');
+        
+        // Load recent activity for dashboard
+        const activityList = document.getElementById('dashboardActivityList');
+        if (activityList) {
+            activityList.innerHTML = '<div class="loading">Loading recent activity...</div>';
+            try {
+                await this.loadRecentActivity();
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                activityList.innerHTML = '<div class="text-center py-8 text-[#6b7280]">No recent activity</div>';
+            }
+        }
+    }
+
+
+
+
+
+    setupAutomationForm() {
+        // Add automation setup form if it doesn't exist
+        const automationSection = document.getElementById('automation-section');
+        if (automationSection && !document.getElementById('automationSetup')) {
+            const setupHTML = `
+                <div id="automationSetup" class="mb-6">
+                    <h3 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Setup Automation</h3>
+                    <div class="bg-white border border-[#e7edf4] rounded-xl p-6 mx-4">
+                        <form id="automationForm">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Post Frequency</label>
+                                    <select id="postFrequency" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly" selected>Weekly</option>
+                                        <option value="biweekly">Bi-weekly</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Post Time</label>
+                                    <input type="time" id="postTime" value="09:00" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                </div>
+                                <div>
+                                    <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Content Type</label>
+                                    <select id="autoContentType" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="news">News-Based Posts</option>
+                                        <option value="viral_format">Viral Format Posts</option>
+                                        <option value="mixed">Mixed Content</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Tone</label>
+                                    <select id="autoTone" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="professional">Professional</option>
+                                        <option value="conversational">Conversational</option>
+                                        <option value="inspirational">Inspirational</option>
+                                        <option value="educational">Educational</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-6">
+                                <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Days of Week</label>
+                                <div class="flex flex-wrap gap-2">
+                                    ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => `
+                                        <label class="flex items-center gap-2 bg-[#f8fafc] border border-[#e7edf4] rounded-lg px-3 py-2 cursor-pointer hover:bg-[#e7edf4]">
+                                            <input type="checkbox" value="${day.toLowerCase()}" class="text-[#0b80ee]" ${['monday', 'wednesday', 'friday'].includes(day.toLowerCase()) ? 'checked' : ''}>
+                                            <span class="text-[#0d151c] text-sm font-medium">${day}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div class="mt-6 flex gap-4">
+                                <button type="submit" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 bg-[#0b80ee] text-slate-50 text-base font-bold leading-normal tracking-[0.015em]">
+                                    Save Automation Settings
+                                </button>
+                                <button type="button" id="pauseAutomation" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 bg-[#6b7280] text-slate-50 text-base font-bold leading-normal tracking-[0.015em]">
+                                    Pause Automation
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            // Insert before the table
+            const tableContainer = automationSection.querySelector('.px-4.py-3');
+            if (tableContainer) {
+                tableContainer.insertAdjacentHTML('beforebegin', setupHTML);
+                
+                                // Add event listeners
+                const automationForm = document.getElementById('automationForm');
+                if (automationForm) {
+                    automationForm.addEventListener('submit', this.handleSaveAutomation.bind(this));
+                }
+            }
+        }
+    }
+
+    async handleSaveAutomation(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const checkboxes = e.target.querySelectorAll('input[type="checkbox"]:checked');
+        const selectedDays = Array.from(checkboxes).map(cb => cb.value);
+        
+        const automationSettings = {
+            frequency: document.getElementById('postFrequency').value,
+            time: document.getElementById('postTime').value,
+            contentType: document.getElementById('autoContentType').value,
+            tone: document.getElementById('autoTone').value,
+            days: selectedDays
+        };
+        
+        try {
+            const response = await fetch('/api/automation/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(automationSettings)
+            });
+            
+            if (response.ok) {
+                this.showSuccess('Automation settings saved successfully!');
+            } else {
+                this.showError('Failed to save automation settings');
+            }
+        } catch (error) {
+            console.error('Error saving automation:', error);
+            this.showError('Failed to save automation settings');
+        }
+    }
+
+    // ====================
+    // AUTOMATION FUNCTIONALITY  
+    // ====================
+
+    async loadAutomationData() {
+        console.log('🤖 Loading automation data...');
+        try {
+            await Promise.all([
+                this.loadAutomationSettings(),
+                this.loadAutomationQueue(),
+                this.loadAutomationAnalytics()
+            ]);
+            this.setupAutomationEventListeners();
+        } catch (error) {
+            console.error('Error loading automation data:', error);
+        }
+    }
+
+    async loadAutomationSettings() {
+        try {
+            const response = await fetch('/api/automation/settings', {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const settings = await response.json();
+                this.populateAutomationSettingsForm(settings);
+                this.updateAutomationToggle(settings.enabled);
+            }
+        } catch (error) {
+            console.error('Error loading automation settings:', error);
+        }
+    }
+
+    populateAutomationSettingsForm(settings) {
+        // Update form fields
+        const postFrequency = document.getElementById('postFrequency');
+        const postTimes = document.getElementById('postTimes');
+        const autoContentMix = document.getElementById('autoContentMix');
+        const autoTone = document.getElementById('autoTone');
+        
+        if (postFrequency) postFrequency.value = settings.frequency || 'weekly';
+        if (postTimes) postTimes.value = settings.posting_times || 'afternoon';
+        if (autoContentMix) autoContentMix.value = settings.content_mix || 'balanced';
+        if (autoTone) autoTone.value = settings.default_tone || 'professional';
+
+        // Update topic pool
+        const topicCheckboxes = document.querySelectorAll('#topicPool input[type="checkbox"]');
+        topicCheckboxes.forEach(checkbox => {
+            checkbox.checked = settings.topic_pool?.includes(checkbox.value) || false;
+        });
+
+        // Update posting days
+        const dayCheckboxes = document.querySelectorAll('#daysOfWeek input[type="checkbox"]');
+        dayCheckboxes.forEach(checkbox => {
+            checkbox.checked = settings.posting_days?.includes(checkbox.value) || false;
+        });
+    }
+
+    updateAutomationToggle(enabled) {
+        const toggleBtn = document.getElementById('automationToggle');
+        if (toggleBtn) {
+            if (enabled) {
+                toggleBtn.innerHTML = '<span class="truncate">🟢 Automation ON</span>';
+                toggleBtn.className = 'flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#22c55e] text-slate-50 text-sm font-bold leading-normal tracking-[0.015em]';
+            } else {
+                toggleBtn.innerHTML = '<span class="truncate">🔴 Automation OFF</span>';
+                toggleBtn.className = 'flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#6b7280] text-slate-50 text-sm font-bold leading-normal tracking-[0.015em]';
+            }
+        }
+    }
+
+    async loadAutomationQueue() {
+        try {
+            const response = await fetch('/api/automation/queue', {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.displayAutomationQueue(data.queue);
+            }
+        } catch (error) {
+            console.error('Error loading automation queue:', error);
+        }
+    }
+
+    displayAutomationQueue(queue) {
+        // Update calendar view
+        this.updateCalendarView(queue);
+        
+        // Update list view
+        this.updateListView(queue);
+    }
+
+    updateCalendarView(queue) {
+        const calendarGrid = document.getElementById('calendarGrid');
+        const calendarEmpty = document.getElementById('calendarEmpty');
+        
+        if (!calendarGrid) return;
+
+        if (queue.length === 0) {
+            if (calendarEmpty) calendarEmpty.style.display = 'block';
+            return;
+        }
+
+        if (calendarEmpty) calendarEmpty.style.display = 'none';
+
+        // Group posts by date
+        const postsByDate = {};
+        queue.forEach(post => {
+            const date = new Date(post.scheduled_for).toDateString();
+            if (!postsByDate[date]) postsByDate[date] = [];
+            postsByDate[date].push(post);
+        });
+
+        // Generate calendar days for next 4 weeks
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Start from Monday
+
+        // Clear existing calendar content except headers
+        const headers = Array.from(calendarGrid.querySelectorAll('.text-center.font-medium'));
+        calendarGrid.innerHTML = '';
+        headers.forEach(header => calendarGrid.appendChild(header));
+
+        for (let week = 0; week < 4; week++) {
+            for (let day = 0; day < 7; day++) {
+                const currentDate = new Date(startOfWeek);
+                currentDate.setDate(startOfWeek.getDate() + (week * 7) + day);
+                
+                const dateStr = currentDate.toDateString();
+                const posts = postsByDate[dateStr] || [];
+                
+                const dayElement = document.createElement('div');
+                dayElement.className = 'border border-[#e7edf4] rounded-lg p-2 min-h-[80px] text-center';
+                
+                if (currentDate < today) {
+                    dayElement.className += ' bg-[#f8fafc] text-[#9ca3af]';
+                }
+                
+                dayElement.innerHTML = `
+                    <div class="text-sm font-medium mb-1">${currentDate.getDate()}</div>
+                    ${posts.map(post => `
+                        <div class="text-xs bg-[#0b80ee] text-white rounded px-2 py-1 mb-1 truncate" title="${post.topic}">
+                            📝 ${post.topic.substring(0, 15)}...
+                        </div>
+                    `).join('')}
+                `;
+                
+                calendarGrid.appendChild(dayElement);
+            }
+        }
+    }
+
+    updateListView(queue) {
+        const tableBody = document.getElementById('queueTableBody');
+        if (!tableBody) return;
+
+        if (queue.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-8 text-[#6b7280]">
+                        📋 No scheduled posts yet. Generate your content queue to see posts here.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = queue.map(post => {
+            const scheduledDate = new Date(post.scheduled_for);
+            const statusColor = {
+                'pending': 'bg-[#fbbf24] text-white',
+                'ready': 'bg-[#10b981] text-white',
+                'posted': 'bg-[#6b7280] text-white',
+                'failed': 'bg-[#ef4444] text-white'
+            }[post.status] || 'bg-[#6b7280] text-white';
+
+            return `
+                <tr class="border-b border-[#e7edf4]">
+                    <td class="px-4 py-3">
+                        <div class="max-w-[200px] truncate text-sm">${post.content || `${post.topic} - ${post.content_type} post`}</div>
+                    </td>
+                    <td class="px-4 py-3 text-sm">${post.topic}</td>
+                    <td class="px-4 py-3 text-sm">${scheduledDate.toLocaleString()}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded text-xs ${statusColor}">${post.status}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex gap-2">
+                            <button onclick="editQueueItem(${post.id})" class="text-[#0b80ee] hover:underline text-sm">Edit</button>
+                            <button onclick="deleteQueueItem(${post.id})" class="text-[#ef4444] hover:underline text-sm">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async loadAutomationAnalytics() {
+        try {
+            const response = await fetch('/api/automation/analytics', {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const analytics = await response.json();
+                this.updateAutomationAnalytics(analytics);
+            }
+        } catch (error) {
+            console.error('Error loading automation analytics:', error);
+        }
+    }
+
+    updateAutomationAnalytics(analytics) {
+        const postsWeekElement = document.getElementById('automationPostsWeek');
+        const nextPostElement = document.getElementById('automationNextPost');
+        const queueLengthElement = document.getElementById('automationQueueLength');
+
+        if (postsWeekElement) {
+            postsWeekElement.textContent = analytics.postsThisPeriod || 0;
+        }
+
+        if (nextPostElement) {
+            if (analytics.nextPost) {
+                const nextDate = new Date(analytics.nextPost);
+                nextPostElement.textContent = nextDate.toLocaleDateString();
+            } else {
+                nextPostElement.textContent = '--';
+            }
+        }
+
+        if (queueLengthElement) {
+            queueLengthElement.textContent = analytics.queueLength || 0;
+        }
+    }
+
+    setupAutomationEventListeners() {
+        console.log('🎛️ Setting up automation event listeners...');
+        
+        // Remove existing listeners to prevent duplicates
+        this.removeAutomationEventListeners();
+        
+        // Automation toggle
+        const automationToggle = document.getElementById('automationToggle');
+        if (automationToggle) {
+            console.log('✅ Adding automation toggle listener');
+            automationToggle.addEventListener('click', this.handleAutomationToggle.bind(this));
+        } else {
+            console.warn('⚠️ Automation toggle not found');
+        }
+
+        // Automation form
+        const automationForm = document.getElementById('automationForm');
+        if (automationForm) {
+            console.log('✅ Adding automation form listener');
+            automationForm.addEventListener('submit', this.handleSaveAutomationSettings.bind(this));
+        } else {
+            console.warn('⚠️ Automation form not found');
+        }
+
+        // Generate queue button
+        const generateQueueBtn = document.getElementById('generateQueueBtn');
+        if (generateQueueBtn) {
+            console.log('✅ Adding generate queue button listener');
+            generateQueueBtn.addEventListener('click', this.handleGenerateQueue.bind(this));
+        } else {
+            console.warn('⚠️ Generate queue button not found');
+        }
+
+        // View toggle buttons
+        const calendarViewBtn = document.getElementById('queueViewCalendar');
+        const listViewBtn = document.getElementById('queueViewList');
+        
+        if (calendarViewBtn) {
+            console.log('✅ Adding calendar view listener');
+            calendarViewBtn.addEventListener('click', () => this.switchQueueView('calendar'));
+        } else {
+            console.warn('⚠️ Calendar view button not found');
+        }
+        
+        if (listViewBtn) {
+            console.log('✅ Adding list view listener');
+            listViewBtn.addEventListener('click', () => this.switchQueueView('list'));
+        } else {
+            console.warn('⚠️ List view button not found');
+        }
+
+        // Preview schedule button
+        const previewBtn = document.getElementById('previewScheduleBtn');
+        if (previewBtn) {
+            console.log('✅ Adding preview schedule listener');
+            previewBtn.addEventListener('click', this.handlePreviewSchedule.bind(this));
+        } else {
+            console.warn('⚠️ Preview schedule button not found');
+        }
+        
+        console.log('✅ Automation event listeners setup complete');
+    }
+
+    removeAutomationEventListeners() {
+        // Remove existing event listeners to prevent duplicates
+        const elements = [
+            'automationToggle',
+            'automationForm',
+            'generateQueueBtn',
+            'queueViewCalendar',
+            'queueViewList',
+            'previewScheduleBtn'
+        ];
+        
+        elements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.replaceWith(element.cloneNode(true));
+            }
+        });
+    }
+
+    async handleAutomationToggle() {
+        console.log('🔄 Automation toggle clicked');
+        try {
+            const toggleBtn = document.getElementById('automationToggle');
+            if (!toggleBtn) {
+                console.error('❌ Toggle button not found');
+                return;
+            }
+            
+            const isCurrentlyEnabled = toggleBtn.innerHTML.includes('ON');
+            const newState = !isCurrentlyEnabled;
+            console.log(`🔄 Toggling automation from ${isCurrentlyEnabled} to ${newState}`);
+
+            const response = await fetch('/api/automation/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ enabled: newState })
+            });
+
+            console.log('📡 Toggle response status:', response.status);
+
+            if (response.ok) {
+                this.updateAutomationToggle(newState);
+                this.showSuccess(`Automation ${newState ? 'enabled' : 'disabled'} successfully!`);
+                console.log('✅ Automation toggle successful');
+            } else {
+                const errorText = await response.text();
+                console.error('❌ Toggle failed:', errorText);
+                this.showError('Failed to toggle automation');
+            }
+        } catch (error) {
+            console.error('❌ Error toggling automation:', error);
+            this.showError('Failed to toggle automation');
+        }
+    }
+
+    async handleSaveAutomationSettings(e) {
+        console.log('💾 Save automation settings triggered');
+        e.preventDefault();
+        e.stopPropagation();
+
+        try {
+            // Collect form data
+            const formData = {
+                enabled: true,
+                frequency: document.getElementById('postFrequency')?.value || 'weekly',
+                posting_times: document.getElementById('postTimes')?.value || 'afternoon',
+                content_mix: document.getElementById('autoContentMix')?.value || 'balanced',
+                default_tone: document.getElementById('autoTone')?.value || 'professional',
+                topic_pool: Array.from(document.querySelectorAll('#topicPool input:checked')).map(cb => cb.value),
+                posting_days: Array.from(document.querySelectorAll('#daysOfWeek input:checked')).map(cb => cb.value),
+                auto_approve: false
+            };
+
+            console.log('📝 Form data collected:', formData);
+
+            // Validation
+            if (formData.topic_pool.length === 0) {
+                console.warn('⚠️ No topics selected');
+                this.showError('Please select at least one topic');
+                return;
+            }
+
+            if (formData.posting_days.length === 0) {
+                console.warn('⚠️ No days selected');
+                this.showError('Please select at least one day of the week');
+                return;
+            }
+
+            console.log('📡 Sending automation settings to server...');
+            const response = await fetch('/api/automation/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(formData)
+            });
+
+            console.log('📡 Settings response status:', response.status);
+
+            if (response.ok) {
+                this.showSuccess('Automation settings saved successfully!');
+                this.updateAutomationToggle(true);
+                console.log('✅ Automation settings saved successfully');
+            } else {
+                const errorText = await response.text();
+                console.error('❌ Save failed:', errorText);
+                this.showError('Failed to save automation settings');
+            }
+        } catch (error) {
+            console.error('❌ Error saving automation settings:', error);
+            this.showError('Failed to save automation settings');
+        }
+    }
+
+    async handleGenerateQueue() {
+        console.log('✨ Generate queue clicked');
+        try {
+            const generateBtn = document.getElementById('generateQueueBtn');
+            if (!generateBtn) {
+                console.error('❌ Generate button not found');
+                return;
+            }
+
+            const originalText = generateBtn.innerHTML;
+            generateBtn.innerHTML = '⏳ Generating...';
+            generateBtn.disabled = true;
+
+            console.log('📡 Requesting queue generation...');
+            const response = await fetch('/api/automation/generate-queue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ weeks: 4 })
+            });
+
+            console.log('📡 Generate queue response status:', response.status);
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('✅ Queue generated:', result);
+                this.showSuccess(`Generated ${result.generated} posts for your automation queue!`);
+                await this.loadAutomationQueue();
+                await this.loadAutomationAnalytics();
+            } else {
+                const errorData = await response.text();
+                console.error('❌ Generate queue failed:', errorData);
+                let errorMessage = 'Failed to generate automation queue';
+                try {
+                    const errorJson = JSON.parse(errorData);
+                    errorMessage = errorJson.error || errorMessage;
+                } catch (e) {
+                    console.warn('Error parsing response as JSON');
+                }
+                this.showError(errorMessage);
+            }
+        } catch (error) {
+            console.error('❌ Error generating queue:', error);
+            this.showError('Failed to generate automation queue');
+        } finally {
+            const generateBtn = document.getElementById('generateQueueBtn');
+            if (generateBtn) {
+                generateBtn.innerHTML = '✨ Generate Queue';
+                generateBtn.disabled = false;
+            }
+        }
+    }
+
+    switchQueueView(view) {
+        console.log('🔄 Switching queue view to:', view);
+        
+        const calendarView = document.getElementById('calendarView');
+        const listView = document.getElementById('listView');
+        const calendarBtn = document.getElementById('queueViewCalendar');
+        const listBtn = document.getElementById('queueViewList');
+
+        if (!calendarView || !listView || !calendarBtn || !listBtn) {
+            console.error('❌ Queue view elements not found:', {
+                calendarView: !!calendarView,
+                listView: !!listView,
+                calendarBtn: !!calendarBtn,
+                listBtn: !!listBtn
+            });
+            return;
+        }
+
+        if (view === 'calendar') {
+            console.log('📅 Showing calendar view');
+            calendarView.style.display = 'block';
+            listView.style.display = 'none';
+            calendarBtn.className = 'flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#0b80ee] text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] view-toggle active';
+            listBtn.className = 'flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em] view-toggle';
+        } else {
+            console.log('📋 Showing list view');
+            calendarView.style.display = 'none';
+            listView.style.display = 'block';
+            calendarBtn.className = 'flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em] view-toggle';
+            listBtn.className = 'flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#0b80ee] text-slate-50 text-sm font-bold leading-normal tracking-[0.015em] view-toggle active';
+        }
+        
+        console.log('✅ Queue view switched successfully');
+    }
+
+    async handlePreviewSchedule() {
+        try {
+            const response = await fetch('/api/automation/queue?limit=10', {
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.showSchedulePreview(data.queue);
+            }
+        } catch (error) {
+            console.error('Error loading schedule preview:', error);
+            this.showError('Failed to load schedule preview');
+        }
+    }
+
+    showSchedulePreview(queue) {
+        const preview = queue.slice(0, 7).map(post => {
+            const date = new Date(post.scheduled_for);
+            return `${date.toLocaleDateString()} at ${date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${post.topic}`;
+        }).join('\n');
+
+        alert(`Upcoming posts:\n\n${preview}`);
+    }
+
+    async editQueueItem(id) {
+        console.log('✏️ Edit queue item:', id);
+        try {
+            // First get the current queue item details
+            const response = await fetch(`/api/automation/queue/${id}`, {
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                this.showError('Failed to load post details');
+                return;
+            }
+
+            const queueItem = await response.json();
+            this.showEditQueueModal(queueItem);
+        } catch (error) {
+            console.error('❌ Error loading queue item for edit:', error);
+            this.showError('Failed to load post details');
+        }
+    }
+
+    showEditQueueModal(queueItem) {
+        const modal = document.createElement('div');
+        modal.id = 'editQueueModal';
+        modal.innerHTML = `
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-[#0d151c]">Edit Scheduled Post</h3>
+                        <button onclick="closeEditQueueModal()" class="text-[#6b7280] hover:text-[#0d151c]">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <form id="editQueueForm">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-[#0d151c] mb-1">Topic</label>
+                                <input type="text" id="editTopic" value="${queueItem.topic || ''}" 
+                                       class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee]">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#0d151c] mb-1">Content Type</label>
+                                <select id="editContentType" class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee]">
+                                    <option value="standard" ${queueItem.content_type === 'standard' ? 'selected' : ''}>Standard Post</option>
+                                    <option value="viral" ${queueItem.content_type === 'viral' ? 'selected' : ''}>Viral Post</option>
+                                    <option value="news" ${queueItem.content_type === 'news' ? 'selected' : ''}>News-based</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#0d151c] mb-1">Tone</label>
+                                <select id="editTone" class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee]">
+                                    <option value="professional" ${queueItem.tone === 'professional' ? 'selected' : ''}>Professional</option>
+                                    <option value="casual" ${queueItem.tone === 'casual' ? 'selected' : ''}>Casual</option>
+                                    <option value="friendly" ${queueItem.tone === 'friendly' ? 'selected' : ''}>Friendly</option>
+                                    <option value="thought-leader" ${queueItem.tone === 'thought-leader' ? 'selected' : ''}>Thought Leader</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#0d151c] mb-1">Scheduled Date & Time</label>
+                                <input type="datetime-local" id="editScheduledTime" 
+                                       value="${new Date(queueItem.scheduled_for).toISOString().slice(0, 16)}"
+                                       class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee]">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-[#0d151c] mb-1">Status</label>
+                                <select id="editStatus" class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee]">
+                                    <option value="pending" ${queueItem.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                    <option value="ready" ${queueItem.status === 'ready' ? 'selected' : ''}>Ready</option>
+                                    <option value="paused" ${queueItem.status === 'paused' ? 'selected' : ''}>Paused</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-3 mt-6">
+                            <button type="submit" class="flex-1 bg-[#0b80ee] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#0969da] transition-colors">
+                                Save Changes
+                            </button>
+                            <button type="button" onclick="closeEditQueueModal()" class="px-4 py-2 border border-[#e7edf4] text-[#6b7280] rounded-lg font-medium hover:bg-[#f8fafc] transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
+
+        // Handle form submission
+        const form = document.getElementById('editQueueForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.saveQueueItemChanges(queueItem.id);
+        });
+    }
+
+    async saveQueueItemChanges(id) {
+        try {
+            const topic = document.getElementById('editTopic').value;
+            const contentType = document.getElementById('editContentType').value;
+            const tone = document.getElementById('editTone').value;
+            const scheduledTime = document.getElementById('editScheduledTime').value;
+            const status = document.getElementById('editStatus').value;
+
+            const response = await fetch(`/api/automation/queue/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    topic,
+                    content_type: contentType,
+                    tone,
+                    scheduled_for: new Date(scheduledTime).toISOString(),
+                    status
+                })
+            });
+
+            if (response.ok) {
+                this.showSuccess('Post updated successfully!');
+                this.closeEditQueueModal();
+                await this.loadAutomationQueue();
+                await this.loadAutomationAnalytics();
+            } else {
+                const errorData = await response.text();
+                console.error('❌ Update failed:', errorData);
+                this.showError('Failed to update post');
+            }
+        } catch (error) {
+            console.error('❌ Error updating queue item:', error);
+            this.showError('Failed to update post');
+        }
+    }
+
+    closeEditQueueModal() {
+        const modal = document.getElementById('editQueueModal');
+        if (modal) {
+            modal.remove();
+            document.body.style.overflow = '';
+        }
+    }
+
+    async deleteQueueItem(id) {
+        if (!confirm('Are you sure you want to delete this scheduled post?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/automation/queue/${id}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                this.showSuccess('Post deleted successfully');
+                await this.loadAutomationQueue();
+                await this.loadAutomationAnalytics();
+            } else {
+                this.showError('Failed to delete post');
+            }
+        } catch (error) {
+            console.error('Error deleting queue item:', error);
+            this.showError('Failed to delete post');
+        }
     }
 
     handleGlobalClicks(e) {
         const action = e.target.getAttribute('data-action');
         
-        switch (action) {
-            case 'subscribe':
-                window.location.href = '/subscribe';
-                break;
-            case 'logout':
-                logout();
-                break;
-            case 'copy':
-                copyToClipboard();
-                break;
-            case 'regenerate':
-                regeneratePost();
-                break;
-            case 'post':
-                postToLinkedIn();
-                break;
-            case 'close-modal':
-                closeSubscriptionModal();
-                break;
-            case 'activate-key':
-                activateAccessKey();
-                break;
-            case 'regenerate-and-post':
-                if (window.postPilot) {
-                    window.postPilot.regenerateAndPost();
-                }
-                break;
-            case 'modify-content':
-                if (window.postPilot) {
-                    window.postPilot.showContentModifier();
-                }
-                break;
-            case 'save-modified':
-                if (window.postPilot) {
-                    window.postPilot.saveModifiedContent();
-                }
-                break;
-            case 'cancel-modified':
-                if (window.postPilot) {
-                    window.postPilot.cancelContentModification();
-                }
-                break;
+        if (action) {
+            e.preventDefault();
+            console.log('🔄 Global action:', action);
+            
+            switch (action) {
+                case 'logout':
+                    this.handleLogout(e);
+                    break;
+                case 'save-settings':
+                    this.handleSaveSettings(e);
+                    break;
+                case 'quick-schedule':
+                    this.handleQuickSchedule(e);
+                    break;
+                case 'copy':
+                    this.copyToClipboard();
+                    break;
+                case 'regenerate':
+                    this.regeneratePost();
+                    break;
+                case 'post':
+                    this.handlePostToLinkedIn();
+                    break;
+                case 'close-modal':
+                    this.closeModal(e);
+                    break;
+                case 'activate-key':
+                    activateAccessKey();
+                    break;
+                default:
+                    // Check for plan selection
+                    if (action.startsWith('select-plan-')) {
+                        const planId = action.replace('select-plan-', '');
+                        this.selectPlan(planId);
+                    }
+                    break;
+            }
+        }
+        
+        // Handle topic chip clicks
+        if (e.target.closest('.topic-chip')) {
+            const chip = e.target.closest('.topic-chip');
+            const topic = chip.getAttribute('data-topic');
+            if (topic && this.topicInput) {
+                this.topicInput.value = topic;
+                
+                // Visual feedback
+                document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('selected'));
+                chip.classList.add('selected');
+            }
         }
     }
     
@@ -204,7 +1227,20 @@ class PostPilotApp {
             const response = await fetch('/api/auth-status');
             
             if (response.ok) {
-                const authData = await response.json();
+                let authData;
+                try {
+                    const text = await response.text();
+                    if (text && text !== "undefined" && text.trim() !== "") {
+                        authData = JSON.parse(text);
+                    } else {
+                        console.warn("No valid auth data received");
+                        return false;
+                    }
+                } catch (parseError) {
+                    console.error("JSON parse failed for auth:", parseError);
+                    console.error("Response text:", text);
+                    return false;
+                }
                 console.log('📋 Auth response:', authData);
                 
                 if (authData.authenticated && authData.user) {
@@ -250,17 +1286,46 @@ class PostPilotApp {
         
         if (this.userSection) {
             console.log('🔸 Showing user section');
-            this.userSection.style.display = 'block';
+            this.userSection.style.display = 'flex';
         } else {
             console.log('⚠️ User section not found');
         }
         
-        if (this.userName && this.currentUser) {
+        // Update user name in navigation header
+        const userName = document.getElementById('userName');
+        if (userName && this.currentUser?.name) {
             console.log('🔸 Setting user name:', this.currentUser.name);
-            this.userName.textContent = this.currentUser.name;
-        } else {
-            console.log('⚠️ User name element or user data not found');
+            userName.textContent = this.currentUser.name;
         }
+        
+        // Update user profile picture
+        const userProfilePic = document.getElementById('userProfilePic');
+        if (userProfilePic) {
+            if (this.currentUser?.profilePicture) {
+                console.log('🔸 Setting user profile picture:', this.currentUser.profilePicture);
+                userProfilePic.src = this.currentUser.profilePicture;
+                userProfilePic.style.display = 'block';
+            } else {
+                // Show default avatar if no profile picture
+                console.log('🔸 Using default avatar - no profile picture available');
+                userProfilePic.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiNkMWQ1ZGIiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMTYgMTZhNCA0IDAgMSAwIDAtOCA0IDQgMCAwIDAgMCA4em0wIDJjLTIuNjcgMC04IDEuMzQtOCA0djJoMTZ2LTJjMC0yLjY2LTUuMzMtNC04LTR6Ii8+PC9zdmc+';
+                userProfilePic.style.display = 'block';
+            }
+        }
+        
+        // Update dashboard user name
+        const dashboardUserName = document.getElementById('dashboardUserName');
+        if (dashboardUserName && this.currentUser?.name) {
+            dashboardUserName.textContent = this.currentUser.name;
+        }
+        
+        // Show user status section in dashboard
+        const userStatusSection = document.getElementById('userStatusSection');
+        if (userStatusSection) {
+            userStatusSection.style.display = 'block';
+        }
+        
+        this.isLoggedIn = true;
         
         // Load and display subscription status
         this.loadSubscriptionStatus();
@@ -286,7 +1351,23 @@ class PostPilotApp {
             });
             
             if (response.ok) {
-                const data = await response.json();
+                let data;
+                try {
+                    const text = await response.text();
+                    if (text && text !== "undefined" && text.trim() !== "") {
+                        data = JSON.parse(text);
+                    } else {
+                        console.warn("No valid subscription data received");
+                        this.hideSubscriptionStatus();
+                        return;
+                    }
+                } catch (parseError) {
+                    console.error("JSON parse failed:", parseError);
+                    console.error("Response text:", text);
+                    this.hideSubscriptionStatus();
+                    return;
+                }
+                
                 console.log('📋 Subscription data:', data);
                 this.displaySubscriptionStatus(data);
             } else {
@@ -300,7 +1381,8 @@ class PostPilotApp {
     }
 
     displaySubscriptionStatus(data) {
-        const subscriptionSection = document.getElementById('subscriptionStatusSection');
+        // Support both old and new subscription layouts
+        const subscriptionSection = document.getElementById('subscriptionStatusSection') || document.getElementById('subscriptionCard');
         const currentPlan = document.getElementById('currentPlan');
         const subscriptionStatus = document.getElementById('subscriptionStatus');
         const postsRemaining = document.getElementById('postsRemaining');
@@ -409,7 +1491,22 @@ class PostPilotApp {
                     });
 
                     if (response.ok) {
-                        const data = await response.json();
+                        let data;
+                        try {
+                            const text = await response.text();
+                            if (text && text !== "undefined" && text.trim() !== "") {
+                                data = JSON.parse(text);
+                            } else {
+                                console.error('No valid billing portal data received');
+                                this.showError('Unable to open billing portal. Please try again.');
+                                return;
+                            }
+                        } catch (parseError) {
+                            console.error("JSON parse failed for billing portal:", parseError);
+                            console.error("Response text:", text);
+                            this.showError('Unable to open billing portal. Please try again.');
+                            return;
+                        }
                         window.location.href = data.url;
                     } else {
                         console.error('Failed to create billing portal session');
@@ -541,7 +1638,9 @@ class PostPilotApp {
     }
     
     displayScheduledPosts(posts) {
-        if (!this.scheduledPostsList) return;
+        // Support both old and new automation table
+        const scheduledTableBody = this.scheduledPostsList || document.getElementById('automationTableBody');
+        if (!scheduledTableBody) return;
         
         // Update scheduled posts count in dashboard
         const scheduledPostsCount = document.getElementById('scheduledPostsCount');
@@ -550,19 +1649,36 @@ class PostPilotApp {
         }
         
         if (posts.length === 0) {
-            this.scheduledPostsList.innerHTML = '<div class="loading">No scheduled posts</div>';
+            scheduledTableBody.innerHTML = `
+                <tr><td colspan="3" class="text-center py-8 text-[#49749c]">
+                    <div class="text-4xl mb-2">📅</div>
+                    <p>No scheduled posts yet. Use the content generator to create and schedule posts!</p>
+                </td></tr>
+            `;
             return;
         }
         
-        const html = posts.map(post => `
-            <div class="scheduled-post-item">
-                <div class="post-topic">${post.topic}</div>
-                <div class="post-scheduled-time">Scheduled for: ${new Date(post.scheduled_for).toLocaleString()}</div>
-                <div class="post-status ${post.status}">${post.status}</div>
-            </div>
+        const scheduledHtml = posts.map(post => `
+            <tr class="border-t border-t-[#cedce8]">
+                <td class="h-[72px] px-4 py-2 w-[400px] text-[#0d151c] text-sm font-normal leading-normal">
+                    ${post.topic || (post.content ? post.content.substring(0, 50) + '...' : 'Generated Content')}
+                </td>
+                <td class="h-[72px] px-4 py-2 w-60 text-sm font-normal leading-normal">
+                    <button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-8 px-4 ${
+                        post.status === 'published' ? 'bg-[#d1fae5] text-[#065f46]' : 
+                        post.status === 'scheduled' ? 'bg-[#e7edf4] text-[#0d151c]' : 
+                        'bg-[#fef3c7] text-[#92400e]'
+                    } text-sm font-medium leading-normal w-full">
+                        <span class="truncate capitalize">${post.status}</span>
+                    </button>
+                </td>
+                <td class="h-[72px] px-4 py-2 w-[400px] text-[#49749c] text-sm font-normal leading-normal">
+                    ${new Date(post.scheduled_for).toLocaleDateString()}
+                </td>
+            </tr>
         `).join('');
         
-        this.scheduledPostsList.innerHTML = html;
+        scheduledTableBody.innerHTML = scheduledHtml;
     }
     
     async loadRecentActivity() {
@@ -594,39 +1710,77 @@ class PostPilotApp {
         
         try {
             this.activityList.innerHTML = mockActivities.map(activity => `
-                <div class="activity-item">
-                    <div class="activity-content">
-                        <div class="activity-title">${activity.title}</div>
-                        <div class="activity-time">${this.formatDate(activity.timestamp)}</div>
+                <div class="border-b border-[#cedce8] pb-4 mb-4 last:border-b-0 last:mb-0">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="text-[#0d151c] font-medium text-sm mb-1">${activity.title}</div>
+                            <div class="text-[#49749c] text-xs">${this.formatDate(activity.timestamp)}</div>
+                        </div>
+                        <div class="ml-3">
+                            <span class="bg-[#d1fae5] text-[#065f46] px-2 py-1 rounded-full text-xs font-medium capitalize">${activity.status}</span>
+                        </div>
                     </div>
-                    <div class="activity-status ${activity.status}">${activity.status}</div>
                 </div>
             `).join('');
         } catch (error) {
             console.error('❌ Error loading activity:', error);
-            this.activityList.innerHTML = '<div class="loading">Failed to load activity</div>';
+            this.activityList.innerHTML = '<div class="text-center py-8 text-[#49749c]">Failed to load activity</div>';
         }
     }
     
     displayRecentActivity(posts) {
-        if (!this.recentActivity) return;
+        // Support both old and new activity list elements
+        const activityList = this.activityList || document.getElementById('dashboardActivityList');
         
-        if (posts.length === 0) {
-            this.recentActivity.innerHTML = '<div class="loading">No recent activity</div>';
+        if (!activityList) {
+            console.log('⚠️ Activity list element not found');
             return;
         }
-        
-        const html = posts.map(post => `
-            <div class="activity-item">
-                <div class="activity-content">
-                    <div class="activity-title">${post.topic}</div>
-                    <div class="activity-time">${new Date(post.posted_at || post.scheduled_for).toLocaleDateString()}</div>
+
+        if (!posts || !posts.posts || posts.posts.length === 0) {
+            activityList.innerHTML = '<div class="text-center py-8 text-[#6b7280]">No recent activity</div>';
+            return;
+        }
+
+        const activityHtml = posts.posts.map(post => `
+            <div class="border-b border-[#cedce8] pb-4 mb-4 last:border-b-0 last:mb-0">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="text-[#0d151c] font-medium text-sm mb-1">${post.topic || 'Generated Content'}</div>
+                        <div class="text-[#49749c] text-xs">${this.formatDate(post.created_at)}</div>
+                    </div>
+                    <div class="ml-3">
+                        <span class="bg-[#d1fae5] text-[#065f46] px-2 py-1 rounded-full text-xs font-medium capitalize">${post.status || 'posted'}</span>
+                    </div>
                 </div>
-                <div class="activity-status ${post.status}">${post.status}</div>
             </div>
         `).join('');
         
-        this.recentActivity.innerHTML = html;
+        activityList.innerHTML = activityHtml;
+        
+        if (posts.length === 0) {
+            activityList.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: #6b7280;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📝</div>
+                    <p>No recent posts yet. Create your first post to see activity here!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const postsHtml = posts.map(post => `
+            <div style="border-bottom: 1px solid #e5e7eb; padding: 1rem 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 500; color: #1f2937; margin-bottom: 0.25rem;">${post.topic}</div>
+                    <div style="font-size: 0.875rem; color: #6b7280;">${new Date(post.posted_at || post.scheduled_for).toLocaleDateString()}</div>
+                </div>
+                <div style="background: ${post.status === 'published' ? '#d1fae5' : '#fef3c7'}; color: ${post.status === 'published' ? '#065f46' : '#92400e'}; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 500; text-transform: capitalize;">
+                    ${post.status}
+                </div>
+            </div>
+        `).join('');
+        
+        activityList.innerHTML = postsHtml;
     }
     
     async handleLogout(e) {
@@ -1152,11 +2306,17 @@ class PostPilotApp {
         const inputs = this.form.querySelectorAll('select, input[type="text"]');
         inputs.forEach(input => {
             input.addEventListener('focus', (e) => {
-                e.target.closest('.form-group').classList.add('focused');
+                const formGroup = e.target.closest('.form-group');
+                if (formGroup) {
+                    formGroup.classList.add('focused');
+                }
             });
             
             input.addEventListener('blur', (e) => {
-                e.target.closest('.form-group').classList.remove('focused');
+                const formGroup = e.target.closest('.form-group');
+                if (formGroup) {
+                    formGroup.classList.remove('focused');
+                }
             });
             
             if (input.tagName === 'SELECT') {
@@ -1198,15 +2358,38 @@ class PostPilotApp {
     }
     
     async handleFormSubmit(e) {
+        console.log('🚀 handleFormSubmit called!');
         e.preventDefault();
         
-        const topic = this.topicInput.value.trim();
-        const tone = this.toneSelect.value;
-        const length = this.lengthSelect.value;
+        // Get form values
+        const topic = document.getElementById('topic')?.value?.trim() || '';
+        const tone = document.getElementById('tone')?.value || 'professional';
+        const length = document.getElementById('length')?.value || 'medium';
+        const contentType = document.getElementById('contentType')?.value || 'news';
         
-        if (!topic) {
-            this.showError('Please enter a topic or select from popular topics');
-            return;
+        // Get engagement options
+        const engagementOptions = this.getEngagementOptions();
+        
+        console.log('📝 Form values:', { topic, tone, length, contentType, engagementOptions });
+        
+        // Validate based on content type
+        if (contentType === 'news' || contentType === 'viral') {
+            if (!topic) {
+                this.showError('Please enter a topic or select from popular topics');
+                return;
+            }
+        } else if (contentType === 'tweet') {
+            const tweetText = document.getElementById('tweetText')?.value?.trim() || '';
+            if (!tweetText) {
+                this.showError('Please paste the tweet content you want to repurpose');
+                return;
+            }
+        } else if (contentType === 'manual') {
+            const customContent = document.getElementById('customContent')?.value?.trim() || '';
+            if (!customContent) {
+                this.showError('Please enter your content idea');
+                return;
+            }
         }
         
         // Check if user is authenticated
@@ -1225,8 +2408,30 @@ class PostPilotApp {
         this.hideMessages();
         
         try {
-            console.log(`🎯 Generating content for: ${topic}`);
-            await this.generatePost(topic, tone, length);
+            switch (contentType) {
+                case 'news':
+                    console.log(`🎯 Generating news-based content for: ${topic}`);
+                    await this.generatePost(topic, tone, length, engagementOptions);
+                    break;
+                case 'viral':
+                    const viralFormat = document.getElementById('viralFormat')?.value || 'open-loop';
+                    console.log(`🔥 Generating viral content for: ${topic} with format: ${viralFormat}`);
+                    await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions);
+                    break;
+                case 'tweet':
+                    const tweetText = document.getElementById('tweetText')?.value?.trim() || '';
+                    console.log(`🔄 Repurposing tweet: ${tweetText.substring(0, 50)}...`);
+                    await this.generateRepurposedTweet(tweetText, topic, tone, length, engagementOptions);
+                    break;
+                case 'manual':
+                    const customContent = document.getElementById('customContent')?.value?.trim() || '';
+                    console.log(`🧠 Generating manual content from: ${customContent.substring(0, 50)}...`);
+                    await this.generateManualPost(customContent, tone, length, engagementOptions);
+                    break;
+                default:
+                    console.log(`🎯 Fallback to news-based content for: ${topic}`);
+                    await this.generatePost(topic, tone, length, engagementOptions);
+            }
         } catch (error) {
             console.error('❌ Generation failed:', error);
             
@@ -1241,19 +2446,83 @@ class PostPilotApp {
         }
     }
     
+    handleContentTypeChange() {
+        const contentType = document.getElementById('contentType')?.value || 'news';
+        
+        // Hide all content-specific sections
+        const viralTemplates = document.getElementById('viralTemplates');
+        const tweetInput = document.getElementById('tweetInput');
+        const manualInput = document.getElementById('manualInput');
+        
+        if (viralTemplates) viralTemplates.style.display = 'none';
+        if (tweetInput) tweetInput.style.display = 'none';
+        if (manualInput) manualInput.style.display = 'none';
+        
+        // Show relevant section based on content type
+        switch (contentType) {
+            case 'viral':
+                if (viralTemplates) viralTemplates.style.display = 'block';
+                break;
+            case 'tweet':
+                if (tweetInput) tweetInput.style.display = 'block';
+                break;
+            case 'manual':
+                if (manualInput) manualInput.style.display = 'block';
+                break;
+            default:
+                // 'news' - no additional sections needed
+                break;
+        }
+    }
+    
     async checkSubscriptionLimit() {
         try {
+            console.log('🔍 Checking subscription limit...');
             const response = await fetch('/api/subscription/status', {
-                credentials: 'include' // Include cookies for authentication
+                credentials: 'include', // Include cookies for authentication
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
             });
+            
+            console.log('📊 Subscription status response:', response.status);
         
-        if (!response.ok) {
-                console.error('Failed to check subscription status:', response.status);
+            if (!response.ok) {
+                console.error('❌ Failed to check subscription status:', response.status, response.statusText);
+                
+                // If it's just a 401, user might need to re-login
+                if (response.status === 401) {
+                    console.log('🔄 Authentication required - user needs to login');
+                    // Don't show modal for auth issues, let them continue to login
+                    return true;
+                }
+                
                 await this.showSubscriptionModal();
                 return false;
-        }
+            }
         
-        const data = await response.json();
+            let data;
+            try {
+                const text = await response.text();
+                console.log('📊 Subscription response text length:', text?.length || 0);
+                console.log('📊 Subscription response preview:', text?.substring(0, 100) + '...');
+                
+                if (text && text !== "undefined" && text.trim() !== "" && text !== "null") {
+                    data = JSON.parse(text);
+                    console.log('✅ Subscription data parsed successfully');
+                } else {
+                    console.warn("❌ No valid subscription data received, text:", text);
+                    await this.showSubscriptionModal();
+                    return false;
+                }
+            } catch (parseError) {
+                console.error("❌ Subscription JSON parse failed:", parseError);
+                console.error("❌ Response text:", text);
+                await this.showSubscriptionModal();
+                return false;
+            }
+            
             console.log('Subscription status:', data);
             
             // Check if user has access
@@ -1314,15 +2583,50 @@ class PostPilotApp {
         const plansGrid = document.getElementById('plansGrid');
         
         try {
-            const response = await fetch('/api/subscription/plans');
-            const plans = await response.json();
+            console.log('🔄 Loading modal plans...');
+            const response = await fetch('/api/subscription/plans', {
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            console.log('📋 Plans response status:', response.status);
+            
+            if (!response.ok) {
+                console.error('❌ Plans request failed:', response.status, response.statusText);
+                plansGrid.innerHTML = '<div class="loading">Failed to load pricing plans</div>';
+                return;
+            }
+            
+            let plans;
+            try {
+                const text = await response.text();
+                console.log('📋 Plans response text length:', text?.length || 0);
+                console.log('📋 Plans response preview:', text?.substring(0, 100) + '...');
+                
+                if (text && text !== "undefined" && text.trim() !== "" && text !== "null") {
+                    plans = JSON.parse(text);
+                    console.log('✅ Plans parsed successfully:', plans?.length || 0, 'plans');
+                } else {
+                    console.warn("❌ No valid plans data received, text:", text);
+                    plansGrid.innerHTML = '<div class="loading">Unable to load pricing plans</div>';
+                    return;
+                }
+            } catch (parseError) {
+                console.error("❌ JSON parse failed for plans:", parseError);
+                console.error("❌ Response text:", text);
+                plansGrid.innerHTML = '<div class="loading">Error loading pricing plans</div>';
+                return;
+            }
             
             plansGrid.innerHTML = '';
 
-            // Filter out free trial plan for the modal
-            const paidPlans = plans.filter(plan => plan.price > 0);
+            // Include all plans for the modal
+            const allPlans = plans;
 
-            paidPlans.forEach((plan, index) => {
+            allPlans.forEach((plan, index) => {
                 const planCard = document.createElement('div');
                 planCard.className = 'plan-card-modal';
                 if (index === 1) planCard.classList.add('popular'); // Make Professional popular
@@ -1333,8 +2637,7 @@ class PostPilotApp {
                 planCard.innerHTML = `
                     <div class="plan-name-modal">${plan.name}</div>
                     <div class="plan-price-modal">
-                        ${regularPrice ? `<span class="crossed">$${regularPrice}</span>` : ''}
-                        $${plan.launch_price || plan.price}/mo
+                        ${plan.price === 0 ? 'FREE' : `${regularPrice ? `<span class="crossed">$${regularPrice}</span>` : ''}$${plan.launch_price || plan.price}/mo`}
                     </div>
                     <div class="plan-posts-modal">${plan.posts_limit === -1 ? 'Unlimited' : plan.posts_limit} posts/month</div>
                     <ul class="plan-features-modal">
@@ -1343,7 +2646,12 @@ class PostPilotApp {
                 `;
                 
                 planCard.addEventListener('click', () => {
-                    window.location.href = '/subscribe';
+                    if (plan.price === 0) {
+                        // Free trial - user already has it, just close modal
+                        closeSubscriptionModal();
+                    } else {
+                        window.location.href = '/subscribe';
+                    }
                 });
                 
                 plansGrid.appendChild(planCard);
@@ -1360,14 +2668,29 @@ class PostPilotApp {
         
         try {
             const response = await fetch('/api/subscription/plans');
-            const plans = await response.json();
+            let plans;
+            try {
+                const text = await response.text();
+                if (text && text !== "undefined" && text.trim() !== "") {
+                    plans = JSON.parse(text);
+                } else {
+                    console.warn("No valid plans data received");
+                    mainPricingGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Unable to load pricing plans</div>';
+                    return;
+                }
+            } catch (parseError) {
+                console.error("JSON parse failed for plans:", parseError);
+                console.error("Response text:", text);
+                mainPricingGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Error loading pricing plans</div>';
+                return;
+            }
             
             mainPricingGrid.innerHTML = '';
 
-            // Filter out free trial plan for the main page
-            const paidPlans = plans.filter(plan => plan.price > 0);
+            // Include all plans including free trial for the main page
+            const allPlans = plans;
 
-            paidPlans.forEach((plan, index) => {
+            allPlans.forEach((plan, index) => {
                 const planCard = document.createElement('div');
                 planCard.className = 'pricing-card';
                 if (index === 1) planCard.classList.add('popular'); // Make Professional popular
@@ -1385,15 +2708,14 @@ class PostPilotApp {
                 planCard.innerHTML = `
                     <h3>${plan.name}</h3>
                     <div class="price">
-                        ${regularPrice ? `<span class="crossed">$${regularPrice}</span>` : ''}
-                        $${plan.launch_price || plan.price}<span style="font-size: 18px;">/mo</span>
+                        ${plan.price === 0 ? 'FREE' : `${regularPrice ? `<span class="crossed">$${regularPrice}</span>` : ''}$${plan.launch_price || plan.price}<span style="font-size: 18px;">/mo</span>`}
                     </div>
                     <div class="posts">${plan.posts_limit === -1 ? 'Unlimited' : plan.posts_limit} posts per month</div>
                     <ul class="features">
                         ${features.slice(0, 6).map(feature => `<li>${feature}</li>`).join('')}
                     </ul>
-                    <button class="cta-button" data-action="subscribe">
-                        Get Started
+                    <button class="cta-button" data-action="${plan.price === 0 ? 'free-trial' : 'subscribe'}">
+                        ${plan.price === 0 ? 'Already Active' : 'Get Started'}
                     </button>
                 `;
                 
@@ -1404,20 +2726,50 @@ class PostPilotApp {
             mainPricingGrid.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Failed to load pricing plans. Please refresh the page.</div>';
         }
     }
+
+
     
-    async generatePost(topic, tone = 'professional', length = 'medium') {
+    async generatePost(topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
         try {
+            // Get auth token from localStorage or cookie
+            const authToken = this.getAuthToken();
+            
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Add authorization header if token is available
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            const requestData = {
+                topic,
+                tone,
+                length,
+                engagement_options: engagementOptions
+            };
+            
+            console.log('📤 Sending request to generate post:', requestData);
+            
             const response = await fetch('/api/generate-post', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include', // Include cookies for authentication
-                body: JSON.stringify({ topic, tone })
+                headers,
+                credentials: 'include', // Still include cookies as fallback
+                body: JSON.stringify(requestData)
             });
             
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
+                let errorData = {};
+                try {
+                    const text = await response.text();
+                    if (text && text !== "undefined" && text.trim() !== "") {
+                        errorData = JSON.parse(text);
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse error response:', parseError);
+                    errorData = { error: 'Server error occurred' };
+                }
                 
                 // Check if it's a subscription limit error
                 if (response.status === 403 && errorData.needsUpgrade) {
@@ -1428,7 +2780,18 @@ class PostPilotApp {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const data = await response.json();
+            let data;
+            try {
+                const text = await response.text();
+                if (text && text !== "undefined" && text.trim() !== "") {
+                    data = JSON.parse(text);
+                } else {
+                    throw new Error('Empty or invalid response from server');
+                }
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error('Invalid response from server');
+            }
             
             if (data.post) {
                 this.currentPost = {
@@ -1453,69 +2816,148 @@ class PostPilotApp {
     }
     
     displayGeneratedContent(data) {
-        // Build the content HTML
+        console.log('🎨 displayGeneratedContent called with:', data);
+        console.log('🎯 Output element:', this.output);
+        
+        if (!this.output) {
+            console.error('❌ Output element not found!');
+            return;
+        }
+        
+        // Build the content HTML with Tailwind styling
         let contentHTML = '';
         
-        // Post content
+        // Extract title from post for image overlay
+        const title = this.extractTitle(data.post);
+        
+        // Post content with text first, then image below
         contentHTML += `
-            <div class="post-content">
-                <div class="post-text" id="generatedPost">${this.formatPostText(data.post)}</div>
+            <div class="bg-white rounded-xl border border-[#cedce8] p-6 mb-4">
+                <div class="text-[#0d151c] text-base font-normal leading-normal whitespace-pre-wrap mb-4">${this.formatPostText(data.post)}</div>
+                ${data.image && data.image.url ? `
+                    <div class="mt-4">
+                        <img src="${data.image.url}" alt="Generated content image" 
+                             class="w-full max-w-md mx-auto rounded-lg shadow-md object-cover"
+                             style="max-height: 300px;" />
+                    </div>
+                ` : ''}
             </div>
         `;
-        
-        // Image link if available
-        if (data.image && data.image.url) {
-            contentHTML += `
-                <div class="post-image-link" id="postImageLink">
-                    <div class="image-link-container">
-                        <h4>Suggested Image for Your Post</h4>
-                        <a href="${data.image.url}" target="_blank" rel="noopener" class="image-url-link">
-                            View suggested image →
-                        </a>
-                    </div>
-                </div>
-            `;
-        }
         
         // Post metadata
         const wordCount = data.post.split(' ').length;
         contentHTML += `
-            <div class="post-metadata">
-                <div class="metadata-item">
-                    <span class="label">Word Count</span>
-                    <span>${wordCount}</span>
-                </div>
-                <div class="metadata-item">
-                    <span class="label">Tone</span>
-                    <span>${this.capitalizeFirst(this.toneSelect.value)}</span>
-                </div>
-                <div class="metadata-item">
-                    <span class="label">Length</span>
-                    <span>${this.capitalizeFirst(this.lengthSelect.value)}</span>
+            <div class="bg-white rounded-xl border border-[#cedce8] p-4 mb-4">
+                <div class="flex justify-between items-center text-sm">
+                    <div class="flex gap-4">
+                        <span class="text-[#49749c]">📝 ${wordCount} words</span>
+                        <span class="text-[#49749c]">🎭 ${this.capitalizeFirst(this.toneSelect.value)}</span>
+                        <span class="text-[#49749c]">📏 ${this.capitalizeFirst(this.lengthSelect.value)}</span>
+                    </div>
+                    <span class="text-[#49749c]">✨ ${new Date().toLocaleDateString()}</span>
                 </div>
             </div>
         `;
         
-        // Source article if available
-        if (data.article) {
+        // Add type-specific information with Tailwind styling
+        if (data.post_type === 'viral_format' && data.viral_format) {
             contentHTML += `
-                <div class="source-article">
-                    <h3>Source Article</h3>
-                    <div class="article-card">
-                        <h4>${data.article.title}</h4>
-                        <p>${data.article.snippet}</p>
-                        <a href="${data.article.url}" target="_blank" rel="noopener">Read full article →</a>
+                <div class="bg-white rounded-xl border border-[#cedce8] p-4 mb-4">
+                    <h3 class="text-[#0d151c] text-lg font-bold leading-tight mb-3">🔥 Viral Format Used</h3>
+                    <div class="bg-[#f8fafc] rounded-lg p-4">
+                        <h4 class="text-[#0d151c] font-semibold mb-2">${data.viral_format.label}</h4>
+                        <p class="text-[#49749c] text-sm">${data.viral_format.description}</p>
+                    </div>
+                </div>
+            `;
+        } else if (data.post_type === 'repurposed_tweet' && data.original_tweet) {
+            contentHTML += `
+                <div class="bg-white rounded-xl border border-[#cedce8] p-4 mb-4">
+                    <h3 class="text-[#0d151c] text-lg font-bold leading-tight mb-3">🐦 Original Tweet</h3>
+                    <div class="bg-[#f8fafc] rounded-lg p-4">
+                        <p class="text-[#0d151c] italic border-l-4 border-[#1DA1F2] pl-4 mb-2">
+                            "${data.original_tweet}"
+                        </p>
+                        <p class="text-[#49749c] text-sm">
+                            Adapted for LinkedIn's professional audience
+                        </p>
+                    </div>
+                </div>
+            `;
+        } else if (data.post_type === 'manual' && data.custom_content) {
+            contentHTML += `
+                <div class="bg-white rounded-xl border border-[#cedce8] p-4 mb-4">
+                    <h3 class="text-[#0d151c] text-lg font-bold leading-tight mb-3">✍️ Original Content</h3>
+                    <div class="bg-[#f8fafc] rounded-lg p-4">
+                        <p class="text-[#0d151c] italic border-l-4 border-[#0077B5] pl-4 mb-2">
+                            "${data.custom_content.substring(0, 200)}${data.custom_content.length > 200 ? '...' : ''}"
+                        </p>
+                        <p class="text-[#49749c] text-sm">
+                            Transformed into professional LinkedIn format
+                        </p>
+                    </div>
+                </div>
+            `;
+        } else if (data.article) {
+            // Traditional news-based article
+            contentHTML += `
+                <div class="bg-white rounded-xl border border-[#cedce8] p-4 mb-4">
+                    <h3 class="text-[#0d151c] text-lg font-bold leading-tight mb-3">📰 Source Article</h3>
+                    <div class="bg-[#f8fafc] rounded-lg p-4">
+                        <h4 class="text-[#0d151c] font-semibold mb-2">${data.article.title}</h4>
+                        <p class="text-[#49749c] text-sm mb-3">${data.article.snippet || 'Recent news article'}</p>
+                        <a href="${data.article.url}" target="_blank" rel="noopener" class="text-[#0b80ee] hover:underline text-sm">Read full article →</a>
                     </div>
                 </div>
             `;
         }
+
+        // Add engagement options used with Tailwind styling
+        if (data.engagement_options) {
+            const usedOptions = Object.entries(data.engagement_options)
+                .filter(([key, value]) => value)
+                .map(([key, value]) => {
+                    const labels = {
+                        curiosity_hook: '🧠 Curiosity Hook',
+                        strong_opinion: '🔥 Strong Opinion',
+                        soft_cta: '📣 Engagement CTA',
+                        include_image: '📷 Relevant Image'
+                    };
+                    return labels[key] || key;
+                });
+
+            if (usedOptions.length > 0) {
+                contentHTML += `
+                    <div class="bg-white rounded-xl border border-[#cedce8] p-4 mb-4">
+                        <h4 class="text-[#0d151c] text-sm font-semibold mb-3">🚀 Engagement Boosters Applied</h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${usedOptions.map(option => 
+                                `<span class="bg-[#E3F2FD] text-[#1976D2] px-3 py-1 rounded-full text-xs font-medium">${option}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
         
+        console.log('🖼️ Setting output innerHTML to:', contentHTML.substring(0, 200) + '...');
         this.output.innerHTML = contentHTML;
+        console.log('✅ Content set to output element');
         
         // Show action buttons and post options
-        if (this.copyBtn) this.copyBtn.style.display = 'inline-flex';
-        if (this.regenerateBtn) this.regenerateBtn.style.display = 'inline-flex';
-        if (this.postOptions) this.postOptions.style.display = 'block';
+        console.log('🔘 Showing action buttons...');
+        if (this.copyBtn) {
+            this.copyBtn.style.display = 'inline-flex';
+            console.log('✅ Copy button shown');
+        }
+        if (this.regenerateBtn) {
+            this.regenerateBtn.style.display = 'inline-flex';
+            console.log('✅ Regenerate button shown');
+        }
+        if (this.postOptions) {
+            this.postOptions.style.display = 'block';
+            console.log('✅ Post options shown');
+        }
         
         // Update post button state
         this.updatePostButtonState();
@@ -1524,10 +2966,27 @@ class PostPilotApp {
         this.output.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     
+    extractTitle(text) {
+        // Extract first line or first sentence as title
+        const lines = text.split('\n');
+        const firstLine = lines[0].trim();
+        
+        // If first line is short and doesn't end with punctuation, use it as title
+        if (firstLine.length < 80 && !firstLine.match(/[.!?]$/)) {
+            return firstLine;
+        }
+        
+        // Otherwise, extract first sentence
+        const sentences = text.split(/[.!?]/);
+        const firstSentence = sentences[0].trim();
+        return firstSentence.length > 80 ? firstSentence.substring(0, 80) + '...' : firstSentence;
+    }
+
     formatPostText(text) {
+        if (!text) return '';
         return text
-            .replace(/#(\w+)/g, '<span class="hashtag">#$1</span>')
-            .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" class="post-link">$1</a>')
+            .replace(/#(\w+)/g, '<span class="text-[#0b80ee] font-medium">#$1</span>')
+            .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" class="text-[#0b80ee] hover:underline">$1</a>')
             .replace(/\n/g, '<br>');
     }
     
@@ -1795,16 +3254,53 @@ class PostPilotApp {
             
             this.showNotification('Generating fresh content...', 'info');
             
-            // Regenerate content
+            // Get form values
             const topic = this.topicInput.value.trim();
             const tone = this.toneSelect.value;
+            const length = this.lengthSelect.value;
+            const contentType = document.getElementById('contentType')?.value || 'news';
+            const engagementOptions = this.getEngagementOptions();
             
-            if (!topic) {
-                this.showError('Please enter a topic first');
-                return;
+            // Regenerate based on content type
+            switch (contentType) {
+                case 'news':
+                    if (!topic) {
+                        this.showError('Please enter a topic first');
+                        return;
+                    }
+                    await this.generatePost(topic, tone, length, engagementOptions);
+                    break;
+                case 'viral':
+                    if (!topic) {
+                        this.showError('Please enter a topic first');
+                        return;
+                    }
+                    const viralFormat = document.getElementById('viralFormat')?.value || 'open-loop';
+                    await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions);
+                    break;
+                case 'tweet':
+                    const tweetText = document.getElementById('tweetText')?.value?.trim() || '';
+                    if (!tweetText) {
+                        this.showError('Please paste the tweet content first');
+                        return;
+                    }
+                    await this.generateRepurposedTweet(tweetText, topic, tone, length, engagementOptions);
+                    break;
+                case 'manual':
+                    const customContent = document.getElementById('customContent')?.value?.trim() || '';
+                    if (!customContent) {
+                        this.showError('Please enter your content idea first');
+                        return;
+                    }
+                    await this.generateManualPost(customContent, tone, length, engagementOptions);
+                    break;
+                default:
+                    if (!topic) {
+                        this.showError('Please enter a topic first');
+                        return;
+                    }
+                    await this.generatePost(topic, tone, length, engagementOptions);
             }
-            
-            await this.generatePost(topic, tone);
             
             // Wait a moment then auto-post
             setTimeout(async () => {
@@ -1992,6 +3488,281 @@ class PostPilotApp {
         document.querySelectorAll('.content-modifier').forEach(el => el.remove());
         this.showNotification('Content modification cancelled', 'info');
     }
+
+    // Get engagement booster options from checkboxes
+    getEngagementOptions() {
+        return {
+            curiosity_hook: document.getElementById('curiosityHook')?.checked || false,
+            strong_opinion: document.getElementById('strongOpinion')?.checked || false,
+            soft_cta: document.getElementById('softCTA')?.checked || false,
+            include_image: document.getElementById('includeImage')?.checked || false
+        };
+    }
+
+
+
+    // Generate manual post (like ChatGPT, without news API)
+    async generateManualPost(topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
+        try {
+            // Get auth token from localStorage or cookie
+            const authToken = this.getAuthToken();
+            
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Add authorization header if token is available
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            const requestData = {
+                custom_content: topic, // Use topic as custom content
+                tone,
+                length,
+                post_type: 'manual',
+                engagement_options: engagementOptions
+            };
+            
+            console.log('📤 Sending manual post request:', requestData);
+            
+            const response = await fetch('/api/generate-post', {
+                method: 'POST',
+                headers,
+                credentials: 'include',
+                body: JSON.stringify(requestData)
+            });
+            
+            if (!response.ok) {
+                let errorData = {};
+                try {
+                    const text = await response.text();
+                    if (text && text !== "undefined" && text.trim() !== "") {
+                        errorData = JSON.parse(text);
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse error response:', parseError);
+                    errorData = { error: 'Server error occurred' };
+                }
+                
+                // Check if it's a subscription limit error
+                if (response.status === 403 && errorData.needsUpgrade) {
+                    await this.showSubscriptionModal();
+                    throw new Error(errorData.error || 'Subscription limit reached');
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            let data;
+            try {
+                const text = await response.text();
+                if (text && text !== "undefined" && text.trim() !== "") {
+                    data = JSON.parse(text);
+                } else {
+                    throw new Error('Empty or invalid response from server');
+                }
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error('Invalid response from server');
+            }
+            
+            if (data.post) {
+                this.currentPost = {
+                    post: data.post,
+                    image: data.image,
+                    article: null, // No article for manual posts
+                    post_type: 'manual'
+                };
+                this.currentImageUrl = data.image?.url;
+                this.currentArticleData = null;
+                
+                this.displayGeneratedContent(data);
+                this.showSuccess('Manual content generated successfully!');
+                
+                console.log('✅ Manual content generated successfully');
+            } else {
+                throw new Error(data.error || 'Failed to generate manual content');
+            }
+        } catch (error) {
+            console.error('❌ Error generating manual post:', error);
+            throw error;
+        }
+    }
+
+    // Generate viral format post
+    async generateViralPost(topic, tone = 'professional', length = 'medium', viralFormat = 'open-loop', engagementOptions = {}) {
+        try {
+            const authToken = this.getAuthToken();
+            
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            const requestData = {
+                topic,
+                tone,
+                length,
+                post_type: 'viral',
+                viral_format: viralFormat,
+                engagement_options: engagementOptions
+            };
+            
+            console.log('📤 Sending viral post request:', requestData);
+            
+            const response = await fetch('/api/generate-post', {
+                method: 'POST',
+                headers,
+                credentials: 'include',
+                body: JSON.stringify(requestData)
+            });
+            
+            if (!response.ok) {
+                let errorData = {};
+                try {
+                    const text = await response.text();
+                    if (text && text !== "undefined" && text.trim() !== "") {
+                        errorData = JSON.parse(text);
+                    }
+                } catch (parseError) {
+                    errorData = { error: 'Server error occurred' };
+                }
+                
+                if (response.status === 403 && errorData.needsUpgrade) {
+                    await this.showSubscriptionModal();
+                    throw new Error(errorData.error || 'Subscription limit reached');
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            let data;
+            try {
+                const text = await response.text();
+                if (text && text !== "undefined" && text.trim() !== "") {
+                    data = JSON.parse(text);
+                } else {
+                    throw new Error('Empty or invalid response from server');
+                }
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error('Invalid response from server');
+            }
+            
+            if (data.post) {
+                this.currentPost = {
+                    post: data.post,
+                    image: data.image,
+                    article: null,
+                    post_type: 'viral',
+                    viral_format: viralFormat
+                };
+                this.currentImageUrl = data.image?.url;
+                this.currentArticleData = null;
+                
+                this.displayGeneratedContent(data);
+                this.showSuccess('Viral content generated successfully!');
+                
+                console.log('✅ Viral content generated successfully');
+            } else {
+                throw new Error(data.error || 'Failed to generate viral content');
+            }
+        } catch (error) {
+            console.error('❌ Error generating viral post:', error);
+            throw error;
+        }
+    }
+
+    // Generate repurposed tweet
+    async generateRepurposedTweet(tweetText, topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
+        try {
+            const authToken = this.getAuthToken();
+            
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            const requestData = {
+                tweet_text: tweetText,
+                topic: topic || 'General',
+                tone,
+                length,
+                post_type: 'tweet',
+                engagement_options: engagementOptions
+            };
+            
+            console.log('📤 Sending tweet repurpose request:', requestData);
+            
+            const response = await fetch('/api/generate-post', {
+                method: 'POST',
+                headers,
+                credentials: 'include',
+                body: JSON.stringify(requestData)
+            });
+            
+            if (!response.ok) {
+                let errorData = {};
+                try {
+                    const text = await response.text();
+                    if (text && text !== "undefined" && text.trim() !== "") {
+                        errorData = JSON.parse(text);
+                    }
+                } catch (parseError) {
+                    errorData = { error: 'Server error occurred' };
+                }
+                
+                if (response.status === 403 && errorData.needsUpgrade) {
+                    await this.showSubscriptionModal();
+                    throw new Error(errorData.error || 'Subscription limit reached');
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            let data;
+            try {
+                const text = await response.text();
+                if (text && text !== "undefined" && text.trim() !== "") {
+                    data = JSON.parse(text);
+                } else {
+                    throw new Error('Empty or invalid response from server');
+                }
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error('Invalid response from server');
+            }
+            
+            if (data.post) {
+                this.currentPost = {
+                    post: data.post,
+                    image: data.image,
+                    article: null,
+                    post_type: 'tweet',
+                    original_tweet: tweetText
+                };
+                this.currentImageUrl = data.image?.url;
+                this.currentArticleData = null;
+                
+                this.displayGeneratedContent(data);
+                this.showSuccess('Tweet repurposed successfully!');
+                
+                console.log('✅ Tweet repurposed successfully');
+            } else {
+                throw new Error(data.error || 'Failed to repurpose tweet');
+            }
+        } catch (error) {
+            console.error('❌ Error repurposing tweet:', error);
+            throw error;
+        }
+    }
 }
 
 // Global functions for HTML onclick handlers
@@ -2016,7 +3787,20 @@ function postToLinkedIn() {
 async function logout() {
     try {
         const response = await fetch('/auth/logout', { method: 'POST' });
-        const data = await response.json();
+        let data;
+        try {
+            const text = await response.text();
+            if (text && text !== "undefined" && text.trim() !== "") {
+                data = JSON.parse(text);
+            } else {
+                console.warn("No valid logout data received");
+                data = { success: true }; // Assume success if no data
+            }
+        } catch (parseError) {
+            console.error("JSON parse failed for logout:", parseError);
+            console.error("Response text:", text);
+            data = { success: true }; // Assume success if parsing fails
+        }
         
         if (data.success) {
             if (window.postPilot) {
@@ -2079,7 +3863,22 @@ async function activateAccessKey() {
             body: JSON.stringify({ keyCode })
         });
 
-        const result = await response.json();
+        let result;
+        try {
+            const text = await response.text();
+            if (text && text !== "undefined" && text.trim() !== "") {
+                result = JSON.parse(text);
+            } else {
+                console.warn("No valid access key response received");
+                showAccessKeyMessage('Invalid response from server', 'error');
+                return;
+            }
+        } catch (parseError) {
+            console.error("JSON parse failed for access key:", parseError);
+            console.error("Response text:", text);
+            showAccessKeyMessage('Invalid response format', 'error');
+            return;
+        }
 
         if (response.ok && result.success) {
             showAccessKeyMessage(`✅ ${result.message}`, 'success');
@@ -2112,9 +3911,34 @@ function showAccessKeyMessage(message, type) {
     }
 }
 
+// Automation queue management functions
+function editQueueItem(id) {
+    if (window.postPilot) {
+        window.postPilot.editQueueItem(id);
+    }
+}
+
+function deleteQueueItem(id) {
+    if (window.postPilot) {
+        window.postPilot.deleteQueueItem(id);
+    }
+}
+
+function closeEditQueueModal() {
+    if (window.postPilot) {
+        window.postPilot.closeEditQueueModal();
+    }
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    window.postPilot = new PostPilotApp();
+    console.log('🎬 DOM Content Loaded - Initializing PostPilot...');
+    try {
+        window.postPilot = new PostPilotApp();
+        console.log('✅ PostPilot initialized successfully!');
+    } catch (error) {
+        console.error('❌ Failed to initialize PostPilot:', error);
+    }
 });
 
 // Console welcome message

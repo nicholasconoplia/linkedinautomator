@@ -165,6 +165,42 @@ Once LinkedIn OAuth is set up:
 - **Customize topics** to match your industry/interests
 - **Test thoroughly** before enabling full automation
 
+## Quick Local Development Setup
+
+### 🚨 IMPORTANT: Update LinkedIn App Settings for Local Development
+
+**You need to update your LinkedIn app settings to work with localhost:**
+
+1. **Go to LinkedIn Developer Console**: https://www.linkedin.com/developers/apps
+2. **Select your PostPilot app**
+3. **Go to "Auth" tab**
+4. **Update "Authorized redirect URLs for your app"**:
+   - **Remove** your production URL (if present)
+   - **Add**: `http://localhost:3000/auth/linkedin/callback`
+5. **Click "Update"**
+
+⚠️ **Note**: LinkedIn only allows you to have redirect URLs that match your environment. For local development, you MUST use localhost URLs.
+
+### Current Configuration Status
+✅ Your `.env` file is already configured correctly:
+```
+LINKEDIN_CALLBACK_URL=http://localhost:3000/auth/linkedin/callback
+```
+
+### Testing LinkedIn OAuth
+1. Make sure your local server is running: `npm start`
+2. Go to: http://localhost:3000
+3. Click "Connect LinkedIn Account"
+4. You should be redirected to LinkedIn for authorization
+5. After authorization, you'll be redirected back to localhost:3000
+
+### Troubleshooting
+If you get "Invalid Redirect URI" error:
+- Double-check that `http://localhost:3000/auth/linkedin/callback` is added in LinkedIn Developer Console
+- Make sure there are no typos in the URL
+- Ensure you clicked "Update" in the LinkedIn Developer Console
+- Wait a few minutes for changes to propagate
+
 ---
 
 **Need help?** If you encounter issues, check the console logs in your browser and server terminal for specific error messages. 

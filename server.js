@@ -9,16 +9,21 @@ const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
 const session = require('express-session');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const http = require('http');
+const https = require('https');
 
 // Import our modules
 const { initializeDatabase, UserDB, PreferencesDB, PostsDB, SubscriptionDB, UsageDB, AccessKeysDB, pool } = require('./database');
 const LinkedInService = require('./linkedin-service');
 const PostScheduler = require('./scheduler');
 const StripeService = require('./stripe-service');
+const viralTemplates = require('./utils/viralTemplates');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
+console.log('🔧 JWT_SECRET loaded:', JWT_SECRET.substring(0, 20) + '...');
 const JWT_EXPIRES_IN = '7d'; // 7 days
 
 // JWT Utility Functions
@@ -75,33 +80,40 @@ const PORT = process.env.PORT || 3000;
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com"],
-      connectSrc: ["'self'", "https://api.stripe.com"],
-      frameSrc: ["https://js.stripe.com"]
+      contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://fonts.gstatic.com", "https://cdn.tailwindcss.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https:", "http:"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
+            scriptSrcAttr: ["'unsafe-inline'"],
+            connectSrc: ["'self'", "https://api.stripe.com"],
+            frameSrc: ["https://js.stripe.com"]
+        },
     },
-  },
 }));
 
 app.use(cors());
 app.use(express.json());
 
-// Enhanced static file serving with fallback
-const publicPath = path.join(__dirname, 'public');
-console.log('📁 Setting up static files from:', publicPath);
-
-// Check if public directory exists
-const fs = require('fs');
-if (fs.existsSync(publicPath)) {
-  console.log('✅ Public directory found, serving static files');
-  app.use(express.static('public'));
+// Serve static files from the root directory with cache control
+const staticPath = path.join(__dirname);
+console.log(`📁 Setting up static files from: ${staticPath}`);
+app.use(express.static(staticPath, {
+    setHeaders: (res, path) => {
+        // Add cache-busting for development
+        if (process.env.NODE_ENV !== 'production') {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
+if (fs.existsSync(staticPath)) {
+    console.log(`✅ Root directory found, serving static files with cache control`);
 } else {
-  console.log('⚠️ Public directory not found, static files disabled');
+    console.log(`❌ Root directory not found at ${staticPath}`);
 }
 
 // Session configuration - Vercel compatible
@@ -315,6 +327,18 @@ if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
       
       const newUser = await UserDB.getUserById(userId);
       console.log('✅ User created successfully:', { id: newUser.id, name: newUser.name });
+      
+      // Create free trial subscription for new user
+      try {
+        const freeTrialPlan = await pool.query("SELECT * FROM subscription_plans WHERE name = 'Free Trial' LIMIT 1");
+        if (freeTrialPlan.rows.length > 0) {
+          await SubscriptionDB.createUserSubscription(userId, freeTrialPlan.rows[0].id, 'active');
+          console.log('✅ Free trial subscription created for new user');
+        }
+      } catch (freeTrialError) {
+        console.error('⚠️ Failed to create free trial subscription:', freeTrialError);
+        // Don't fail user creation if free trial fails
+      }
       
       return done(null, newUser);
     } catch (error) {
@@ -1821,6 +1845,225 @@ app.delete('/api/admin/access-key/:keyId', async (req, res) => {
 });
 
 // ====================
+// TESTING/DEVELOPMENT ROUTES
+// ====================
+
+// Admin endpoint to reset usage for testing (only in development)
+app.post('/admin/reset-usage/:userId', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: 'Admin endpoints only available in development' });
+    }
+
+    const { userId } = req.params;
+    
+    // Reset usage for the user
+    const query = `
+      DELETE FROM user_usage WHERE user_id = $1
+    `;
+    await pool.query(query, [userId]);
+    
+    console.log(`🔧 Admin: Reset usage for user ${userId}`);
+    
+    res.json({ 
+      success: true, 
+      message: `Usage reset for user ${userId}`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Admin reset usage error:', error);
+    res.status(500).json({ error: 'Failed to reset usage' });
+  }
+});
+
+// Admin endpoint to give unlimited posts for testing
+app.post('/admin/unlimited-posts/:userId', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: 'Admin endpoints only available in development' });
+    }
+
+    const { userId } = req.params;
+    
+    // Set a very high post limit for testing
+    const query = `
+      INSERT INTO user_usage (user_id, month_year, posts_used, posts_limit, cost_used, tokens_used)
+      VALUES ($1, $2, 0, 999999, 0, 0)
+      ON CONFLICT (user_id, month_year)
+      DO UPDATE SET 
+        posts_limit = 999999,
+        posts_used = 0,
+        cost_used = 0,
+        tokens_used = 0
+    `;
+    
+    const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM format
+    await pool.query(query, [userId, currentMonth]);
+    
+    console.log(`🔧 Admin: Set unlimited posts for user ${userId}`);
+    
+    res.json({ 
+      success: true, 
+      message: `Unlimited posts set for user ${userId}`,
+      posts_limit: 999999,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Admin unlimited posts error:', error);
+    res.status(500).json({ error: 'Failed to set unlimited posts' });
+  }
+});
+
+// Admin endpoint to create proper subscription for testing
+app.post('/admin/activate-subscription/:userId', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: 'Admin endpoints only available in development' });
+    }
+
+    const { userId } = req.params;
+    
+    // First, get the Enterprise plan ID (unlimited posts)
+    const planQuery = `SELECT id FROM subscription_plans WHERE name = 'Enterprise'`;
+    const planResult = await pool.query(planQuery);
+    
+    if (planResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Enterprise plan not found' });
+    }
+    
+    const planId = planResult.rows[0].id;
+    
+    // Create or update user subscription
+    const subscriptionQuery = `
+      INSERT INTO user_subscriptions (user_id, plan_id, status, current_period_start, current_period_end)
+      VALUES ($1, $2, 'active', NOW(), NOW() + INTERVAL '1 year')
+      ON CONFLICT (user_id)
+      DO UPDATE SET 
+        plan_id = $2,
+        status = 'active',
+        current_period_start = NOW(),
+        current_period_end = NOW() + INTERVAL '1 year',
+        updated_at = NOW()
+      RETURNING *
+    `;
+    
+    const subscriptionResult = await pool.query(subscriptionQuery, [userId, planId]);
+    
+    // Also set unlimited usage
+    const usageQuery = `
+      INSERT INTO user_usage (user_id, month_year, posts_used, posts_limit, cost_used, tokens_used)
+      VALUES ($1, $2, 0, 999999, 0, 0)
+      ON CONFLICT (user_id, month_year)
+      DO UPDATE SET 
+        posts_limit = 999999,
+        posts_used = 0,
+        cost_used = 0,
+        tokens_used = 0
+    `;
+    
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    await pool.query(usageQuery, [userId, currentMonth]);
+    
+    console.log(`🔧 Admin: Activated Enterprise subscription for user ${userId}`);
+    
+    res.json({ 
+      success: true, 
+      message: `Enterprise subscription activated for user ${userId}`,
+      subscription: subscriptionResult.rows[0],
+      posts_limit: 999999,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Admin activate subscription error:', error);
+    res.status(500).json({ error: 'Failed to activate subscription' });
+  }
+});
+
+// Admin endpoint to create test login session
+app.post('/admin/login/:userId', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: 'Admin endpoints only available in development' });
+    }
+
+    const { userId } = req.params;
+    
+    // Get user from database
+    const userQuery = `SELECT * FROM users WHERE id = $1`;
+    const userResult = await pool.query(userQuery, [userId]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userResult.rows[0];
+    
+    // Create JWT token
+    const token = generateJWT({
+      id: user.id,
+      linkedin_id: user.linkedin_id,
+      name: user.name,
+      email: user.email
+    });
+    
+    // Set cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: false, // false for local development
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
+    console.log(`🔧 Admin: Created login session for user ${userId} (${user.name})`);
+    
+    res.json({
+      success: true,
+      message: `Login session created for user ${userId}`,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      },
+      token_preview: token.substring(0, 20) + '...',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Admin login error:', error);
+    res.status(500).json({ error: 'Failed to create login session' });
+  }
+});
+
+// Browser console helper - get current user ID
+app.get('/admin/whoami', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ error: 'Admin endpoints only available in development' });
+    }
+
+    const token = extractJWTFromRequest(req);
+    if (!token) {
+      return res.json({ error: 'Not authenticated', userId: null });
+    }
+
+    const decoded = verifyJWT(token);
+    if (!decoded) {
+      return res.json({ error: 'Invalid token', userId: null });
+    }
+
+    console.log(`🔧 Admin: Current user ID is ${decoded.id}`);
+    
+    res.json({ 
+      userId: decoded.id,
+      name: decoded.name,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Admin whoami error:', error);
+    res.status(500).json({ error: 'Failed to get user info' });
+  }
+});
+
+// ====================
 // HEALTH CHECK AND UTILITY ROUTES
 // ====================
 
@@ -1843,6 +2086,64 @@ app.get('/api/health', (req, res) => {
       linkedinAutomation: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET)
     }
   });
+});
+
+// Test login endpoint for local development
+app.post('/api/test-login', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Test login not available in production' });
+  }
+  
+  try {
+    const { linkedin_id, name, email } = req.body;
+    
+    // Find or create the test user
+    const userResult = await pool.query(
+      'SELECT * FROM users WHERE linkedin_id = $1',
+      [linkedin_id]
+    );
+    
+    let user;
+    if (userResult.rows.length === 0) {
+      const insertResult = await pool.query(
+        'INSERT INTO users (linkedin_id, name, email, access_token) VALUES ($1, $2, $3, $4) RETURNING *',
+        [linkedin_id, name, email, 'test-token']
+      );
+      user = insertResult.rows[0];
+    } else {
+      user = userResult.rows[0];
+    }
+    
+    // Create JWT token
+    const token = generateJWT({
+      id: user.id,
+      linkedin_id: user.linkedin_id,
+      name: user.name,
+      email: user.email
+    });
+    
+    // Set cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: false, // false for local development
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
+    res.json({
+      success: true,
+      message: 'Test login successful',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      }
+    });
+    
+  } catch (error) {
+    console.error('Test login error:', error);
+    res.status(500).json({ error: 'Test login failed' });
+  }
 });
 
 // Enhanced debug endpoint with migration capability
@@ -2166,6 +2467,60 @@ app.get('/', (req, res) => {
   }
 });
 
+// Content Generator page route
+app.get('/generator', (req, res) => {
+  console.log('🎨 Content Generator route hit');
+  
+  // Set CSP headers for content generator
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
+    "script-src-attr 'unsafe-inline'; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
+    "img-src 'self' data: https: http:; " +
+    "connect-src 'self' https://api.stripe.com; " +
+    "frame-src https://js.stripe.com; " +
+    "font-src 'self' https://fonts.gstatic.com;"
+  );
+  
+  const generatorPath = path.join(__dirname, 'generator.html');
+  
+  if (fs.existsSync(generatorPath)) {
+    console.log('✅ Serving generator.html');
+    res.sendFile(generatorPath);
+  } else {
+    console.log('⚠️ generator.html not found');
+    res.status(404).send('Content Generator page not found');
+  }
+});
+
+// Automation page route
+app.get('/automation', (req, res) => {
+  console.log('🤖 Automation route hit');
+  
+  // Set CSP headers for automation page
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; " +
+    "script-src-attr 'unsafe-inline'; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
+    "img-src 'self' data: https: http:; " +
+    "connect-src 'self' https://api.stripe.com; " +
+    "frame-src https://js.stripe.com; " +
+    "font-src 'self' https://fonts.gstatic.com;"
+  );
+  
+  const automationPath = path.join(__dirname, 'automation.html');
+  
+  if (fs.existsSync(automationPath)) {
+    console.log('✅ Serving automation.html');
+    res.sendFile(automationPath);
+  } else {
+    console.log('⚠️ automation.html not found');
+    res.status(404).send('Automation page not found');
+  }
+});
+
 // Subscribe page route
 app.get('/subscribe', (req, res) => {
   console.log('💳 Subscribe route hit');
@@ -2287,11 +2642,20 @@ app.get('/dashboard', (req, res) => {
 
 app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
   try {
-    const { topic, tone } = req.body;
+    const { 
+      topic, 
+      tone, 
+      length = 'medium',
+      post_type = 'news', // 'news' | 'viral' | 'tweet' | 'manual'
+      viral_format = null,
+      engagement_options = {},
+      custom_content = null,
+      tweet_text = null
+    } = req.body;
     
-    if (!topic || !tone) {
+    if (!topic && !custom_content && !tweet_text) {
       return res.status(400).json({ 
-        error: 'Both topic and tone are required' 
+        error: 'Topic, custom content, or tweet text is required' 
       });
     }
 
@@ -2329,17 +2693,48 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
     const estimatedCost = 0.00136; // $0.00136 per post as calculated
     const estimatedTokens = 1200; // ~800 input + 400 output tokens
 
-    const result = await generatePost(topic, tone);
+    let result;
+
+    // Map frontend viral format names to internal IDs
+    const viralFormatMapping = {
+      'open-loop': 'open_loop',
+      'contrarian': 'hot_take',
+      'confession': 'confession_story',
+      'framework': 'framework_list',
+      'experience': 'pattern_interrupt',
+      'data-driven': 'before_after'
+    };
+
+    // Route to appropriate generation method based on post_type
+    switch (post_type) {
+      case 'viral':
+        const mappedFormatId = viralFormatMapping[viral_format] || viral_format;
+        result = await generateViralPost(topic, tone, length, mappedFormatId, engagement_options);
+        break;
+      case 'tweet':
+        result = await repurposeTweet(tweet_text || topic, topic, tone, length);
+        break;
+      case 'manual':
+        result = await generateManualPost(custom_content || topic, tone, length, engagement_options);
+        break;
+      case 'news':
+      default:
+        result = await generatePost(topic, tone, length, engagement_options);
+        break;
+    }
 
     // Track usage for the authenticated user
     await UsageDB.trackUsage(userId, 'post_generation', estimatedCost, estimatedTokens, {
       topic,
       tone,
+      length,
+      post_type,
+      viral_format,
       article_source: result.article?.source,
       timestamp: new Date().toISOString()
     });
     
-    console.log(`💰 Tracked usage for user ${userId}: $${estimatedCost}`);
+    console.log(`💰 Tracked usage for user ${userId}: $${estimatedCost} (${post_type})`);
 
     res.json(result);
   } catch (error) {
@@ -2354,7 +2749,7 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
 // POST GENERATION FUNCTION (Unchanged from previous version)
 // ====================
 
-async function generatePost(topic, tone) {
+async function generatePost(topic, tone, length = 'medium', engagementOptions = {}) {
   try {
     // Step 1: Fetch recent news articles
     const articles = await fetchNewsArticles(topic);
@@ -2370,11 +2765,11 @@ async function generatePost(topic, tone) {
       throw new Error('No suitable article found');
     }
 
-    // Step 3: Generate LinkedIn post
-    const post = await generateLinkedInPost(selectedArticle, topic, tone);
+    // Step 3: Generate LinkedIn post with engagement options
+    const post = await generateLinkedInPost(selectedArticle, topic, tone, length, engagementOptions);
     
-    // Step 4: Fetch relevant image
-    const image = await fetchRelevantImage(topic);
+    // Step 4: Fetch relevant image (only if requested)
+    const image = engagementOptions.include_image !== false ? await fetchRelevantImage(topic) : null;
     
     return {
       post: post,
@@ -2384,10 +2779,211 @@ async function generatePost(topic, tone) {
         source: selectedArticle.source?.name || 'News Source',
         publishedAt: selectedArticle.publishedAt
       },
-      image: image
+      image: image,
+      post_type: 'news'
     };
   } catch (error) {
     console.error('❌ Error in generatePost:', error);
+    throw error;
+  }
+}
+
+// Generate viral format posts without news dependency
+async function generateViralPost(topic, tone, length, viralFormatId, engagementOptions) {
+  try {
+    console.log(`🔥 Generating viral post: ${viralFormatId} for topic: ${topic}`);
+    
+    // Get viral format template
+    let viralFormat;
+    if (viralFormatId) {
+      viralFormat = viralTemplates.viralFormats.find(f => f.id === viralFormatId);
+    } else {
+      viralFormat = viralTemplates.getRandomViralFormat();
+    }
+    
+    if (!viralFormat) {
+      throw new Error('Viral format not found');
+    }
+
+    // Build enhanced prompt with engagement options
+    let prompt = viralFormat.prompt.replace(/\[topic\]/g, topic);
+    
+    // Add engagement hooks if requested
+    if (engagementOptions.curiosity_hook) {
+      const hook = viralTemplates.getEngagementHook('curiosity');
+      prompt += ` Start with this curiosity hook: "${hook}"`;
+    }
+    
+    if (engagementOptions.strong_opinion) {
+      const hook = viralTemplates.getEngagementHook('controversy');
+      prompt += ` Include this contrarian element: "${hook}"`;
+    }
+    
+    if (engagementOptions.soft_cta) {
+      const cta = viralTemplates.getRandomCTA();
+      prompt += ` End with this engagement question: "${cta}"`;
+    }
+
+    // Add length specification
+    const lengthGuide = {
+      short: '50-100 words, punchy and direct',
+      medium: '100-200 words, detailed but concise',
+      long: '200-300 words, comprehensive with examples'
+    };
+    
+    prompt += ` Length: ${lengthGuide[length] || lengthGuide.medium}.`;
+    prompt += ` Tone: ${tone}. Format for LinkedIn with appropriate line breaks.`;
+
+    // Generate the post
+    let post = await callOpenAI(prompt, 'viral_content');
+    
+    // Clean markdown formatting (bold and italic)
+    post = post.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove **bold**
+    post = post.replace(/\*(.*?)\*/g, '$1'); // Remove *italic*
+    post = post.replace(/__(.*?)__/g, '$1'); // Remove __bold__
+    post = post.replace(/_(.*?)_/g, '$1'); // Remove _italic_
+    
+    // Fetch relevant image if requested
+    const image = engagementOptions.include_image !== false ? await fetchRelevantImage(topic) : null;
+    
+    return {
+      post: post,
+      viral_format: viralFormat,
+      engagement_options: engagementOptions,
+      image: image,
+      post_type: 'viral_format'
+    };
+  } catch (error) {
+    console.error('❌ Error in generateViralPost:', error);
+    throw error;
+  }
+}
+
+// Repurpose tweet into LinkedIn format
+async function repurposeTweet(tweetText, topic, tone, length) {
+  try {
+    console.log(`🔄 Repurposing tweet for topic: ${topic}`);
+    
+    // If no tweet text provided, get from viral tweet bank
+    if (!tweetText || tweetText === topic) {
+      const viralTweet = viralTemplates.getViralTweet(topic);
+      if (viralTweet) {
+        tweetText = viralTweet.text;
+        console.log(`📱 Using cached viral tweet: ${tweetText.substring(0, 50)}...`);
+      } else {
+        throw new Error(`No viral tweets available for topic: ${topic}`);
+      }
+    }
+
+    // Clean tweet text (remove @mentions, hashtags for processing)
+    const cleanTweetText = tweetText.replace(/@\w+/g, '').replace(/#\w+/g, '').trim();
+
+    const lengthGuide = {
+      short: '100-150 words',
+      medium: '150-250 words', 
+      long: '250-350 words'
+    };
+
+    const prompt = `Transform this viral tweet into a LinkedIn post:
+
+Original Tweet: "${cleanTweetText}"
+
+Instructions:
+- Expand the core insight with professional context and personal experience
+- Adapt from casual Twitter tone to professional but approachable LinkedIn tone  
+- Add more background context since LinkedIn audience expects more depth
+- Use proper LinkedIn formatting with line breaks
+- Length: ${lengthGuide[length] || lengthGuide.medium}
+- Tone: ${tone}
+- End with a LinkedIn-appropriate call to action that encourages engagement
+- Don't use hashtags - LinkedIn algorithm doesn't favor them
+- Keep the viral element that made the original tweet engaging
+
+Format the response as just the LinkedIn post text, nothing else.`;
+
+    let post = await callOpenAI(prompt, 'tweet_repurpose');
+    
+    // Clean markdown formatting (bold and italic)
+    post = post.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove **bold**
+    post = post.replace(/\*(.*?)\*/g, '$1'); // Remove *italic*
+    post = post.replace(/__(.*?)__/g, '$1'); // Remove __bold__
+    post = post.replace(/_(.*?)_/g, '$1'); // Remove _italic_
+    
+    // Fetch relevant image
+    const image = await fetchRelevantImage(topic);
+    
+    return {
+      post: post,
+      original_tweet: tweetText,
+      adaptation_rules: viralTemplates.tweetAdaptationRules,
+      image: image,
+      post_type: 'repurposed_tweet'
+    };
+  } catch (error) {
+    console.error('❌ Error in repurposeTweet:', error);
+    throw error;
+  }
+}
+
+// Generate manual post from custom content
+async function generateManualPost(customContent, tone, length, engagementOptions) {
+  try {
+    console.log(`✍️ Generating manual post from custom content`);
+    
+    const lengthGuide = {
+      short: '50-100 words, concise and impactful',
+      medium: '100-200 words, balanced detail',
+      long: '200-300 words, comprehensive coverage'
+    };
+
+    let prompt = `Create a LinkedIn post based on this content or idea:
+
+"${customContent}"
+
+Requirements:
+- Length: ${lengthGuide[length] || lengthGuide.medium}
+- Tone: ${tone}
+- Make it engaging and professional for LinkedIn audience
+- Use proper formatting with line breaks
+- Focus on providing value to the reader`;
+
+    // Add engagement enhancements
+    if (engagementOptions.curiosity_hook) {
+      const hook = viralTemplates.getEngagementHook('curiosity');
+      prompt += `\n- Start with an engaging hook like: "${hook}"`;
+    }
+    
+    if (engagementOptions.strong_opinion) {
+      prompt += `\n- Include a strong opinion or contrarian viewpoint`;
+    }
+    
+    if (engagementOptions.soft_cta) {
+      const cta = viralTemplates.getRandomCTA();
+      prompt += `\n- End with this engagement question: "${cta}"`;
+    }
+
+    prompt += `\n\nFormat the response as just the LinkedIn post text, nothing else.`;
+
+    let post = await callOpenAI(prompt, 'manual_content');
+    
+    // Clean markdown formatting (bold and italic)
+    post = post.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove **bold**
+    post = post.replace(/\*(.*?)\*/g, '$1'); // Remove *italic*
+    post = post.replace(/__(.*?)__/g, '$1'); // Remove __bold__
+    post = post.replace(/_(.*?)_/g, '$1'); // Remove _italic_
+    
+    // Fetch relevant image if requested
+    const image = engagementOptions.include_image !== false ? await fetchRelevantImage(customContent) : null;
+    
+    return {
+      post: post,
+      custom_content: customContent,
+      engagement_options: engagementOptions,
+      image: image,
+      post_type: 'manual'
+    };
+  } catch (error) {
+    console.error('❌ Error in generateManualPost:', error);
     throw error;
   }
 }
@@ -2489,41 +3085,29 @@ function selectBestArticle(articles) {
   return topArticles[randomIndex];
 }
 
-async function generateLinkedInPost(article, topic, tone) {
-  const prompt = `Create a LinkedIn post about this recent news article:
-
-Title: ${article.title}
-Content: ${article.description || article.content || 'No description available'}
-URL: ${article.url}
-
-Requirements:
-- Topic focus: ${topic}
-- Tone: ${tone}
-- Length: 150-220 words
-- Include personal insight or commentary about the topic
-- Reference specific details from the article
-- Add the article URL at the end with "Read more:"
-- Use maximum 1-2 emojis (not 3-5)
-- Write for a general LinkedIn audience, not just business professionals
-- Make it conversational and engaging
-- Focus on the implications or lessons from this news
-
-Format the response as just the LinkedIn post text, nothing else.`;
-
+// Universal OpenAI helper function
+async function callOpenAI(prompt, contentType = 'linkedin_post') {
   try {
+    const systemPrompts = {
+      linkedin_post: 'You are a LinkedIn content creator who writes engaging posts that spark conversation and provide value to a professional audience.',
+      viral_content: 'You are a viral content expert who creates LinkedIn posts using psychological hooks and engagement strategies that drive maximum interaction.',
+      tweet_repurpose: 'You are a social media strategist who expertly adapts viral Twitter content for LinkedIn\'s professional audience while maintaining engagement.',
+      manual_content: 'You are a professional content creator who transforms ideas and raw content into polished, engaging LinkedIn posts.'
+    };
+
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: 'You are a LinkedIn content creator who writes engaging posts that spark conversation and provide value to a general professional audience.'
+          content: systemPrompts[contentType] || systemPrompts.linkedin_post
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      max_tokens: 300,
+      max_tokens: 350,
       temperature: 0.7
     }, {
       headers: {
@@ -2532,7 +3116,63 @@ Format the response as just the LinkedIn post text, nothing else.`;
       }
     });
 
-    let post = response.data.choices[0].message.content.trim();
+    return response.data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('❌ OpenAI API error:', error.response?.data || error.message);
+    throw new Error('Failed to generate content');
+  }
+}
+
+async function generateLinkedInPost(article, topic, tone, length = 'medium', engagementOptions = {}) {
+  const lengthGuide = {
+    short: '100-150 words',
+    medium: '150-220 words',
+    long: '220-300 words'
+  };
+
+  let prompt = `Create a LinkedIn post about this recent news article:
+
+Title: ${article.title}
+Content: ${article.description || article.content || 'No description available'}
+URL: ${article.url}
+
+Requirements:
+- Topic focus: ${topic}
+- Tone: ${tone}
+- Length: ${lengthGuide[length] || lengthGuide.medium}
+- Include personal insight or commentary about the topic
+- Reference specific details from the article
+- Add the article URL at the end with "Read more:"
+- Use maximum 1-2 emojis (not 3-5)
+- Write for a general LinkedIn audience, not just business professionals
+- Make it conversational and engaging
+- Focus on the implications or lessons from this news`;
+
+  // Add engagement enhancements
+  if (engagementOptions.curiosity_hook) {
+    const hook = viralTemplates.getEngagementHook('curiosity');
+    prompt += `\n- Start with an engaging hook like: "${hook}"`;
+  }
+  
+  if (engagementOptions.strong_opinion) {
+    prompt += `\n- Include a strong opinion or perspective on this news`;
+  }
+  
+  if (engagementOptions.soft_cta) {
+    const cta = viralTemplates.getRandomCTA();
+    prompt += `\n- End with this engagement question: "${cta}"`;
+  }
+
+  prompt += `\n\nFormat the response as just the LinkedIn post text, nothing else.`;
+
+  try {
+    let post = await callOpenAI(prompt, 'linkedin_post');
+    
+    // Clean markdown formatting (bold and italic)
+    post = post.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove **bold**
+    post = post.replace(/\*(.*?)\*/g, '$1'); // Remove *italic*
+    post = post.replace(/__(.*?)__/g, '$1'); // Remove __bold__
+    post = post.replace(/_(.*?)_/g, '$1'); // Remove _italic_
     
     // Clean and validate the article URL before including it
     const cleanedUrl = cleanUrl(article.url);
@@ -2542,7 +3182,7 @@ Format the response as just the LinkedIn post text, nothing else.`;
 
     return post;
   } catch (error) {
-    console.error('❌ OpenAI API error:', error.response?.data || error.message);
+    console.error('❌ Error generating LinkedIn post:', error);
     throw new Error('Failed to generate LinkedIn post');
   }
 }
@@ -2627,6 +3267,637 @@ async function fetchRelevantImage(topic) {
     photographer: 'Pexels',
     source: 'Pexels'
   };
+}
+
+// Dashboard and Analytics API endpoints
+app.get('/api/dashboard/stats', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // Get posts this month
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        
+        const postsResult = await pool.query(
+            'SELECT COUNT(*) as count FROM scheduled_posts WHERE user_id = $1 AND created_at >= $2',
+            [userId, startOfMonth]
+        );
+        
+        // Get scheduled posts count
+        const scheduledResult = await pool.query(
+            'SELECT COUNT(*) as count FROM scheduled_posts WHERE user_id = $1 AND status = $2',
+            [userId, 'scheduled']
+        );
+        
+        const stats = {
+            postsThisMonth: parseInt(postsResult.rows[0].count),
+            avgEngagement: postsResult.rows[0].count > 0 ? '4.2%' : '0%',
+            scheduledCount: parseInt(scheduledResult.rows[0].count)
+        };
+        
+        res.json(stats);
+    } catch (error) {
+        console.error('Error getting dashboard stats:', error);
+        res.status(500).json({ error: 'Failed to load dashboard stats' });
+    }
+});
+
+app.get('/api/analytics/performance', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // Get recent posts for analytics calculation
+        const result = await pool.query(
+            'SELECT COUNT(*) as count FROM scheduled_posts WHERE user_id = $1 AND created_at >= $2',
+            [userId, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)] // Last 30 days
+        );
+        
+        const recentPostsCount = parseInt(result.rows[0].count);
+        
+        const analytics = {
+            engagementRate: recentPostsCount > 0 ? '3.8%' : '0%',
+            audienceGrowth: recentPostsCount > 5 ? '+12%' : '0%',
+            contentPerformance: Math.min(recentPostsCount, 10) + '/10'
+        };
+        
+        res.json(analytics);
+    } catch (error) {
+        console.error('Error getting analytics:', error);
+        res.status(500).json({ error: 'Failed to load analytics' });
+    }
+});
+
+app.get('/api/posts/recent', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const result = await pool.query(
+            `SELECT topic, content, status, created_at 
+             FROM scheduled_posts 
+             WHERE user_id = $1 
+             ORDER BY created_at DESC 
+             LIMIT 10`,
+            [userId]
+        );
+        
+        res.json({ posts: result.rows });
+    } catch (error) {
+        console.error('Error getting recent posts:', error);
+        res.status(500).json({ error: 'Failed to load recent posts' });
+    }
+});
+
+// Legacy automation endpoint - keeping for compatibility
+app.post('/api/automation/settings-legacy', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { frequency, time, contentType, tone, days } = req.body;
+        
+        // Ensure days is an array before joining
+        const daysArray = Array.isArray(days) ? days : [];
+        
+        // Update user preferences with automation settings
+        await pool.query(
+            `UPDATE user_preferences 
+             SET posting_frequency = $1, posting_time = $2, auto_content_type = $3, 
+                 auto_tone = $4, posting_days = $5, auto_posting_enabled = true, 
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE user_id = $6`,
+            [frequency, time, contentType, tone, daysArray.join(','), userId]
+        );
+        
+        res.json({ success: true, message: 'Automation settings saved successfully' });
+    } catch (error) {
+        console.error('Error saving automation settings:', error);
+        res.status(500).json({ error: 'Failed to save automation settings' });
+    }
+});
+
+// New API endpoints for viral content features
+app.get('/api/viral-formats', (req, res) => {
+  try {
+    res.json({
+      formats: viralTemplates.viralFormats,
+      engagement_hooks: Object.keys(viralTemplates.engagementHooks),
+      soft_ctas: viralTemplates.softCTAs.slice(0, 5) // Return first 5 as examples
+    });
+  } catch (error) {
+    console.error('❌ Error fetching viral formats:', error);
+    res.status(500).json({ error: 'Failed to fetch viral formats' });
+  }
+});
+
+app.get('/api/viral-tweets/:topic', (req, res) => {
+  try {
+    const { topic } = req.params;
+    const tweets = viralTemplates.viralTweetBank[topic] || [];
+    
+    res.json({
+      topic,
+      available_tweets: tweets.length,
+      tweets: tweets
+    });
+  } catch (error) {
+    console.error('❌ Error fetching viral tweets:', error);
+    res.status(500).json({ error: 'Failed to fetch viral tweets' });
+  }
+});
+
+app.get('/api/topics-with-tweets', (req, res) => {
+  try {
+    console.log('📋 Topics endpoint called');
+    console.log('📋 viralTemplates module exists:', !!viralTemplates);
+    console.log('📋 viralTweetBank exists:', !!viralTemplates.viralTweetBank);
+    console.log('📋 viralTweetBank keys:', Object.keys(viralTemplates.viralTweetBank || {}));
+    console.log('📋 viralTweetBank type:', typeof viralTemplates.viralTweetBank);
+    
+    if (!viralTemplates || !viralTemplates.viralTweetBank) {
+      console.error('❌ viralTemplates or viralTweetBank not available');
+      return res.status(500).json({ error: 'Viral templates not loaded' });
+    }
+    
+    const topicsWithTweets = Object.keys(viralTemplates.viralTweetBank).map(topic => ({
+      topic,
+      count: viralTemplates.viralTweetBank[topic].length
+    }));
+    
+    console.log('📋 Returning topics:', topicsWithTweets);
+    res.json(topicsWithTweets);
+  } catch (error) {
+    console.error('❌ Error fetching topics with tweets:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to fetch topics' });
+  }
+});
+
+// Repurpose tweet endpoint
+app.post('/api/repurpose-tweet', rateLimitMiddleware, async (req, res) => {
+  try {
+    const { tweet_text, topic, tone = 'professional', length = 'medium' } = req.body;
+    
+    if (!tweet_text && !topic) {
+      return res.status(400).json({ 
+        error: 'Either tweet text or topic is required' 
+      });
+    }
+
+    // Check authentication
+    const token = extractJWTFromRequest(req);
+    if (!token) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        needsAuth: true
+      });
+    }
+
+    const decoded = verifyJWT(token);
+    if (!decoded) {
+      return res.status(401).json({
+        error: 'Invalid authentication token',
+        needsAuth: true
+      });
+    }
+
+    const userId = decoded.id;
+    
+    // Check usage limits
+    const usageCheck = await UsageDB.checkUsageLimit(userId);
+    if (!usageCheck.hasAccess) {
+      return res.status(403).json({
+        error: 'Usage limit exceeded',
+        reason: usageCheck.reason,
+        postsRemaining: usageCheck.postsRemaining,
+        needsUpgrade: true
+      });
+    }
+
+    const result = await repurposeTweet(tweet_text, topic, tone, length);
+
+    // Track usage
+    await UsageDB.trackUsage(userId, 'post_generation', 0.00136, 1200, {
+      topic,
+      tone,
+      length,
+      post_type: 'repurposed_tweet',
+      timestamp: new Date().toISOString()
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error repurposing tweet:', error);
+    res.status(500).json({ 
+      error: 'Failed to repurpose tweet. Please try again.' 
+    });
+  }
+});
+
+// ====================
+// AUTOMATION ENDPOINTS
+// ====================
+
+// Get automation settings
+app.get('/api/automation/settings', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await pool.query(
+      'SELECT * FROM automation_settings WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (result.rows.length === 0) {
+      // Return default settings
+      res.json({
+        enabled: false,
+        frequency: 'weekly',
+        posting_times: 'afternoon',
+        content_mix: 'balanced',
+        default_tone: 'professional',
+        topic_pool: ['Artificial Intelligence', 'Leadership', 'Digital Marketing'],
+        posting_days: ['monday', 'wednesday', 'friday'],
+        auto_approve: false
+      });
+    } else {
+      const settings = result.rows[0];
+      res.json({
+        enabled: settings.enabled,
+        frequency: settings.frequency,
+        posting_times: settings.posting_times,
+        content_mix: settings.content_mix,
+        default_tone: settings.default_tone,
+        topic_pool: settings.topic_pool,
+        posting_days: settings.posting_days,
+        auto_approve: settings.auto_approve
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error fetching automation settings:', error);
+    res.status(500).json({ error: 'Failed to fetch automation settings' });
+  }
+});
+
+// Save automation settings
+app.post('/api/automation/settings', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      enabled,
+      frequency,
+      posting_times,
+      content_mix,
+      default_tone,
+      topic_pool,
+      posting_days,
+      auto_approve
+    } = req.body;
+
+    console.log('🤖 Saving automation settings for user:', userId);
+    console.log('📝 Request body:', req.body);
+
+    // Validate required arrays
+    const validatedTopicPool = Array.isArray(topic_pool) ? topic_pool : [];
+    const validatedPostingDays = Array.isArray(posting_days) ? posting_days : [];
+
+    console.log('✅ Validated data:', {
+      enabled,
+      frequency,
+      posting_times,
+      content_mix,
+      default_tone,
+      topic_pool: validatedTopicPool,
+      posting_days: validatedPostingDays,
+      auto_approve
+    });
+
+    // Upsert automation settings
+    const result = await pool.query(`
+      INSERT INTO automation_settings 
+      (user_id, enabled, frequency, posting_times, content_mix, default_tone, topic_pool, posting_days, auto_approve, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+      ON CONFLICT (user_id) 
+      DO UPDATE SET 
+        enabled = EXCLUDED.enabled,
+        frequency = EXCLUDED.frequency,
+        posting_times = EXCLUDED.posting_times,
+        content_mix = EXCLUDED.content_mix,
+        default_tone = EXCLUDED.default_tone,
+        topic_pool = EXCLUDED.topic_pool,
+        posting_days = EXCLUDED.posting_days,
+        auto_approve = EXCLUDED.auto_approve,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [userId, enabled, frequency, posting_times, content_mix, default_tone, JSON.stringify(validatedTopicPool), JSON.stringify(validatedPostingDays), auto_approve]);
+
+    console.log('🤖 Automation settings saved successfully for user:', userId);
+    res.json({ success: true, settings: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Error saving automation settings:', error);
+    console.error('❌ Error details:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to save automation settings' });
+  }
+});
+
+// Toggle automation on/off
+app.post('/api/automation/toggle', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { enabled } = req.body;
+
+    await pool.query(`
+      INSERT INTO automation_settings (user_id, enabled, updated_at)
+      VALUES ($1, $2, CURRENT_TIMESTAMP)
+      ON CONFLICT (user_id) 
+      DO UPDATE SET 
+        enabled = EXCLUDED.enabled,
+        updated_at = CURRENT_TIMESTAMP
+    `, [userId, enabled]);
+
+    console.log(`🤖 Automation ${enabled ? 'enabled' : 'disabled'} for user:`, userId);
+    res.json({ success: true, enabled });
+  } catch (error) {
+    console.error('❌ Error toggling automation:', error);
+    res.status(500).json({ error: 'Failed to toggle automation' });
+  }
+});
+
+// Generate automation queue
+app.post('/api/automation/generate-queue', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weeks = 4 } = req.body;
+
+    // Get automation settings
+    const settingsResult = await pool.query(
+      'SELECT * FROM automation_settings WHERE user_id = $1',
+      [userId]
+    );
+
+    if (settingsResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Please configure automation settings first' });
+    }
+
+    const settings = settingsResult.rows[0];
+    const topicPool = settings.topic_pool;
+    const postingDays = settings.posting_days;
+    const postsPerWeek = getPostsPerWeek(settings.frequency);
+
+    // Generate schedule for next N weeks
+    const queue = [];
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + 1); // Start tomorrow
+
+    for (let week = 0; week < weeks; week++) {
+      const weekStart = new Date(startDate);
+      weekStart.setDate(weekStart.getDate() + (week * 7));
+
+      let postsThisWeek = 0;
+      const shuffledTopics = [...topicPool].sort(() => Math.random() - 0.5);
+      const shuffledDays = [...postingDays].sort(() => Math.random() - 0.5);
+
+      for (const day of shuffledDays) {
+        if (postsThisWeek >= postsPerWeek) break;
+
+        const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(day);
+        const postDate = new Date(weekStart);
+        postDate.setDate(postDate.getDate() + (dayIndex - weekStart.getDay()));
+        
+        // Set posting time
+        const postTime = getPostingTime(settings.posting_times);
+        postDate.setHours(postTime.hour, postTime.minute, 0, 0);
+
+        // Skip if date is in the past
+        if (postDate < new Date()) continue;
+
+        const topic = shuffledTopics[postsThisWeek % shuffledTopics.length];
+        const contentType = getContentType(settings.content_mix);
+        const viralFormat = contentType === 'viral' ? getRandomViralFormat() : null;
+
+        queue.push({
+          user_id: userId,
+          automation_settings_id: settings.id,
+          topic,
+          content_type: contentType,
+          viral_format: viralFormat,
+          tone: settings.default_tone,
+          scheduled_for: postDate,
+          status: 'pending'
+        });
+
+        postsThisWeek++;
+      }
+    }
+
+    // Clear existing queue and insert new one
+    await pool.query('DELETE FROM automation_queue WHERE user_id = $1 AND status = $2', [userId, 'pending']);
+    
+    for (const item of queue) {
+      await pool.query(`
+        INSERT INTO automation_queue 
+        (user_id, automation_settings_id, topic, content_type, viral_format, tone, scheduled_for, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [item.user_id, item.automation_settings_id, item.topic, item.content_type, item.viral_format, item.tone, item.scheduled_for, item.status]);
+    }
+
+    console.log(`🤖 Generated ${queue.length} posts for automation queue`);
+    res.json({ success: true, generated: queue.length, queue });
+  } catch (error) {
+    console.error('❌ Error generating automation queue:', error);
+    res.status(500).json({ error: 'Failed to generate automation queue' });
+  }
+});
+
+// Get automation queue
+app.get('/api/automation/queue', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { limit = 50, offset = 0 } = req.query;
+
+    const result = await pool.query(`
+      SELECT * FROM automation_queue 
+      WHERE user_id = $1 
+      ORDER BY scheduled_for ASC 
+      LIMIT $2 OFFSET $3
+    `, [userId, limit, offset]);
+
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as total FROM automation_queue WHERE user_id = $1',
+      [userId]
+    );
+
+    res.json({
+      queue: result.rows,
+      total: parseInt(countResult.rows[0].total),
+      hasMore: (parseInt(offset) + result.rows.length) < parseInt(countResult.rows[0].total)
+    });
+  } catch (error) {
+    console.error('❌ Error fetching automation queue:', error);
+    res.status(500).json({ error: 'Failed to fetch automation queue' });
+  }
+});
+
+// Get single queue item
+app.get('/api/automation/queue/:id', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const queueId = req.params.id;
+
+    const result = await pool.query(`
+      SELECT * FROM automation_queue 
+      WHERE id = $1 AND user_id = $2
+    `, [queueId, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Queue item not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('❌ Error fetching queue item:', error);
+    res.status(500).json({ error: 'Failed to fetch queue item' });
+  }
+});
+
+// Update queue item
+app.put('/api/automation/queue/:id', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const queueId = req.params.id;
+    const { topic, tone, scheduled_for, status, content_type } = req.body;
+
+    const result = await pool.query(`
+      UPDATE automation_queue 
+      SET topic = $1, tone = $2, scheduled_for = $3, status = $4, content_type = $5, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6 AND user_id = $7
+      RETURNING *
+    `, [topic, tone, scheduled_for, status, content_type, queueId, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Queue item not found' });
+    }
+
+    console.log(`✏️ Updated queue item ${queueId} for user ${userId}`);
+    res.json({ success: true, item: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Error updating queue item:', error);
+    res.status(500).json({ error: 'Failed to update queue item' });
+  }
+});
+
+// Delete queue item
+app.delete('/api/automation/queue/:id', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const queueId = req.params.id;
+
+    const result = await pool.query(
+      'DELETE FROM automation_queue WHERE id = $1 AND user_id = $2 RETURNING *',
+      [queueId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Queue item not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error deleting queue item:', error);
+    res.status(500).json({ error: 'Failed to delete queue item' });
+  }
+});
+
+// Get automation analytics
+app.get('/api/automation/analytics', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { period = '7d' } = req.query;
+
+    const startDate = new Date();
+    if (period === '7d') {
+      startDate.setDate(startDate.getDate() - 7);
+    } else if (period === '30d') {
+      startDate.setDate(startDate.getDate() - 30);
+    }
+
+    // Posts this period
+    const postsResult = await pool.query(`
+      SELECT COUNT(*) as count 
+      FROM automation_queue 
+      WHERE user_id = $1 AND status = 'posted' AND posted_at >= $2
+    `, [userId, startDate]);
+
+    // Next scheduled post
+    const nextPostResult = await pool.query(`
+      SELECT scheduled_for 
+      FROM automation_queue 
+      WHERE user_id = $1 AND status IN ('pending', 'ready') 
+      ORDER BY scheduled_for ASC 
+      LIMIT 1
+    `, [userId]);
+
+    // Queue length
+    const queueResult = await pool.query(`
+      SELECT COUNT(*) as count 
+      FROM automation_queue 
+      WHERE user_id = $1 AND status IN ('pending', 'ready')
+    `, [userId]);
+
+    res.json({
+      postsThisPeriod: parseInt(postsResult.rows[0].count),
+      nextPost: nextPostResult.rows[0]?.scheduled_for || null,
+      queueLength: parseInt(queueResult.rows[0].count)
+    });
+  } catch (error) {
+    console.error('❌ Error fetching automation analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch automation analytics' });
+  }
+});
+
+// Helper functions for automation
+function getPostsPerWeek(frequency) {
+  switch (frequency) {
+    case 'daily': return 7;
+    case 'weekly': return 3;
+    case 'biweekly': return 2;
+    default: return 3;
+  }
+}
+
+function getPostingTime(timeSlot) {
+  switch (timeSlot) {
+    case 'morning': return { hour: 9, minute: 0 };
+    case 'afternoon': return { hour: 13, minute: 0 };
+    case 'evening': return { hour: 17, minute: 0 };
+    case 'mixed': 
+      const times = [
+        { hour: 9, minute: 0 },
+        { hour: 13, minute: 0 },
+        { hour: 17, minute: 0 }
+      ];
+      return times[Math.floor(Math.random() * times.length)];
+    default: return { hour: 13, minute: 0 };
+  }
+}
+
+function getContentType(contentMix) {
+  const random = Math.random();
+  switch (contentMix) {
+    case 'news_heavy':
+      return random < 0.7 ? 'news' : (random < 0.85 ? 'viral' : 'manual');
+    case 'balanced':
+      return random < 0.5 ? 'news' : (random < 0.75 ? 'viral' : 'manual');
+    case 'viral_heavy':
+      return random < 0.7 ? 'viral' : (random < 0.85 ? 'news' : 'manual');
+    case 'professional':
+      return random < 0.8 ? 'news' : 'manual';
+    default:
+      return 'news';
+  }
+}
+
+function getRandomViralFormat() {
+  const formats = ['open-loop', 'contrarian', 'confession', 'framework', 'experience', 'data-driven'];
+  return formats[Math.floor(Math.random() * formats.length)];
 }
 
 // ====================

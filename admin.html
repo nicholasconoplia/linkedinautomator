@@ -4,99 +4,142 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PostPilot Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* PostPilot Admin Theme */
+        body {
+            background: linear-gradient(135deg, var(--linkedin-blue) 0%, var(--linkedin-blue-dark) 50%, var(--navy-blue) 100%);
+            color: var(--pure-white);
+            min-height: 100vh;
+            position: relative;
         }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%);
-            color: #fff;
-            min-height: 100vh;
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(233, 69, 96, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 107, 138, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .admin-container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+            padding: var(--spacing-xl);
+            position: relative;
+            z-index: 1;
         }
 
         .admin-header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: var(--spacing-3xl);
+            background: var(--pure-white);
+            padding: var(--spacing-2xl);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-light);
         }
 
         .admin-header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            background: linear-gradient(135deg, #E94560 0%, #0F3460 100%);
+            font-size: var(--font-size-4xl);
+            margin-bottom: var(--spacing-md);
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: var(--font-weight-black);
+        }
+
+        .admin-header p {
+            color: var(--text-secondary);
+            font-size: var(--font-size-lg);
+            font-weight: var(--font-weight-medium);
         }
 
         .admin-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 40px;
+            gap: var(--spacing-2xl);
+            margin-bottom: var(--spacing-3xl);
         }
 
         .admin-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: var(--pure-white);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-2xl);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-light);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .admin-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--accent-gradient);
         }
 
         .card-title {
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-            color: #E94560;
+            font-size: var(--font-size-2xl);
+            margin-bottom: var(--spacing-xl);
+            color: var(--text-primary);
+            font-weight: var(--font-weight-bold);
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: var(--spacing-xl);
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            font-weight: var(--font-weight-semibold);
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
         }
 
         .form-group input,
         .form-group select {
             width: 100%;
-            padding: 12px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            font-size: 14px;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border: 2px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: var(--font-size-base);
+            transition: border-color 0.3s ease;
         }
 
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #E94560;
+            border-color: var(--postpilot-red);
+            box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.1);
         }
 
         .btn {
-            padding: 12px 24px;
+            padding: var(--spacing-md) var(--spacing-xl);
             border: none;
-            border-radius: 8px;
-            font-weight: 600;
+            border-radius: var(--radius-md);
+            font-weight: var(--font-weight-bold);
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
+            font-size: var(--font-size-base);
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #E94560 0%, #0F3460 100%);
-            color: white;
+            background: var(--accent-gradient);
+            color: var(--pure-white);
         }
 
         .btn-primary:hover {
