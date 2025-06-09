@@ -420,6 +420,21 @@
                                     <!-- Topic Pool -->
                                     <div class="mt-6">
                                         <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Topic Pool (Select 3-5 topics for rotation)</label>
+                                        <!-- Custom Topic Input -->
+                                        <div class="mb-4 p-4 border border-[#e7edf4] rounded-lg bg-[#f8fafc]">
+                                            <label class="block text-[#0d151c] text-sm font-medium mb-2">✏️ Add Custom Topic</label>
+                                            <div class="flex gap-2">
+                                                <input type="text" id="customTopicInput" placeholder="Enter your custom topic..." 
+                                                       class="flex-1 px-3 py-2 border border-[#e7edf4] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0b80ee] focus:border-transparent">
+                                                <button type="button" id="addCustomTopicBtn" 
+                                                        class="px-4 py-2 bg-[#0b80ee] text-white rounded-md text-sm font-medium hover:bg-[#0960c7] transition-colors"
+                                                        onclick="addCustomTopic()">
+                                                    Add
+                                                </button>
+                                            </div>
+                                            <p class="text-xs text-[#6b7280] mt-1">Add topics specific to your industry or interests</p>
+                                        </div>
+
                                         <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="topicPool">
                                             <label class="flex items-center gap-2 bg-[#f8fafc] border border-[#e7edf4] rounded-lg px-3 py-2 cursor-pointer hover:bg-[#e7edf4]">
                                                 <input type="checkbox" value="Artificial Intelligence" class="text-[#0b80ee]" checked>

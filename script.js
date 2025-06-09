@@ -1443,6 +1443,155 @@ class EmploymentApp {
         }
     }
 
+    // Add edit button to the generated content
+    addEditButton() {
+        // Check if edit button already exists
+        if (document.getElementById('edit-content-btn')) {
+            document.getElementById('edit-content-btn').style.display = 'inline-flex';
+            return;
+        }
+
+        // Find the button container (same parent as copy and regenerate buttons)
+        const copyBtn = this.copyBtn;
+        if (!copyBtn || !copyBtn.parentElement) return;
+
+        const buttonContainer = copyBtn.parentElement;
+        
+        // Create edit button
+        const editBtn = document.createElement('button');
+        editBtn.id = 'edit-content-btn';
+        editBtn.className = 'btn btn-outline-secondary me-2';
+        editBtn.innerHTML = '✏️ Edit Content';
+        editBtn.style.display = 'inline-flex';
+        editBtn.onclick = () => this.startEditMode();
+        
+        // Insert edit button between copy and regenerate buttons
+        buttonContainer.insertBefore(editBtn, this.regenerateBtn);
+    }
+
+    // Start edit mode for the generated content
+    startEditMode() {
+        if (!this.currentPost) {
+            this.showError('No content to edit');
+            return;
+        }
+
+        // Find the content div
+        const contentDiv = document.querySelector('#output .bg-white .text-base');
+        if (!contentDiv) {
+            this.showError('Content not found for editing');
+            return;
+        }
+
+        // Store original content
+        this.originalContent = this.currentPost.post;
+        
+        // Create textarea for editing
+        const textarea = document.createElement('textarea');
+        textarea.id = 'content-editor';
+        textarea.className = 'w-full p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500';
+        textarea.style.minHeight = '150px';
+        textarea.style.fontSize = '16px';
+        textarea.style.lineHeight = '1.5';
+        textarea.value = this.currentPost.post;
+        
+        // Replace content with textarea
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(textarea);
+        
+        // Update buttons
+        this.updateEditButtons(true);
+        
+        // Focus on textarea
+        textarea.focus();
+        
+        console.log('📝 Edit mode started');
+    }
+
+    // Update button states for edit mode
+    updateEditButtons(isEditing) {
+        const editBtn = document.getElementById('edit-content-btn');
+        const copyBtn = this.copyBtn;
+        const regenerateBtn = this.regenerateBtn;
+        
+        if (isEditing) {
+            // Change edit button to save/cancel
+            editBtn.innerHTML = '💾 Save Changes';
+            editBtn.onclick = () => this.saveEditedContent();
+            
+            // Add cancel button
+            if (!document.getElementById('cancel-edit-btn')) {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.id = 'cancel-edit-btn';
+                cancelBtn.className = 'btn btn-secondary me-2';
+                cancelBtn.innerHTML = '❌ Cancel';
+                cancelBtn.onclick = () => this.cancelEdit();
+                editBtn.parentElement.insertBefore(cancelBtn, editBtn.nextSibling);
+            }
+            
+            // Disable other buttons during editing
+            if (copyBtn) copyBtn.disabled = true;
+            if (regenerateBtn) regenerateBtn.disabled = true;
+        } else {
+            // Restore normal edit button
+            editBtn.innerHTML = '✏️ Edit Content';
+            editBtn.onclick = () => this.startEditMode();
+            
+            // Remove cancel button
+            const cancelBtn = document.getElementById('cancel-edit-btn');
+            if (cancelBtn) cancelBtn.remove();
+            
+            // Re-enable other buttons
+            if (copyBtn) copyBtn.disabled = false;
+            if (regenerateBtn) regenerateBtn.disabled = false;
+        }
+    }
+
+    // Save edited content
+    saveEditedContent() {
+        const textarea = document.getElementById('content-editor');
+        if (!textarea) {
+            this.showError('Editor not found');
+            return;
+        }
+
+        const editedContent = textarea.value.trim();
+        if (!editedContent) {
+            this.showError('Content cannot be empty');
+            return;
+        }
+
+        // Update current post with edited content
+        this.currentPost.post = editedContent;
+        
+        // Restore the content display
+        const contentDiv = textarea.parentElement;
+        contentDiv.innerHTML = `<div class="text-[#0d151c] text-base font-normal leading-normal whitespace-pre-wrap mb-4">${this.formatPostText(editedContent)}</div>`;
+        
+        // Update buttons back to normal mode
+        this.updateEditButtons(false);
+        
+        this.showSuccess('✅ Content updated successfully!');
+        console.log('💾 Content saved');
+    }
+
+    // Cancel editing and restore original content
+    cancelEdit() {
+        if (!this.originalContent) {
+            this.showError('Original content not found');
+            return;
+        }
+
+        // Find the content div and restore original content
+        const contentDiv = document.querySelector('#content-editor').parentElement;
+        contentDiv.innerHTML = `<div class="text-[#0d151c] text-base font-normal leading-normal whitespace-pre-wrap mb-4">${this.formatPostText(this.originalContent)}</div>`;
+        
+        // Update buttons back to normal mode
+        this.updateEditButtons(false);
+        
+        console.log('❌ Edit cancelled');
+    }
+
     // Refresh image for the current generated content
     async refreshImage(topic) {
         if (!topic) {
@@ -3112,6 +3261,10 @@ class EmploymentApp {
             this.regenerateBtn.style.display = 'inline-flex';
             console.log('✅ Regenerate button shown');
         }
+        
+        // Add edit button if it doesn't exist
+        this.addEditButton();
+        
         if (this.postOptions) {
             this.postOptions.style.display = 'block';
             console.log('✅ Post options shown');
@@ -4087,6 +4240,83 @@ function closeEditQueueModal() {
         window.employment.closeEditQueueModal();
     }
 }
+
+// Add custom topic to automation topic pool
+function addCustomTopic() {
+    const input = document.getElementById('customTopicInput');
+    if (!input) return;
+    
+    const customTopic = input.value.trim();
+    if (!customTopic) {
+        alert('Please enter a topic name');
+        return;
+    }
+    
+    // Check if topic already exists
+    const existingTopics = Array.from(document.querySelectorAll('#topicPool input[type="checkbox"]'))
+        .map(cb => cb.value.toLowerCase());
+    
+    if (existingTopics.includes(customTopic.toLowerCase())) {
+        alert('This topic already exists in the pool');
+        return;
+    }
+    
+    // Create new topic checkbox
+    const topicPool = document.getElementById('topicPool');
+    const label = document.createElement('label');
+    label.className = 'flex items-center gap-2 bg-[#f8fafc] border border-[#e7edf4] rounded-lg px-3 py-2 cursor-pointer hover:bg-[#e7edf4] custom-topic';
+    
+    label.innerHTML = `
+        <input type="checkbox" value="${customTopic}" class="text-[#0b80ee]" checked>
+        <span class="text-[#0d151c] text-sm font-medium">✏️ ${customTopic}</span>
+        <button type="button" onclick="removeCustomTopic(this)" 
+                class="ml-auto text-red-500 hover:text-red-700 text-xs p-1"
+                title="Remove custom topic">
+            ✕
+        </button>
+    `;
+    
+    topicPool.appendChild(label);
+    
+    // Clear input
+    input.value = '';
+    
+    // Show success message
+    if (window.employment) {
+        window.employment.showSuccess(`✅ Added "${customTopic}" to topic pool`);
+    }
+    
+    console.log('✅ Custom topic added:', customTopic);
+}
+
+// Remove custom topic from automation topic pool
+function removeCustomTopic(button) {
+    const label = button.closest('label');
+    const topicName = label.querySelector('input').value;
+    
+    if (confirm(`Remove "${topicName}" from topic pool?`)) {
+        label.remove();
+        
+        if (window.employment) {
+            window.employment.showSuccess(`🗑️ Removed "${topicName}" from topic pool`);
+        }
+        
+        console.log('🗑️ Custom topic removed:', topicName);
+    }
+}
+
+// Handle Enter key in custom topic input
+document.addEventListener('DOMContentLoaded', function() {
+    const customTopicInput = document.getElementById('customTopicInput');
+    if (customTopicInput) {
+        customTopicInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCustomTopic();
+            }
+        });
+    }
+});
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {

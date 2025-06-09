@@ -2900,8 +2900,11 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('❌ Error generating post:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Request body:', req.body);
     res.status(500).json({ 
-      error: 'Failed to generate post. Please try again.' 
+      error: 'Failed to generate post. Please try again.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
