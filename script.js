@@ -3414,12 +3414,12 @@ class EmploymentApp {
                     <div class="loading-spinner"></div>
                     <div class="loading-steps">
                         <div class="loading-step active" data-step="search">
-                            <span class="step-icon">🔍</span>
-                            <span class="step-text">Searching for articles about "${topic.substring(0, 40)}${topic.length > 40 ? '...' : ''}"</span>
+                            <span class="step-icon">📰</span>
+                            <span class="step-text">Searching Google News for "${topic.substring(0, 40)}${topic.length > 40 ? '...' : ''}"</span>
                         </div>
-                        <div class="loading-step" data-step="scrape">
+                        <div class="loading-step" data-step="extract">
                             <span class="step-icon">📄</span>
-                            <span class="step-text">Analyzing web content...</span>
+                            <span class="step-text">Extracting full article content...</span>
                         </div>
                         <div class="loading-step" data-step="generate">
                             <span class="step-icon">✨</span>
@@ -3427,7 +3427,7 @@ class EmploymentApp {
                         </div>
                     </div>
                     <div class="loading-note">
-                        This may take 15-30 seconds as we research multiple sources
+                        This may take 15-30 seconds as we analyze multiple news articles
                     </div>
                 </div>
             `;

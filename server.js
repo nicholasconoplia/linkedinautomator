@@ -4786,52 +4786,168 @@ async function performWebResearch(topic, searchDepth = 5) {
   try {
     console.log(`🔍 Starting BYOB web research for: ${topic}`);
     
-    // Check Google API configuration first
-    if (!process.env.GOOGLE_API_KEY || !process.env.GOOGLE_SEARCH_ENGINE_ID) {
-      throw new Error('Google API configuration missing. Please check GOOGLE_API_KEY and GOOGLE_SEARCH_ENGINE_ID environment variables.');
+    // Check SerpAPI configuration
+    if (!process.env.SERP_API_KEY) {
+      throw new Error('SerpAPI configuration missing. Please check SERP_API_KEY environment variable.');
     }
-    console.log('✅ Google API configuration verified');
+    console.log('✅ SerpAPI configuration verified');
     
-    // Step 1: Generate optimized search terms
-    console.log('📝 Generating search terms...');
-    const searchTerms = await generateSearchTerms(topic);
-    console.log(`🎯 Search terms generated: ${searchTerms.join(', ')}`);
+    // Step 1: Search Google News directly using SerpAPI
+    console.log('📰 Searching Google News tab...');
+    const newsResults = await searchGoogleNews(topic, searchDepth);
     
-    if (!searchTerms || searchTerms.length === 0) {
-      throw new Error('Failed to generate search terms');
-    }
-    
-    // Step 2: Perform web searches for each term
-    let allResults = [];
-    for (const searchTerm of searchTerms) {
-      try {
-        console.log(`🔍 Searching for: "${searchTerm}"`);
-        const results = await performGoogleSearch(searchTerm, searchDepth);
-        allResults = allResults.concat(results);
-        console.log(`📊 Found ${results.length} results for "${searchTerm}"`);
-      } catch (error) {
-        console.warn(`⚠️ Search failed for term "${searchTerm}":`, error.message);
-      }
-    }
-    
-    if (allResults.length === 0) {
-      console.log('❌ No search results found across all search terms');
+    if (!newsResults || newsResults.length === 0) {
+      console.log('❌ No news articles found');
       return [];
     }
     
-    console.log(`📊 Total search results collected: ${allResults.length}`);
+    console.log(`📊 Found ${newsResults.length} news articles`);
     
-    // Step 3: Scrape and summarize web content
-    console.log('📄 Processing web content...');
-    const researchData = await processWebContent(allResults, topic, Math.min(searchDepth, 5));
+    // Step 2: Extract full content from news articles
+    console.log('📄 Extracting article content...');
+    const researchData = await processNewsArticles(newsResults, topic, Math.min(searchDepth, 5));
     
-    console.log(`✅ BYOB research complete: ${researchData.length} sources processed`);
+    console.log(`✅ BYOB research complete: ${researchData.length} articles processed`);
     return researchData;
     
   } catch (error) {
     console.error('❌ BYOB web research failed:', error);
     console.error('❌ Research error stack:', error.stack);
     throw error;
+  }
+}
+
+// SerpAPI Google News Search Function
+async function searchGoogleNews(topic, maxResults = 5) {
+  try {
+    const serpApiKey = process.env.SERP_API_KEY;
+    console.log(`📰 Searching Google News for: "${topic}"`);
+    
+    const searchParams = {
+      q: topic,
+      tbm: 'nws', // Google News tab
+      api_key: serpApiKey,
+      num: Math.min(maxResults, 10), // Limit results
+      hl: 'en', // English language
+      gl: 'us', // Global results (can be changed based on topic)
+      tbs: 'qdr:m6' // Last 6 months
+    };
+    
+    const response = await axios.get('https://serpapi.com/search.json', {
+      params: searchParams,
+      timeout: 10000
+    });
+
+    const newsResults = response.data.news_results || [];
+    
+    console.log(`📊 SerpAPI returned ${newsResults.length} news articles`);
+    
+    // Format results to match our expected structure
+    return newsResults.map(article => ({
+      title: article.title,
+      link: article.link,
+      snippet: article.snippet || article.excerpt || '',
+      source: article.source,
+      date: article.date,
+      thumbnail: article.thumbnail
+    }));
+    
+  } catch (error) {
+    console.error('❌ SerpAPI search failed:', error.message);
+    return [];
+  }
+}
+
+// Process news articles using Mercury Parser
+async function processNewsArticles(newsResults, originalTopic, maxSources = 5) {
+  const researchData = [];
+  const processedUrls = new Set();
+  
+  console.log(`📄 Processing ${Math.min(newsResults.length, maxSources)} news articles`);
+  
+  for (let i = 0; i < Math.min(newsResults.length, maxSources); i++) {
+    const article = newsResults[i];
+    
+    if (!article.link || processedUrls.has(article.link)) {
+      continue;
+    }
+    
+    try {
+      console.log(`📄 Processing: ${article.title}`);
+      console.log(`📄 URL: ${article.link}`);
+      console.log(`📄 Source: ${article.source}`);
+      processedUrls.add(article.link);
+      
+      // Extract full article content using Mercury Parser
+      const fullContent = await extractArticleContent(article.link);
+      if (!fullContent || fullContent.length < 50) {
+        console.log(`⏭️ Skipping - no readable content (${fullContent?.length || 0} chars)`);
+        continue;
+      }
+      
+      // Summarize content relevant to original topic
+      const summary = await summarizeWebContent(fullContent, originalTopic);
+      if (!summary || summary.length < 10) {
+        console.log(`⏭️ Skipping - no meaningful summary`);
+        continue;
+      }
+      
+      researchData.push({
+        title: article.title,
+        url: article.link,
+        snippet: article.snippet,
+        summary: summary,
+        source: article.source,
+        publishedAt: article.date || new Date().toISOString(),
+        contentLength: fullContent.length,
+        thumbnail: article.thumbnail
+      });
+      
+      console.log(`✅ Successfully processed: ${article.title} (${fullContent.length} chars, ${summary.length} char summary)`);
+      
+    } catch (error) {
+      console.warn(`⚠️ Failed to process ${article.link}:`, error.message);
+      continue;
+    }
+  }
+  
+  console.log(`🎯 Final research data: ${researchData.length} high-quality articles processed`);
+  return researchData;
+}
+
+// Extract article content using Mercury Parser
+async function extractArticleContent(url) {
+  try {
+    console.log(`🌐 Extracting content from: ${url}`);
+    
+    // Import Mercury Parser (now @postlight/parser)
+    const Mercury = require('@postlight/parser');
+    
+    const result = await Mercury.parse(url);
+    
+    if (!result || !result.content) {
+      console.log(`⚠️ Mercury Parser returned no content for ${url}`);
+      return null;
+    }
+    
+    // Clean HTML and extract text
+    const cheerio = require('cheerio');
+    const $ = cheerio.load(result.content);
+    
+    // Remove unwanted elements
+    $('script, style, nav, header, footer, aside, .advertisement, .ads').remove();
+    
+    const textContent = $.text()
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
+    
+    console.log(`✅ Extracted ${textContent.length} characters from ${url}`);
+    return textContent;
+    
+  } catch (error) {
+    console.warn(`⚠️ Failed to extract content from ${url}:`, error.message);
+    return null;
   }
 }
 
