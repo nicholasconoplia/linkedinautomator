@@ -2844,15 +2844,23 @@ app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async 
     // Fetch relevant image
     const image = engagement_options.include_image !== false ? await fetchRelevantImage(topic) : null;
     
-    // Update user's post count
-    await UserDB.updateUser(req.user.email, { 
-      posts_remaining: req.user.posts_remaining - 1 
+    // Track usage (same way as regular generate post endpoint)
+    const estimatedCost = 0.00136; // $0.00136 per post as calculated
+    const estimatedTokens = 1200; // ~800 input + 400 output tokens
+    
+    await UsageDB.trackUsage(req.user.id, 'post_generation', estimatedCost, estimatedTokens, {
+      topic,
+      tone,
+      length,
+      post_type: 'research_based',
+      research_sources_count: researchData.length,
+      timestamp: new Date().toISOString()
     });
     
     console.log('✅ BYOB research post generated successfully');
     console.log(`📊 Sources used: ${researchData.length}`);
     console.log(`📄 Post length: ${result.post.length} characters`);
-    console.log(`🔢 Posts remaining: ${req.user.posts_remaining - 1}`);
+    console.log(`💰 Tracked usage for user ${req.user.id}: $${estimatedCost} (research_based)`);
 
     res.json({
       success: true,
@@ -2869,7 +2877,6 @@ app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async 
           publishedAt: new Date().toISOString()
         }
       },
-      posts_remaining: req.user.posts_remaining - 1,
       research_stats: {
         sources_found: researchData.length,
         total_characters_analyzed: researchData.reduce((sum, item) => sum + (item.summary?.length || 0), 0)
