@@ -2662,7 +2662,7 @@ class EmploymentApp {
         console.log('📝 Form values:', { topic, tone, length, contentType, engagementOptions });
         
         // Validate based on content type
-        if (contentType === 'news' || contentType === 'viral') {
+        if (contentType === 'news' || contentType === 'viral' || contentType === 'research') {
             if (!topic) {
                 this.showError('Please enter a topic or select from popular topics');
                 return;
@@ -2701,6 +2701,10 @@ class EmploymentApp {
                 case 'news':
                     console.log(`🎯 Generating news-based content for: ${topic}`);
                     await this.generatePost(topic, tone, length, engagementOptions);
+                    break;
+                case 'research':
+                    console.log(`🔍 Generating research-based content for: ${topic}`);
+                    await this.generateResearchPost(topic, tone, length, engagementOptions);
                     break;
                 case 'viral':
                     const viralFormat = document.getElementById('viralFormat')?.value || 'open-loop';
@@ -2742,13 +2746,18 @@ class EmploymentApp {
         const viralTemplates = document.getElementById('viralTemplates');
         const tweetInput = document.getElementById('tweetInput');
         const manualInput = document.getElementById('manualInput');
+        const researchExplanation = document.getElementById('researchExplanation');
         
         if (viralTemplates) viralTemplates.style.display = 'none';
         if (tweetInput) tweetInput.style.display = 'none';
         if (manualInput) manualInput.style.display = 'none';
+        if (researchExplanation) researchExplanation.style.display = 'none';
         
         // Show relevant section based on content type
         switch (contentType) {
+            case 'research':
+                if (researchExplanation) researchExplanation.style.display = 'block';
+                break;
             case 'viral':
                 if (viralTemplates) viralTemplates.style.display = 'block';
                 break;
@@ -3202,6 +3211,34 @@ class EmploymentApp {
                         <p class="text-[#49749c] text-sm">
                             Transformed into professional LinkedIn format
                         </p>
+                    </div>
+                </div>
+            `;
+        } else if (data.post_type === 'research_based' && data.research_sources) {
+            // Research-based content with multiple sources
+            contentHTML += `
+                <div class="bg-white rounded-xl border border-[#cedce8] p-4 mb-4">
+                    <h3 class="text-[#0d151c] text-lg font-bold leading-tight mb-3">🔍 Research Sources (${data.research_sources.length})</h3>
+                    <div class="space-y-3">
+                        ${data.research_sources.slice(0, 3).map((source, index) => `
+                            <div class="bg-[#f8fafc] rounded-lg p-3">
+                                <div class="flex items-start gap-3">
+                                    <div class="text-blue-600 font-bold text-sm">${index + 1}</div>
+                                    <div class="flex-1">
+                                        <h4 class="text-[#0d151c] font-semibold text-sm mb-1">${source.title}</h4>
+                                        <p class="text-[#49749c] text-xs mb-2">${source.summary.substring(0, 120)}...</p>
+                                        <a href="${source.url}" target="_blank" rel="noopener" class="text-[#0b80ee] hover:underline text-xs">
+                                            ${source.source} →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${data.research_sources.length > 3 ? `
+                            <div class="text-center">
+                                <span class="text-[#49749c] text-sm">+ ${data.research_sources.length - 3} more sources analyzed</span>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -4071,6 +4108,97 @@ class EmploymentApp {
             }
         } catch (error) {
             console.error('❌ Error repurposing tweet:', error);
+            throw error;
+        }
+    }
+
+    async generateResearchPost(topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
+        try {
+            // Store current topic for image refresh
+            this.currentTopic = topic;
+            
+            // Get auth token from localStorage or cookie
+            const authToken = this.getAuthToken();
+            
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Add authorization header if token is available
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            const requestData = {
+                topic,
+                tone,
+                length,
+                engagement_options: engagementOptions
+            };
+            
+            console.log('📤 Sending request to generate research post:', requestData);
+            
+            const response = await fetch('/api/generate-research-post', {
+                method: 'POST',
+                headers,
+                credentials: 'include',
+                body: JSON.stringify(requestData)
+            });
+            
+            if (!response.ok) {
+                let errorData = {};
+                try {
+                    const text = await response.text();
+                    if (text && text !== "undefined" && text.trim() !== "") {
+                        errorData = JSON.parse(text);
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse error response:', parseError);
+                    errorData = { error: 'Server error occurred' };
+                }
+                
+                // Check if it's a subscription limit error
+                if (response.status === 403 && errorData.needsUpgrade) {
+                    await this.showSubscriptionModal();
+                    throw new Error(errorData.error || 'Subscription limit reached');
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Unknown error'}`);
+            }
+            
+            let data;
+            try {
+                const text = await response.text();
+                if (text && text !== "undefined" && text.trim() !== "") {
+                    data = JSON.parse(text);
+                } else {
+                    throw new Error('Empty or invalid response from server');
+                }
+            } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error('Invalid response from server');
+            }
+            
+            if (data.success && data.data) {
+                this.currentPost = {
+                    post: data.data.post,
+                    image: data.data.image,
+                    article: data.data.article,
+                    research_sources: data.data.research_sources
+                };
+                this.currentImageUrl = data.data.image?.url;
+                this.currentArticleData = data.data.article;
+                
+                this.displayGeneratedContent(data.data);
+                this.showSuccess(`Research-based content generated from ${data.research_stats.sources_found} sources!`);
+                
+                console.log('✅ Research post generated successfully');
+                console.log(`📊 Research stats:`, data.research_stats);
+            } else {
+                throw new Error(data.error || 'Failed to generate research-based content');
+            }
+        } catch (error) {
+            console.error('❌ Error generating research post:', error);
             throw error;
         }
     }

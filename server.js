@@ -2801,6 +2801,89 @@ app.get('/manage-subscription', (req, res) => {
 // EXISTING GENERATE POST ROUTE (Updated)
 // ====================
 
+// Generate research-based post endpoint (BYOB)
+app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async (req, res) => {
+  try {
+    const { topic, tone = 'professional', length = 'medium', engagement_options = {} } = req.body;
+    
+    if (!topic) {
+      return res.status(400).json({ error: 'Topic is required' });
+    }
+
+    console.log('🔬 ===== BYOB Research Generation Started =====');
+    console.log(`👤 User: ${req.user.name} (${req.user.email})`);
+    console.log(`📝 Topic: "${topic}"`);
+    console.log(`🎯 Tone: ${tone}, Length: ${length}`);
+    console.log(`⚙️ Engagement options:`, engagement_options);
+
+    // Check user's post limit
+    if (req.user.posts_remaining <= 0) {
+      console.log('❌ User has no posts remaining');
+      return res.status(403).json({ 
+        error: 'Post limit reached. Please upgrade your plan.',
+        posts_remaining: 0
+      });
+    }
+
+    // Perform comprehensive web research
+    console.log('🔍 Starting comprehensive web research...');
+    const researchData = await performWebResearch(topic, 5);
+    
+    if (!researchData || researchData.length === 0) {
+      console.log('⚠️ No research data found, falling back to general post');
+      return res.status(400).json({ 
+        error: 'Unable to find sufficient research data for this topic. Try using the regular generator.' 
+      });
+    }
+
+    // Generate RAG post from research
+    console.log(`📊 Generating research-based post from ${researchData.length} sources`);
+    const result = await generateRAGPost(researchData, topic, tone, length, engagement_options);
+    
+    // Fetch relevant image
+    const image = engagement_options.include_image !== false ? await fetchRelevantImage(topic) : null;
+    
+    // Update user's post count
+    await UserDB.updateUser(req.user.email, { 
+      posts_remaining: req.user.posts_remaining - 1 
+    });
+    
+    console.log('✅ BYOB research post generated successfully');
+    console.log(`📊 Sources used: ${researchData.length}`);
+    console.log(`📄 Post length: ${result.post.length} characters`);
+    console.log(`🔢 Posts remaining: ${req.user.posts_remaining - 1}`);
+
+    res.json({
+      success: true,
+      data: {
+        post: result.post,
+        image: image,
+        post_type: 'research_based',
+        topic: topic,
+        research_sources: researchData,
+        article: {
+          title: `Research: ${topic}`,
+          url: researchData[0]?.url || '',
+          source: `${researchData.length} Web Sources`,
+          publishedAt: new Date().toISOString()
+        }
+      },
+      posts_remaining: req.user.posts_remaining - 1,
+      research_stats: {
+        sources_found: researchData.length,
+        total_characters_analyzed: researchData.reduce((sum, item) => sum + (item.summary?.length || 0), 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error in /api/generate-research-post:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate research-based post', 
+      details: error.message 
+    });
+  }
+});
+
 app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
   try {
     const { 
@@ -2918,8 +3001,9 @@ async function generatePost(topic, tone, length = 'medium', engagementOptions = 
     let selectedArticle = null;
     let post;
     let articleData = null;
+    let researchData = null;
 
-    // Step 1: Try to fetch news articles
+    // Step 1: Try to fetch news articles first
     try {
       const articles = await fetchNewsArticles(topic);
       if (articles && articles.length > 0) {
@@ -2930,7 +3014,7 @@ async function generatePost(topic, tone, length = 'medium', engagementOptions = 
     }
 
     if (selectedArticle) {
-      // Step 2: Generate LinkedIn post with news article
+      // Step 2a: Generate LinkedIn post with news article
       console.log('📰 Generating content based on article:', selectedArticle.title);
       post = await generateLinkedInPost(selectedArticle, topic, tone, length, engagementOptions);
       
@@ -2941,7 +3025,32 @@ async function generatePost(topic, tone, length = 'medium', engagementOptions = 
         publishedAt: selectedArticle.publishedAt
       };
     } else {
-      // Step 3: Generate general topic-based content
+      // Step 2b: Try BYOB web research for comprehensive content
+      try {
+        console.log('🔍 Attempting BYOB web research...');
+        researchData = await performWebResearch(topic, 5);
+        
+        if (researchData && researchData.length > 0) {
+          console.log(`📊 Generating research-based content from ${researchData.length} sources`);
+          const ragResult = await generateRAGPost(researchData, topic, tone, length, engagementOptions);
+          post = ragResult.post;
+          
+          // Use research data for article info
+          articleData = {
+            title: `Research: ${topic}`,
+            url: researchData[0]?.url || '',
+            source: `${researchData.length} Web Sources`,
+            publishedAt: new Date().toISOString(),
+            research_sources: researchData
+          };
+        }
+      } catch (researchError) {
+        console.warn('⚠️ BYOB web research failed:', researchError.message);
+      }
+    }
+
+    if (!post) {
+      // Step 3: Fallback to general topic-based content
       console.log('💡 Generating general content for topic:', topic);
       post = await generateGeneralPost(topic, tone, length, engagementOptions);
     }
@@ -2949,12 +3058,18 @@ async function generatePost(topic, tone, length = 'medium', engagementOptions = 
     // Step 4: Fetch relevant image (only if requested)
     const image = engagementOptions.include_image !== false ? await fetchRelevantImage(topic) : null;
     
+    // Determine post type
+    let postType = 'general';
+    if (selectedArticle) postType = 'news';
+    else if (researchData && researchData.length > 0) postType = 'research_based';
+    
     return {
       post: post,
       article: articleData,
       image: image,
-      post_type: selectedArticle ? 'news' : 'general',
-      topic: topic
+      post_type: postType,
+      topic: topic,
+      research_sources: researchData || undefined
     };
   } catch (error) {
     console.error('❌ Error in generatePost:', error);
@@ -3353,7 +3468,10 @@ async function callOpenAI(prompt, contentType = 'linkedin_post') {
       linkedin_post: 'You are a LinkedIn content creator who writes engaging posts that spark conversation and provide value to a professional audience.',
       viral_content: 'You are a viral content expert who creates LinkedIn posts using psychological hooks and engagement strategies that drive maximum interaction.',
       tweet_repurpose: 'You are a social media strategist who expertly adapts viral Twitter content for LinkedIn\'s professional audience while maintaining engagement.',
-      manual_content: 'You are a professional content creator who transforms ideas and raw content into polished, engaging LinkedIn posts.'
+      manual_content: 'You are a professional content creator who transforms ideas and raw content into polished, engaging LinkedIn posts.',
+      research_helper: 'You are a research assistant who generates optimized search terms for comprehensive web research.',
+      research_summarizer: 'You are an expert content analyst who summarizes web content for professional social media use.',
+      research_post: 'You are a LinkedIn thought leader who creates insightful posts based on comprehensive research from multiple sources.'
     };
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -4638,3 +4756,315 @@ app.get('/test-migrate', (req, res) => {
     routes_working: true
   });
 });
+
+// BYOB (Bring Your Own Browser) Web Research Functions
+async function performWebResearch(topic, searchDepth = 5) {
+  try {
+    console.log(`🔍 Starting BYOB web research for: ${topic}`);
+    
+    // Step 1: Generate optimized search terms
+    const searchTerms = await generateSearchTerms(topic);
+    console.log(`🎯 Search terms generated: ${searchTerms.join(', ')}`);
+    
+    // Step 2: Perform web searches for each term
+    let allResults = [];
+    for (const searchTerm of searchTerms) {
+      try {
+        const results = await performGoogleSearch(searchTerm, searchDepth);
+        allResults = allResults.concat(results);
+      } catch (error) {
+        console.warn(`⚠️ Search failed for term "${searchTerm}":`, error.message);
+      }
+    }
+    
+    // Step 3: Scrape and summarize web content
+    const researchData = await processWebContent(allResults, topic, searchDepth);
+    
+    console.log(`✅ BYOB research complete: ${researchData.length} sources processed`);
+    return researchData;
+    
+  } catch (error) {
+    console.error('❌ BYOB web research failed:', error);
+    throw error;
+  }
+}
+
+async function generateSearchTerms(topic) {
+  try {
+    const prompt = `Generate 3-4 specific search terms for comprehensive research on: "${topic}"
+
+Requirements:
+- Include the main topic term
+- Add related terms for broader coverage  
+- Consider different angles (trends, analysis, news, case studies)
+- Make terms Google-search friendly (3-5 words each)
+- Separate each term with a comma
+
+Examples:
+Input: "AI in healthcare"
+Output: AI healthcare applications, medical AI trends, healthcare artificial intelligence, AI healthcare case studies
+
+Input: "Remote work productivity" 
+Output: remote work productivity, work from home effectiveness, distributed team management, remote collaboration tools
+
+Generate search terms for: "${topic}"`;
+
+    const response = await callOpenAI(prompt, 'research_helper');
+    const searchTerms = response.split(',').map(term => term.trim()).filter(term => term.length > 0);
+    
+    return searchTerms.slice(0, 4); // Limit to 4 terms to avoid rate limits
+  } catch (error) {
+    console.warn('⚠️ Failed to generate search terms, using original topic');
+    return [topic];
+  }
+}
+
+async function performGoogleSearch(searchTerm, depth = 5) {
+  try {
+    const googleApiKey = process.env.GOOGLE_API_KEY;
+    const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+    
+    if (!googleApiKey || !searchEngineId) {
+      throw new Error('Google API credentials not configured');
+    }
+
+    console.log(`🔍 Searching Google for: "${searchTerm}"`);
+    
+    const searchParams = {
+      key: googleApiKey,
+      cx: searchEngineId,
+      q: searchTerm,
+      sort: 'date',
+      num: Math.min(depth, 10), // Google API limit is 10
+      dateRestrict: 'd30' // Last 30 days for fresher content
+    };
+    
+    const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
+      params: searchParams
+    });
+
+    if (!response.data.items || response.data.items.length === 0) {
+      // Try broader search without date restriction
+      delete searchParams.dateRestrict;
+      const broadResponse = await axios.get('https://www.googleapis.com/customsearch/v1', {
+        params: searchParams
+      });
+      
+      if (!broadResponse.data.items) {
+        return [];
+      }
+      
+      return broadResponse.data.items;
+    }
+
+    return response.data.items;
+  } catch (error) {
+    console.error(`❌ Google search failed for "${searchTerm}":`, error.message);
+    return [];
+  }
+}
+
+async function processWebContent(searchResults, originalTopic, maxSources = 5) {
+  const researchData = [];
+  const processedUrls = new Set(); // Avoid duplicates
+  
+  // Sort by relevance/recency and take top results
+  const topResults = searchResults
+    .filter(item => item.link && !processedUrls.has(item.link))
+    .slice(0, maxSources);
+  
+  for (const item of topResults) {
+    try {
+      console.log(`📄 Processing: ${item.title}`);
+      processedUrls.add(item.link);
+      
+      // Scrape webpage content
+      const webContent = await scrapeWebContent(item.link);
+      if (!webContent) continue;
+      
+      // Summarize content relevant to original topic
+      const summary = await summarizeWebContent(webContent, originalTopic);
+      if (!summary) continue;
+      
+      researchData.push({
+        title: item.title,
+        url: item.link,
+        snippet: item.snippet,
+        summary: summary,
+        source: item.displayLink || new URL(item.link).hostname,
+        publishedAt: item.pagemap?.metatags?.[0]?.['article:published_time'] || new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.warn(`⚠️ Failed to process ${item.link}:`, error.message);
+      continue;
+    }
+  }
+  
+  return researchData;
+}
+
+async function scrapeWebContent(url, maxTokens = 50000) {
+  try {
+    console.log(`🌐 Scraping content from: ${url}`);
+    
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    };
+    
+    const response = await axios.get(url, { 
+      headers,
+      timeout: 10000,
+      maxRedirects: 5
+    });
+    
+    // Parse HTML content
+    const cheerio = require('cheerio');
+    const $ = cheerio.load(response.data);
+    
+    // Remove scripts, styles, and other non-content elements
+    $('script, style, nav, header, footer, aside, .advertisement, .ads, .sidebar').remove();
+    
+    // Extract main content - try common content selectors
+    let content = '';
+    const contentSelectors = [
+      'article',
+      '[role="main"]',
+      '.content',
+      '.post-content', 
+      '.entry-content',
+      '.article-content',
+      'main',
+      '.main-content'
+    ];
+    
+    for (const selector of contentSelectors) {
+      const element = $(selector);
+      if (element.length > 0) {
+        content = element.text();
+        break;
+      }
+    }
+    
+    // Fallback to body if no specific content found
+    if (!content || content.length < 100) {
+      content = $('body').text();
+    }
+    
+    // Clean and truncate content
+    content = content
+      .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+      .replace(/\n\s*\n/g, '\n') // Remove empty lines
+      .trim();
+    
+    // Truncate to token limit (approximate)
+    const characters = maxTokens * 4;
+    if (content.length > characters) {
+      content = content.substring(0, characters) + '...';
+    }
+    
+    console.log(`✅ Scraped ${content.length} characters from ${url}`);
+    return content;
+    
+  } catch (error) {
+    console.warn(`⚠️ Failed to scrape ${url}:`, error.message);
+    return null;
+  }
+}
+
+async function summarizeWebContent(content, originalTopic, characterLimit = 800) {
+  try {
+    const prompt = `You are an AI research assistant. Summarize the following web content as it relates to "${originalTopic}".
+
+Requirements:
+- Focus on insights, data, trends, and key points relevant to "${originalTopic}"
+- Maximum ${characterLimit} characters
+- Use clear, professional language suitable for LinkedIn content
+- Include specific facts, statistics, or quotes if available
+- Ignore irrelevant content like navigation, ads, or unrelated topics
+
+Web Content:
+${content}
+
+Summary:`;
+
+    const summary = await callOpenAI(prompt, 'research_summarizer');
+    
+    // Ensure we don't exceed character limit
+    if (summary.length > characterLimit) {
+      return summary.substring(0, characterLimit - 3) + '...';
+    }
+    
+    return summary;
+    
+  } catch (error) {
+    console.error('❌ Content summarization failed:', error);
+    return null;
+  }
+}
+
+async function generateRAGPost(researchData, topic, tone, length = 'medium', engagementOptions = {}) {
+  try {
+    console.log(`🎯 Generating RAG post from ${researchData.length} research sources`);
+    
+    // Prepare research context
+    const researchContext = researchData.map((item, index) => 
+      `Source ${index + 1}: ${item.title}
+Summary: ${item.summary}
+URL: ${item.url}`
+    ).join('\n\n');
+    
+    const lengthGuide = {
+      short: '50-100 words, punchy and direct',
+      medium: '100-200 words, balanced with insights',
+      long: '200-300 words, comprehensive analysis'
+    };
+    
+    let prompt = `Create a LinkedIn post about "${topic}" based on the following research data:
+
+${researchContext}
+
+Instructions:
+- Synthesize insights from multiple sources into one cohesive post
+- Include specific data points, trends, or insights from the research
+- Write in ${tone} tone
+- Length: ${lengthGuide[length] || lengthGuide.medium}
+- Format for LinkedIn with appropriate line breaks
+- Don't use hashtags (LinkedIn algorithm doesn't favor them)
+- Make it engaging and valuable for a professional audience`;
+
+    // Add engagement options
+    if (engagementOptions.curiosity_hook) {
+      prompt += `\n- Start with an attention-grabbing hook or surprising insight`;
+    }
+    
+    if (engagementOptions.strong_opinion) {
+      prompt += `\n- Include a thought-provoking perspective or contrarian view`;
+    }
+    
+    if (engagementOptions.soft_cta) {
+      prompt += `\n- End with a question to encourage engagement`;
+    }
+
+    prompt += `\n\nGenerate the LinkedIn post:`;
+
+    let post = await callOpenAI(prompt, 'research_post');
+    
+    // Clean markdown formatting
+    post = post.replace(/\*\*(.*?)\*\*/g, '$1');
+    post = post.replace(/\*(.*?)\*/g, '$1');
+    post = post.replace(/__(.*?)__/g, '$1');
+    post = post.replace(/_(.*?)_/g, '$1');
+    
+    return {
+      post: post,
+      research_sources: researchData,
+      post_type: 'research_based',
+      topic: topic
+    };
+    
+  } catch (error) {
+    console.error('❌ RAG post generation failed:', error);
+    throw error;
+  }
+}
