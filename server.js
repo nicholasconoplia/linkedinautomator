@@ -4980,55 +4980,116 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
     const keywordsList = requiredKeywords ? requiredKeywords.toLowerCase().split(',').map(k => k.trim()).filter(k => k) : [];
     console.log(`🔍 Parsed keywords:`, keywordsList);
     
-    // Expanded RSS sources for variety (randomize order each time)
+    // Universal RSS sources covering diverse topics (randomize order each time)
     const allRSSFeeds = [
+      // BUSINESS & FINANCE
       { 
-        name: 'SmartCompany', 
-        url: 'https://www.smartcompany.com.au/feed/',
-        keywords: ['asx', 'ipo', 'listing', 'startup', 'business', 'flotation', 'public offering'],
-        requiredTerms: ['ipo', 'listing', 'asx', 'business', 'market']
+        name: 'Reuters Business', 
+        url: 'https://feeds.reuters.com/reuters/businessNews',
+        categories: ['business', 'finance', 'economy', 'market', 'company'],
+        isUniversal: false
       },
       { 
-        name: 'The Motley Fool Australia', 
-        url: 'https://www.fool.com.au/feed/',
-        keywords: ['asx', 'ipo', 'listing', 'stock', 'shares', 'investment', 'market'],
-        requiredTerms: ['asx', 'ipo', 'listing', 'shares', 'investment']
+        name: 'BBC Business', 
+        url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
+        categories: ['business', 'finance', 'economy', 'market'],
+        isUniversal: false
       },
-      { 
-        name: 'Financial Review RSS', 
-        url: 'https://www.afr.com/rss/companies',
-        keywords: ['asx', 'ipo', 'listing', 'stock', 'shares', 'market', 'companies'],
-        requiredTerms: ['asx', 'ipo', 'listing', 'shares', 'market']
-      },
-      { 
-        name: 'Business Insider Australia', 
-        url: 'https://www.businessinsider.com.au/rss',
-        keywords: ['business', 'startup', 'tech', 'finance', 'asx', 'market'],
-        requiredTerms: ['business', 'startup', 'tech', 'finance']
-      },
+      
+      // TECHNOLOGY
       { 
         name: 'TechCrunch', 
         url: 'https://techcrunch.com/feed/',
-        keywords: ['startup', 'tech', 'funding', 'ipo', 'venture', 'business'],
-        requiredTerms: ['startup', 'tech', 'funding', 'business']
+        categories: ['technology', 'tech', 'startup', 'ai', 'software', 'innovation'],
+        isUniversal: false
       },
       { 
-        name: 'Fortune', 
-        url: 'https://fortune.com/feed/',
-        keywords: ['business', 'fortune', 'company', 'market', 'ipo', 'finance'],
-        requiredTerms: ['business', 'company', 'market', 'finance']
+        name: 'Ars Technica', 
+        url: 'https://feeds.arstechnica.com/arstechnica/index',
+        categories: ['technology', 'science', 'tech', 'research', 'innovation'],
+        isUniversal: false
+      },
+      
+      // SCIENCE & HEALTH
+      { 
+        name: 'Reuters Health', 
+        url: 'https://feeds.reuters.com/reuters/health',
+        categories: ['health', 'medical', 'medicine', 'research', 'treatment', 'study'],
+        isUniversal: false
+      },
+      { 
+        name: 'Scientific American', 
+        url: 'https://rss.sciam.com/ScientificAmerican-Global',
+        categories: ['science', 'research', 'study', 'discovery', 'breakthrough'],
+        isUniversal: false
+      },
+      
+      // ENVIRONMENT & ENERGY
+      { 
+        name: 'Reuters Environment', 
+        url: 'https://feeds.reuters.com/reuters/environment',
+        categories: ['environment', 'climate', 'energy', 'renewable', 'sustainability'],
+        isUniversal: false
+      },
+      
+      // GENERAL NEWS (UNIVERSAL - works for any topic)
+      { 
+        name: 'Reuters World News', 
+        url: 'https://feeds.reuters.com/Reuters/worldNews',
+        categories: ['news', 'world', 'global', 'international'],
+        isUniversal: true
+      },
+      { 
+        name: 'BBC World News', 
+        url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
+        categories: ['news', 'world', 'global', 'international'],
+        isUniversal: true
+      },
+      { 
+        name: 'Associated Press', 
+        url: 'https://feeds.apnews.com/rss/apf-topnews',
+        categories: ['news', 'breaking', 'latest', 'update'],
+        isUniversal: true
       }
     ];
     
-    // Randomize feed order for variety (use timestamp for different results each time)
-    const seed = Date.now() % 1000000; // Use timestamp for variety
-    const directRSSFeeds = allRSSFeeds.sort((a, b) => (a.name.charCodeAt(0) * seed) - (b.name.charCodeAt(0) * seed)).slice(0, 4);
-    console.log(`🎲 Selected RSS feeds for this search:`, directRSSFeeds.map(f => f.name));
+    // Smart feed selection based on topic
+    const topicLower = topic.toLowerCase();
+    let selectedFeeds = [];
+    
+    // First, try to match topic-specific feeds
+    const categoryMatches = allRSSFeeds.filter(feed => {
+      if (feed.isUniversal) return false; // Skip universal feeds for now
+      return feed.categories.some(category => 
+        topicLower.includes(category) || 
+        searchTerms.some(term => term.includes(category) || category.includes(term))
+      );
+    });
+    
+    // Always include at least 2 universal feeds for broad coverage
+    const universalFeeds = allRSSFeeds.filter(feed => feed.isUniversal);
+    
+    // Combine category-specific and universal feeds
+    selectedFeeds = [...categoryMatches.slice(0, 2), ...universalFeeds.slice(0, 2)];
+    
+    // If no category matches found, use more universal feeds
+    if (categoryMatches.length === 0) {
+      selectedFeeds = [...universalFeeds, ...allRSSFeeds.slice(0, 2)];
+    }
+    
+    // Randomize final selection for variety
+    const seed = Date.now() % 1000000;
+    const finalSelectedFeeds = selectedFeeds.sort((a, b) => (a.name.charCodeAt(0) * seed) - (b.name.charCodeAt(0) * seed)).slice(0, 4);
+    
+    console.log(`🎯 Topic analysis:`, { topic, topicLower, searchTerms });
+    console.log(`📊 Category matches found:`, categoryMatches.map(f => f.name));
+    console.log(`🌍 Universal feeds available:`, universalFeeds.map(f => f.name));
+    console.log(`🎲 Final selected RSS feeds for this search:`, finalSelectedFeeds.map(f => f.name));
     
     let allNewsResults = [];
     const searchTerms = topic.toLowerCase().split(' ');
     
-    for (const feed of directRSSFeeds) {
+    for (const feed of finalSelectedFeeds) {
       try {
         console.log(`📡 Trying ${feed.name}: ${feed.url}`);
         
@@ -5049,7 +5110,7 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
         const items = parsed.rss?.channel?.item || [];
         const articles = Array.isArray(items) ? items : [items];
         
-        // Filter articles that match our topic with strict financial content validation
+        // Universal filtering logic that works for any topic
         const relevantArticles = articles.filter(item => {
           const title = (item.title || '').toLowerCase();
           const description = (item.description || '').toLowerCase();
@@ -5062,30 +5123,33 @@ async function searchGoogleNewsFree(topic, maxResults = 5, requiredKeywords = ''
               console.log(`❌ Article rejected (missing user keywords): "${title}"`);
               return false;
             }
-          } else {
-            // Default check: Must contain at least one required financial term
-            const hasRequiredTerm = feed.requiredTerms.some(term => content.includes(term));
-            if (!hasRequiredTerm) return false;
           }
           
-          // Second check: Must not be about unrelated topics
-          const excludeTerms = ['gaza', 'israel', 'war', 'politics', 'election', 'trump', 'biden', 'climate', 'thunberg', 'flotilla', 'defence', 'military', 'alliance'];
-          const isExcluded = excludeTerms.some(term => content.includes(term));
-          if (isExcluded) {
-            console.log(`❌ Article rejected (excluded topic): "${title}"`);
+          // Second check: Exclude clearly spam/unrelated content
+          const excludeTerms = ['advertisement', 'sponsored', 'premium subscription', 'paywall'];
+          const isSpam = excludeTerms.some(term => content.includes(term));
+          if (isSpam) {
+            console.log(`❌ Article rejected (spam/promotional): "${title}"`);
             return false;
           }
           
-          // Third check: Should match topic search terms or financial keywords
+          // Third check: Must match topic search terms or feed categories
           const topicMatches = searchTerms.some(term => term.length > 2 && content.includes(term));
-          const keywordMatches = feed.keywords.some(keyword => content.includes(keyword));
+          const categoryMatches = feed.categories ? feed.categories.some(category => content.includes(category)) : false;
+          const isUniversalFeed = feed.isUniversal;
           
-          const isRelevant = topicMatches || keywordMatches;
+          // For universal feeds, be more lenient with topic matching
+          const relevanceScore = isUniversalFeed ? 
+            (topicMatches ? 1.0 : 0.3) : // Universal feeds: accept if topic matches, otherwise 30% chance
+            (topicMatches || categoryMatches ? 1.0 : 0.1); // Category feeds: must match topic or category
+          
+          const isRelevant = Math.random() < relevanceScore || topicMatches;
+          
           if (isRelevant) {
-            console.log(`✅ Article accepted: "${title}"`);
+            console.log(`✅ Article accepted: "${title}" (${feed.isUniversal ? 'universal' : 'category'} feed)`);
           }
           return isRelevant;
-        }).slice(0, 2); // Max 2 articles per feed
+        }).slice(0, 3); // Max 3 articles per feed for better variety
         
         const feedResults = relevantArticles.map(item => ({
           title: item.title,
