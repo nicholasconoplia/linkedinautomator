@@ -1924,7 +1924,9 @@ app.post('/api/credits/create-checkout', requireAuth, async (req, res) => {
     console.log('✅ Credit checkout session created:', session.id);
     
     res.json({ 
+      success: true,
       sessionId: session.id,
+      url: session.url,
       credits: credits,
       priceId: priceId
     });
