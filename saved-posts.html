@@ -65,6 +65,16 @@
                     </a>
                 </div>
             </div>
+
+            <!-- Login Required State -->
+            <div id="login-required" class="hidden text-center py-12">
+                <div class="text-6xl mb-4">🔐</div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
+                <p class="text-gray-600 mb-6">You need to be logged in to view your saved posts.</p>
+                <a href="/" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    Go to Dashboard & Login
+                </a>
+            </div>
         </main>
     </div>
 
@@ -78,6 +88,13 @@
     <script>
         // Check authentication
         const token = localStorage.getItem('token');
+        
+        function showLoginRequired() {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('posts-container').classList.add('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('login-required').classList.remove('hidden');
+        }
         
         async function validateToken() {
             try {
@@ -95,14 +112,14 @@
                 loadSavedPosts();
             } catch (error) {
                 console.error('Authentication error:', error);
-                // Only redirect if token is invalid
-                window.location.href = '/?redirect=/saved-posts';
+                // Show login required instead of redirecting
+                showLoginRequired();
             }
         }
 
         // Initialize page
         if (!token) {
-            window.location.href = '/?redirect=/saved-posts';
+            showLoginRequired();
         } else {
             validateToken();
         }
