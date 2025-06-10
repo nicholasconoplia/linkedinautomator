@@ -2860,7 +2860,19 @@ class EmploymentApp {
                 case 'research':
                     const keywords = document.getElementById('keywords')?.value?.trim() || '';
                     console.log(`🔍 Generating research-based content for: ${topic} with keywords: ${keywords}`);
-                    await this.generateResearchPost(topic, tone, length, engagementOptions, keywords);
+                    try {
+                        await this.generateResearchPost(topic, tone, length, engagementOptions, keywords);
+                    } catch (researchError) {
+                        console.log('🔄 Research generation failed, falling back to news-based content...');
+                        
+                        // Show explanation popup
+                        this.showResearchFallbackPopup(topic, researchError.message);
+                        
+                        // Automatically fall back to news-based generation
+                        console.log(`🔍 Fallback: Generating news-based content for: ${topic}`);
+                        await this.generatePost(topic, tone, length, engagementOptions);
+                        return; // Exit to avoid double error handling
+                    }
                     break;
                 case 'viral':
                     const viralFormat = document.getElementById('viralFormat')?.value || 'open-loop';
@@ -3865,6 +3877,50 @@ class EmploymentApp {
                 notification.remove();
             }
         }, 10000);
+    }
+
+    // Show research fallback popup
+    showResearchFallbackPopup(topic, errorMessage) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                <div class="flex items-center mb-4">
+                    <div class="text-3xl mr-3">🔄</div>
+                    <h2 class="text-2xl font-bold text-gray-800">Switched to News-Based</h2>
+                </div>
+                
+                <div class="mb-6 space-y-3">
+                    <p class="text-gray-600">
+                        <strong>Research mode couldn't find enough specific data for "${topic}"</strong>
+                    </p>
+                    <p class="text-sm text-gray-500 bg-gray-50 p-3 rounded">
+                        💡 <strong>Tip:</strong> Research mode works best with specific, trending topics like:
+                        <br>• "AI in workplace productivity"
+                        <br>• "Remote team leadership strategies"  
+                        <br>• "LinkedIn algorithm changes 2025"
+                    </p>
+                    <p class="text-gray-600">
+                        <strong>We've automatically generated news-based content instead!</strong>
+                    </p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <button onclick="this.closest('.fixed').remove()" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Got it!
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Auto-close after 8 seconds
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.remove();
+            }
+        }, 8000);
     }
     
     showNotification(message, type = 'success') {
