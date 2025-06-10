@@ -140,44 +140,20 @@
                 </div>
             </div>
 
-            <!-- Payment History Section -->
+            <!-- Payment History Section - Temporarily Disabled -->
+            <!-- 
             <div class="mt-8 bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-900">Payment History & Refunds</h2>
-                    <button id="loadPaymentHistoryBtn" 
-                            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                        <span class="btn-text">Load History</span>
-                        <span class="loader hidden">
-                            <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>
-                        </span>
+                <div class="text-center py-8">
+                    <div class="text-4xl mb-4">💳</div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Payment History</h3>
+                    <p class="text-gray-600 mb-4">View your payment history and request refunds through your Stripe billing portal.</p>
+                    <button id="billingPortalBtn2" 
+                            class="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-semibold">
+                        View Payment History
                     </button>
                 </div>
-                
-                <div id="paymentHistoryLoading" class="hidden text-center py-8">
-                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                    <p class="mt-2 text-gray-600">Loading payment history...</p>
-                </div>
-                
-                <div id="paymentHistoryContent" class="hidden">
-                    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 class="font-semibold text-blue-800 mb-2">🛡️ Refund Policy</h3>
-                        <p class="text-blue-700 text-sm">
-                            You can request refunds for credit purchases within 7 days if unused. 
-                            Subscription refunds are prorated based on usage. All refunds are processed automatically when eligible.
-                        </p>
-                    </div>
-                    
-                    <div id="paymentHistoryList" class="space-y-4">
-                        <!-- Payment history will be loaded here -->
-                    </div>
-                </div>
-                
-                <div id="noPaymentHistory" class="hidden text-center py-8">
-                    <div class="text-4xl mb-4">💳</div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">No Payment History</h3>
-                    <p class="text-gray-600">You haven't made any purchases yet.</p>
-                </div>
             </div>
+            -->
 
             <!-- Cancellation Notice -->
             <div class="mt-8 bg-red-50 border border-red-200 rounded-2xl p-6">
@@ -364,49 +340,8 @@
             }
         });
 
-        // Handle payment history loading
-        document.getElementById('loadPaymentHistoryBtn').addEventListener('click', async function() {
-            const button = this;
-            const btnText = button.querySelector('.btn-text');
-            const loader = button.querySelector('.loader');
-            
-            // Show loading state
-            btnText.textContent = 'Loading...';
-            loader.classList.remove('hidden');
-            button.disabled = true;
-            
-            document.getElementById('paymentHistoryLoading').classList.remove('hidden');
-            
-            try {
-                console.log('🔍 Attempting to load payment history...');
-                const response = await fetch('/api/payments/history', {
-                    credentials: 'include'
-                });
-                
-                console.log('📡 Payment history response status:', response.status);
-                console.log('📡 Payment history response ok:', response.ok);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ Payment history error response:', errorText);
-                    throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to load payment history'}`);
-                }
-                
-                const data = await response.json();
-                console.log('✅ Payment history loaded successfully:', data);
-                displayPaymentHistory(data);
-                
-            } catch (error) {
-                console.error('❌ Error loading payment history:', error);
-                alert('Failed to load payment history: ' + error.message);
-            } finally {
-                // Reset button state
-                btnText.textContent = 'Load History';
-                loader.classList.add('hidden');
-                button.disabled = false;
-                document.getElementById('paymentHistoryLoading').classList.add('hidden');
-            }
-        });
+        // Payment history temporarily disabled due to API routing issues
+        // Users can access payment history through Stripe billing portal
         
         function displayPaymentHistory(data) {
             const historyList = document.getElementById('paymentHistoryList');
