@@ -440,10 +440,10 @@
                                         <p class="text-[#49749c] text-sm font-normal leading-normal">Status</p>
                                         <p class="text-[#0d151c] text-sm font-normal leading-normal" id="subscriptionStatus">Active</p>
                                     </div>
-                                    <div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#cedce8] py-5">
-                                        <p class="text-[#49749c] text-sm font-normal leading-normal">Posts Remaining</p>
-                                        <p class="text-[#0d151c] text-sm font-normal leading-normal" id="postsRemaining">25/30</p>
-                                    </div>
+                                                        <div class="col-span-2 grid grid-cols-subgrid border-t border-t-[#cedce8] py-5">
+                        <p class="text-[#49749c] text-sm font-normal leading-normal">Credits Remaining</p>
+                        <p class="text-[#0d151c] text-sm font-normal leading-normal" id="creditsRemaining">Loading...</p>
+                    </div>
                                 </div>
                                 <div class="flex px-4 py-3 justify-start gap-3">
                                     <a href="/manage-subscription" id="manageSubBtn" style="display: none;" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#0b80ee] text-white text-sm font-bold leading-normal tracking-[0.015em]">
@@ -714,9 +714,20 @@
             try {
                 const sessionId = urlParams.get('session_id');
                 const credits = parseInt(urlParams.get('credits')) || 25;
-                const packType = urlParams.get('pack_type') || 'Credit Pack';
+                let packType = urlParams.get('pack_type') || 'Credit Pack';
                 
-                console.log(`💳 Auto-processing credit purchase: ${credits} credits`);
+                // Decode the pack type in case it was URL encoded
+                packType = decodeURIComponent(packType);
+                
+                // If still undefined or empty, determine from credit amount
+                if (!packType || packType === 'undefined' || packType === 'null') {
+                    if (credits === 25) packType = 'Small Credit Pack';
+                    else if (credits === 75) packType = 'Medium Credit Pack';
+                    else if (credits === 200) packType = 'Large Credit Pack';
+                    else packType = 'Credit Pack';
+                }
+                
+                console.log(`💳 Auto-processing credit purchase: ${credits} credits (${packType})`);
                 
                 // Add credits directly
                 const response = await fetch('/api/credits/manual-add', {
@@ -740,13 +751,25 @@
                 const creditData = await response.json();
                 console.log('✅ Credits added successfully:', creditData);
                 
-                // Show success popup
+                // Refresh user data to update credits display immediately
+                if (window.app && window.app.currentUser) {
+                    await window.app.checkAuthStatus();
+                    // Force update the credits display in subscription status
+                    const creditsElement = document.getElementById('creditsRemaining');
+                    if (creditsElement && creditData.new_balance) {
+                        creditsElement.textContent = `${creditData.new_balance} remaining`;
+                        creditsElement.style.color = creditData.new_balance > 10 ? '#28a745' : creditData.new_balance > 0 ? '#ffc107' : '#dc3545';
+                    }
+                }
+                
+                // Show success popup with refresh note
                 let message = `${credits} credits have been added to your account!`;
                 if (creditData.new_balance) {
                     message += ` Your new balance is ${creditData.new_balance} credits.`;
                 }
+                message += ` Please refresh the page if you don't see the credit update immediately.`;
                 
-                showPopup('credit', `${packType} Purchase Complete!`, message, 8000);
+                showPopup('credit', `${packType} Purchase Complete!`, message, 10000);
                 
                 // Clean URL
                 cleanUrl();

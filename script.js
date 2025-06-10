@@ -1826,7 +1826,7 @@ class EmploymentApp {
         const subscriptionSection = document.getElementById('subscriptionStatusSection') || document.getElementById('subscriptionCard');
         const currentPlan = document.getElementById('currentPlan');
         const subscriptionStatus = document.getElementById('subscriptionStatus');
-        const postsRemaining = document.getElementById('postsRemaining');
+        const creditsRemaining = document.getElementById('creditsRemaining');
         const nextBilling = document.getElementById('nextBilling');
         const nextBillingRow = document.getElementById('nextBillingRow');
         const manageBillingBtn = document.getElementById('manageBillingBtn');
@@ -1894,16 +1894,11 @@ class EmploymentApp {
             }
         }
 
-        // Posts remaining
-        if (data.usageLimit && postsRemaining) {
-            const remaining = data.usageLimit.postsRemaining;
-            if (remaining === -1) {
-                postsRemaining.textContent = 'Unlimited';
-                postsRemaining.style.color = '#28a745';
-            } else {
-                postsRemaining.textContent = `${remaining} remaining`;
-                postsRemaining.style.color = remaining > 5 ? '#28a745' : remaining > 0 ? '#ffc107' : '#dc3545';
-            }
+        // Credits remaining
+        if (creditsRemaining) {
+            const credits = this.currentUser ? this.currentUser.credits || 0 : 0;
+            creditsRemaining.textContent = `${credits} remaining`;
+            creditsRemaining.style.color = credits > 10 ? '#28a745' : credits > 0 ? '#ffc107' : '#dc3545';
         }
 
         // Setup button event listeners
