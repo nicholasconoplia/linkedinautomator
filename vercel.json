@@ -6,23 +6,19 @@
       "use": "@vercel/node"
     },
     {
-      "src": "index.html",
+      "src": "*.html",
       "use": "@vercel/static"
     },
     {
-      "src": "styles.css",
+      "src": "*.css",
       "use": "@vercel/static"
     },
     {
-      "src": "script.js",
+      "src": "*.js",
       "use": "@vercel/static"
     },
     {
       "src": "favicon.ico",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "fake-it-mode.html",
       "use": "@vercel/static"
     }
   ],
@@ -50,7 +46,8 @@
     { "source": "/dashboard", "destination": "server.js" },
     { "source": "/subscription/(.*)", "destination": "server.js" },
     { "source": "/manage-subscription", "destination": "server.js" },
-    { "source": "/fake-it-mode", "destination": "fake-it-mode.html" },
+    { "source": "/saved-posts", "destination": "server.js" },
+    { "source": "/fake-it-mode", "destination": "server.js" },
     { "source": "/", "destination": "server.js" }
   ],
   "redirects": [],

@@ -3804,6 +3804,30 @@ app.get('/manage-subscription', (req, res) => {
   }
 });
 
+// Saved posts route
+app.get('/saved-posts', (req, res) => {
+  console.log('📑 Saved posts route hit');
+  
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " +
+    "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self'"
+  );
+  
+  const savedPostsPath = path.join(__dirname, 'saved-posts');
+  
+  if (fs.existsSync(savedPostsPath)) {
+    console.log('✅ Serving saved-posts page');
+    res.sendFile(savedPostsPath);
+  } else {
+    console.log('⚠️ saved-posts page not found');
+    res.status(404).send('Saved posts page not found');
+  }
+});
+
 // ====================
 // EXISTING GENERATE POST ROUTE (Updated)
 // ====================
