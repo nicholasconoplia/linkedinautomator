@@ -740,10 +740,7 @@
                     return;
                 }
                 
-                const token = localStorage.getItem('token');
-                console.log('🔐 [Generator Save] Token exists:', !!token);
-                console.log('🔐 [Generator Save] Token preview:', token ? `${token.substring(0, 20)}...` : 'none');
-                
+                // We don't need to explicitly get the token - it will be sent automatically via cookie
                 const saveData = {
                     content,
                     title: topic,
@@ -756,9 +753,9 @@
                 const response = await fetch('/api/posts/save', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include', // Important: include cookies in the request
                     body: JSON.stringify(saveData)
                 });
 
@@ -786,6 +783,59 @@
                 console.error('❌ [Generator Save] Error details:', error.message);
                 alert('Failed to save post. Please try again.');
             }
+        });
+    </script>
+
+    <script>
+        // Check authentication on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+        });
+
+        // Authentication check function
+        async function checkAuth() {
+            try {
+                // First try /api/auth-status for existing session
+                const response = await fetch('/api/auth-status', {
+                    credentials: 'include' // Important: include cookies in the request
+                });
+                const data = await response.json();
+                
+                if (data.authenticated && data.user) {
+                    console.log('✅ User authenticated:', data.user.name);
+                    updateUserInfo(data.user);
+                    return;
+                }
+                
+                showLoginRequired();
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showLoginRequired();
+            }
+        }
+
+        // Update UI for authenticated user
+        function updateUserInfo(user) {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('userSection').style.display = 'block';
+            document.getElementById('userName').textContent = user.name || 'User';
+            
+            if (user.profile_picture) {
+                const profilePic = document.getElementById('userProfilePic');
+                profilePic.src = user.profile_picture;
+                profilePic.style.display = 'block';
+            }
+        }
+
+        // Show login required message
+        function showLoginRequired() {
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('userSection').style.display = 'none';
+        }
+
+        // Handle logout
+        document.querySelector('[data-action="logout"]').addEventListener('click', () => {
+            window.location.href = '/';
         });
     </script>
 </body>
