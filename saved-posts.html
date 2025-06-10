@@ -78,8 +78,33 @@
     <script>
         // Check authentication
         const token = localStorage.getItem('token');
+        
+        async function validateToken() {
+            try {
+                const response = await fetch('/api/auth/validate', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Invalid token');
+                }
+                
+                // Token is valid, load the saved posts
+                loadSavedPosts();
+            } catch (error) {
+                console.error('Authentication error:', error);
+                // Only redirect if token is invalid
+                window.location.href = '/?redirect=/saved-posts';
+            }
+        }
+
+        // Initialize page
         if (!token) {
-            window.location.href = '/';
+            window.location.href = '/?redirect=/saved-posts';
+        } else {
+            validateToken();
         }
 
         // Function to show toast notification
@@ -228,9 +253,6 @@
             localStorage.removeItem('token');
             window.location.href = '/';
         });
-
-        // Load posts when the page loads
-        document.addEventListener('DOMContentLoaded', loadSavedPosts);
     </script>
 </body>
 </html> 

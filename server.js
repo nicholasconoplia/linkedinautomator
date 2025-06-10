@@ -126,14 +126,36 @@ const staticPath = path.join(__dirname);
 console.log(`📁 Setting up static files from: ${staticPath}`);
 app.use(express.static(staticPath, {
     setHeaders: (res, path) => {
+        // Always set no-cache headers for HTML files
+        if (path.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            res.setHeader('Content-Type', 'text/html');
+        }
         // Add cache-busting for development
-        if (process.env.NODE_ENV !== 'production') {
+        else if (process.env.NODE_ENV !== 'production') {
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Expires', '0');
         }
     }
 }));
+
+// Explicit route handler for saved-posts
+app.get('/saved-posts', (req, res) => {
+    const filePath = path.join(__dirname, 'saved-posts.html');
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.sendFile(filePath, (err) => {
+        if (err) {
+            console.error('Error serving saved-posts.html:', err);
+            res.status(500).send('Error loading page');
+        }
+    });
+});
 if (fs.existsSync(staticPath)) {
     console.log(`✅ Root directory found, serving static files with cache control`);
 } else {
@@ -158,6 +180,32 @@ app.use(session({
 // Passport configuration
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Token validation endpoint
+app.get('/api/auth/validate', async (req, res) => {
+  try {
+    const token = extractJWTFromRequest(req);
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const decoded = verifyJWT(token);
+    if (!decoded) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Check if user still exists in database
+    const user = await UserDB.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    res.json({ valid: true, user: { id: user.id, name: user.name, email: user.email } });
+  } catch (error) {
+    console.error('Token validation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // Configure LinkedIn OAuth Strategy (only if credentials are available)
 if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {

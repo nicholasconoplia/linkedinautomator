@@ -23,6 +23,9 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/auth/validate", "destination": "server.js" },
+    { "source": "/api/posts/saved", "destination": "server.js" },
+    { "source": "/api/posts/saved/(.*)", "destination": "server.js" },
     { "source": "/cron-trigger", "destination": "server.js" },
     { "source": "/webhook/(.*)", "destination": "server.js" },
     { "source": "/test-static", "destination": "server.js" },
@@ -58,6 +61,18 @@
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; connect-src 'self' https://api.stripe.com https://api.openai.com https://api.linkedin.com; frame-src https://js.stripe.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http:"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
         }
       ]
     }
