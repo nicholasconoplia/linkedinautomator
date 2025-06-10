@@ -4499,7 +4499,11 @@ app.post('/api/automation/process-queue', requireAuth, async (req, res) => {
           const scheduleTime = new Date(queueItem.scheduled_for);
           const now = new Date();
           
-          if (scheduleTime <= now) {
+          // Post immediately if scheduled time is within 5 minutes (past or future)
+          const timeDifference = Math.abs(scheduleTime.getTime() - now.getTime());
+          const fiveMinutesMs = 5 * 60 * 1000;
+          
+          if (timeDifference <= fiveMinutesMs) {
             console.log(`🚀 Posting immediately (scheduled time has passed): ${queueItem.topic}`);
             
             try {
@@ -4754,7 +4758,11 @@ async function processUserQueue(userId) {
         const scheduleTime = new Date(queueItem.scheduled_for);
         const now = new Date();
         
-        if (scheduleTime <= now) {
+        // Post immediately if scheduled time is within 5 minutes (past or future)
+        const timeDifference = Math.abs(scheduleTime.getTime() - now.getTime());
+        const fiveMinutesMs = 5 * 60 * 1000;
+        
+        if (timeDifference <= fiveMinutesMs) {
           try {
             const accessToken = await LinkedInService.ensureValidToken(userId);
             const postResult = await LinkedInService.createPost(
