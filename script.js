@@ -81,7 +81,7 @@ class EmploymentApp {
     }
     
     async init() {
-                        console.log('🚀 Employment initializing for page:', this.currentPage);
+        console.log('🚀 Employment initializing for page:', this.currentPage);
         
         // Setup base event listeners (auth, etc.)
         this.setupAuthEventListeners();
@@ -91,6 +91,9 @@ class EmploymentApp {
             this.setupGeneratorPage();
         } else if (this.currentPage === 'automation') {
             this.setupAutomationPage();
+        } else if (this.currentPage === 'saved-posts') {
+            // Don't initialize dashboard for saved-posts page
+            this.setupEventListeners();
         } else {
             this.setupDashboardPage();
         }
@@ -129,7 +132,7 @@ class EmploymentApp {
             }, 1000);
         }
         
-                    console.log('✅ Employment ready for', this.currentPage, 'page!');
+        console.log('✅ Employment ready for', this.currentPage, 'page!');
     }
 
     setupGeneratorPage() {
@@ -221,8 +224,10 @@ class EmploymentApp {
             this.handleToneChange();
         }
 
-        // Initialize navigation
-        this.initializeNavigation();
+        // Initialize navigation only if not on saved-posts page
+        if (this.currentPage !== 'saved-posts') {
+            this.initializeNavigation();
+        }
     }
 
     initializeNavigation() {
@@ -251,9 +256,11 @@ class EmploymentApp {
             });
         }
 
-        // Set initial section
-        console.log('🎯 Setting initial section to dashboard');
-        this.switchSection('dashboard');
+        // Only set initial section to dashboard if we're on the main page
+        if (this.currentPage === 'dashboard') {
+            console.log('🎯 Setting initial section to dashboard');
+            this.switchSection('dashboard');
+        }
     }
 
     switchSection(sectionName) {
