@@ -162,16 +162,33 @@ class StripeService {
   async handleCheckoutCompleted(session) {
     try {
       console.log('🔔 Processing checkout completion:', session.id);
+      console.log('🔔 Session mode:', session.mode);
       console.log('🔔 Session metadata:', session.metadata);
+      console.log('🔔 Session customer_details:', session.customer_details);
+      console.log('🔔 Session customer:', session.customer);
+      console.log('🔔 Session subscription:', session.subscription);
       
       // Check if this is a one-time credit purchase
       if (session.metadata?.plan_type === 'credit_pack' && session.metadata?.credit_amount) {
+        console.log('📦 Detected credit pack purchase');
         await this.handleCreditPurchase(session);
         return;
       }
       
-      // Check if this is a subscription (existing logic for backwards compatibility)
-      if (!session.subscription && session.metadata?.credit_amount && session.metadata?.plan_type !== 'credit_pack') {
+      // Also check for credit purchases in payment link format (without explicit plan_type)
+      if (session.metadata?.credit_amount && !session.subscription) {
+        console.log('📦 Detected credit purchase (payment link format)');
+        await this.handleCreditPurchase(session);
+        return;
+      }
+      
+      // If it's a subscription mode, handle as subscription
+      if (session.mode === 'subscription' || session.subscription) {
+        console.log('📋 Detected subscription purchase');
+        // Continue with subscription handling below
+      } else {
+        console.log('❓ Unknown payment type - defaulting to credit purchase handling');
+        // For Payment Links that might not have explicit metadata, try to handle as credit purchase
         await this.handleCreditPurchase(session);
         return;
       }
@@ -245,7 +262,16 @@ class StripeService {
         // Add monthly credits for new subscription
         try {
           const CreditDB = require('./database').CreditDB;
-          const creditsToAdd = plan.posts_limit || 30; // Default to 30 if not specified
+          let creditsToAdd = plan.posts_limit || 30; // Default to 30 if not specified
+          
+          // Map subscription plans to credit amounts
+          if (plan.name && plan.name.toLowerCase().includes('starter')) {
+            creditsToAdd = 30;
+          } else if (plan.name && plan.name.toLowerCase().includes('professional')) {
+            creditsToAdd = 100;
+          } else if (plan.name && plan.name.toLowerCase().includes('business')) {
+            creditsToAdd = 300;
+          }
           
           await CreditDB.addCredits(
             userId, 
@@ -253,7 +279,7 @@ class StripeService {
             `Monthly credits for ${plan.name} subscription`
           );
           
-          console.log(`✅ Added ${creditsToAdd} monthly credits for subscription`);
+          console.log(`✅ Added ${creditsToAdd} monthly credits for ${plan.name} subscription`);
         } catch (creditError) {
           console.error('⚠️ Failed to add monthly credits:', creditError);
           // Don't fail the entire process if credit addition fails
@@ -280,10 +306,35 @@ class StripeService {
   async handleCreditPurchase(session) {
     try {
       console.log('💳 Processing credit purchase:', session.id);
+      console.log('💳 Credit purchase metadata:', session.metadata);
       
       let userId = session.metadata?.user_id ? parseInt(session.metadata.user_id) : null;
-      const creditAmount = parseInt(session.metadata?.credit_amount || 0);
-      const planName = session.metadata?.plan_name || 'Credit Purchase';
+      let creditAmount = parseInt(session.metadata?.credit_amount || 0);
+      let planName = session.metadata?.plan_name || session.metadata?.pack_type || 'Credit Purchase';
+      
+      // If no credit amount in metadata, try to determine from price/amount
+      if (!creditAmount && session.amount_total) {
+        const amountInDollars = session.amount_total / 100; // Convert from cents
+        console.log('💳 Payment amount:', amountInDollars);
+        
+        // Map common payment amounts to credit amounts based on our pricing
+        if (amountInDollars === 0.99) {
+          creditAmount = 25;
+          planName = 'Small Credit Pack';
+        } else if (amountInDollars === 2.49) {
+          creditAmount = 75;
+          planName = 'Medium Credit Pack';
+        } else if (amountInDollars === 5.99) {
+          creditAmount = 200;
+          planName = 'Large Credit Pack';
+        } else {
+          console.log('⚠️ Unknown payment amount for credit purchase:', amountInDollars);
+          // Default to a reasonable amount based on price
+          creditAmount = Math.floor(amountInDollars * 25); // Roughly 25 credits per dollar
+        }
+        
+        console.log(`💳 Determined credit amount from payment: ${creditAmount} credits for $${amountInDollars}`);
+      }
       
       // For Payment Links, try to find user by customer email
       if (!userId && session.customer_details?.email) {

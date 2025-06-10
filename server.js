@@ -1921,6 +1921,67 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
   }
 });
 
+// Debug endpoint for user credit status
+app.get('/api/debug/user-status', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get user data
+    const user = await UserDB.getUserById(userId);
+    
+    // Get subscription data
+    const subscription = await SubscriptionDB.getUserSubscription(userId);
+    
+    // Get credit balance
+    const credits = await CreditDB.getCredits(userId);
+    
+    // Get recent usage
+    const recentUsage = await db.query(`
+      SELECT * FROM usage_tracking 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC 
+      LIMIT 10
+    `, [userId]);
+    
+    res.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        credits: user.credits
+      },
+      subscription,
+      creditBalance: credits,
+      recentUsage: recentUsage.rows
+    });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Sync credit balance manually
+app.post('/api/debug/sync-credits', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get current credit balance from CreditDB
+    const credits = await CreditDB.getCredits(userId);
+    
+    // Update the users table
+    await db.query('UPDATE users SET credits = $1 WHERE id = $2', [credits, userId]);
+    
+    res.json({
+      success: true,
+      message: `Credit balance synced: ${credits} credits`,
+      credits
+    });
+  } catch (error) {
+    console.error('Credit sync error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ====================
 // ACCESS KEY ROUTES
 // ====================

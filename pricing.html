@@ -739,23 +739,28 @@
                 const response = await fetch('/api/auth-status');
                 const data = await response.json();
                 
-                if (data.authenticated) {
+                console.log('Auth status response:', data);
+                
+                if (data.authenticated && data.user) {
                     isAuthenticated = true;
                     currentUser = data.user;
+                    
+                    console.log('User authenticated:', currentUser);
                     
                     // Update auth section
                     document.getElementById('authButton').textContent = 'Dashboard';
                     document.getElementById('authButton').onclick = () => window.location.href = '/dashboard';
                     
                     // Show credit balance if available
-                    if (data.credits !== undefined) {
-                        document.getElementById('creditCount').textContent = data.credits;
+                    if (currentUser.credits !== undefined) {
+                        document.getElementById('creditCount').textContent = currentUser.credits;
                         document.getElementById('navCredits').style.display = 'block';
                     }
                     
                     // Update payment links with user data
                     updatePaymentLinks();
                 } else {
+                    console.log('User not authenticated');
                     document.getElementById('authButton').onclick = () => window.location.href = '/auth/linkedin';
                 }
             } catch (error) {
@@ -766,10 +771,21 @@
         function updatePaymentLinks() {
             if (!currentUser) return;
             
+            console.log('Updating payment links for user:', currentUser);
+            
             document.querySelectorAll('a[href*="stripe.com"]').forEach(link => {
                 let href = link.href;
-                href = href.replace('{{USER_EMAIL}}', encodeURIComponent(currentUser.email));
-                href = href.replace(/{{USER_ID}}/g, currentUser.id);
+                const originalHref = href;
+                href = href.replace(/{{USER_EMAIL}}/g, encodeURIComponent(currentUser.email || ''));
+                href = href.replace(/{{USER_ID}}/g, currentUser.id || '');
+                
+                if (originalHref !== href) {
+                    console.log('Updated payment link:', {
+                        original: originalHref,
+                        updated: href
+                    });
+                }
+                
                 link.href = href;
             });
         }
