@@ -2168,8 +2168,8 @@ app.post('/api/debug/sync-credits', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Get current credit balance from CreditDB
-    const credits = await CreditDB.getCredits(userId);
+    // Get current credit balance from CreditDB (this is the source of truth)
+    const creditBalance = await CreditDB.getCredits(userId);
     
     // Update the users table using the proper database connection
     const { Pool } = require('pg');
@@ -2178,12 +2178,17 @@ app.post('/api/debug/sync-credits', requireAuth, async (req, res) => {
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     });
     
-    await dbPool.query('UPDATE users SET credits = $1 WHERE id = $2', [credits, userId]);
+    const beforeSync = await dbPool.query('SELECT credits FROM users WHERE id = $1', [userId]);
+    await dbPool.query('UPDATE users SET credits = $1 WHERE id = $2', [creditBalance, userId]);
+    
+    console.log(`🔄 Credit sync completed for user ${userId}: ${beforeSync.rows[0]?.credits || 0} → ${creditBalance}`);
     
     res.json({
       success: true,
-      message: `Credit balance synced: ${credits} credits`,
-      credits
+      message: `Credit balance synced: ${creditBalance} credits`,
+      before: beforeSync.rows[0]?.credits || 0,
+      after: creditBalance,
+      credits: creditBalance
     });
   } catch (error) {
     console.error('Credit sync error:', error);
