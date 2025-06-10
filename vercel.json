@@ -20,6 +20,10 @@
     {
       "src": "favicon.ico",
       "use": "@vercel/static"
+    },
+    {
+      "src": "fake-it-mode.html",
+      "use": "@vercel/static"
     }
   ],
   "rewrites": [
@@ -46,6 +50,7 @@
     { "source": "/dashboard", "destination": "server.js" },
     { "source": "/subscription/(.*)", "destination": "server.js" },
     { "source": "/manage-subscription", "destination": "server.js" },
+    { "source": "/fake-it-mode", "destination": "fake-it-mode.html" },
     { "source": "/", "destination": "server.js" }
   ],
   "redirects": [],
