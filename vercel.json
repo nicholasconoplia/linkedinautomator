@@ -27,6 +27,7 @@
   ],
   "rewrites": [
     { "source": "/api/auth/validate", "destination": "server.js" },
+    { "source": "/api/posts/save", "destination": "server.js" },
     { "source": "/api/posts/saved", "destination": "server.js" },
     { "source": "/api/posts/saved/(.*)", "destination": "server.js" },
     { "source": "/cron-trigger", "destination": "server.js" },
