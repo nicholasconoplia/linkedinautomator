@@ -2865,11 +2865,15 @@ class EmploymentApp {
                     } catch (researchError) {
                         console.log('🔄 Research generation failed, falling back to news-based content...');
                         
+                        // Reset loading state first
+                        this.setLoadingState(false);
+                        
                         // Show explanation popup
                         this.showResearchFallbackPopup(topic, researchError.message);
                         
                         // Automatically fall back to news-based generation
                         console.log(`🔍 Fallback: Generating news-based content for: ${topic}`);
+                        this.setLoadingState(true); // Re-enable loading for fallback
                         await this.generatePost(topic, tone, length, engagementOptions);
                         return; // Exit to avoid double error handling
                     }

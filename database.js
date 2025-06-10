@@ -1134,8 +1134,8 @@ const CreditDB = {
       // Log the credit transaction
       await client.query(`
         INSERT INTO usage_tracking (user_id, action_type, metadata)
-        VALUES ($1, 'credit_added', $2)
-      `, [userId, { amount, description, timestamp: new Date().toISOString() }]);
+        VALUES ($1, 'post_generation', $2)
+      `, [userId, { amount, description, timestamp: new Date().toISOString(), action: 'credit_added' }]);
       
       console.log(`✅ Added ${amount} credits to user ${userId}. New balance: ${result.rows[0]?.credits || 0}`);
       return result.rows[0]?.credits || 0;
@@ -1166,8 +1166,8 @@ const CreditDB = {
       // Log the credit transaction
       await client.query(`
         INSERT INTO usage_tracking (user_id, action_type, metadata)
-        VALUES ($1, 'credit_deducted', $2)
-      `, [userId, { amount, description, timestamp: new Date().toISOString() }]);
+        VALUES ($1, 'post_generation', $2)
+      `, [userId, { amount, description, timestamp: new Date().toISOString(), action: 'credit_deducted' }]);
       
       console.log(`✅ Deducted ${amount} credits from user ${userId}. New balance: ${result.rows[0]?.credits || 0}`);
       return result.rows[0]?.credits || 0;
