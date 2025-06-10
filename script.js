@@ -76,6 +76,7 @@ class EmploymentApp {
         const path = window.location.pathname;
         if (path === '/generator') return 'generator';
         if (path === '/automation') return 'automation';
+        if (path === '/saved-posts.html') return 'saved-posts';
         return 'dashboard';
     }
     

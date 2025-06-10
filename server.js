@@ -991,6 +991,73 @@ app.get('/api/linkedin-posts', requireAuth, async (req, res) => {
 });
 
 // ====================
+// SAVED POSTS ROUTES
+// ====================
+
+// Save a post for later
+app.post('/api/posts/save', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const postData = req.body;
+    
+    const savedPost = await SavedPostsDB.savePost(userId, postData);
+    res.json({ success: true, post: savedPost });
+  } catch (error) {
+    console.error('❌ Error saving post:', error);
+    res.status(500).json({ success: false, error: 'Failed to save post' });
+  }
+});
+
+// Get user's saved posts
+app.get('/api/posts/saved', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const savedPosts = await SavedPostsDB.getUserSavedPosts(userId);
+    res.json({ success: true, posts: savedPosts });
+  } catch (error) {
+    console.error('❌ Error getting saved posts:', error);
+    res.status(500).json({ success: false, error: 'Failed to get saved posts' });
+  }
+});
+
+// Delete a saved post
+app.delete('/api/posts/saved/:postId', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const postId = req.params.postId;
+    
+    const deletedPost = await SavedPostsDB.deleteSavedPost(postId, userId);
+    if (!deletedPost) {
+      return res.status(404).json({ success: false, error: 'Post not found' });
+    }
+    
+    res.json({ success: true, post: deletedPost });
+  } catch (error) {
+    console.error('❌ Error deleting saved post:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete saved post' });
+  }
+});
+
+// Update a saved post
+app.put('/api/posts/saved/:postId', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const postId = req.params.postId;
+    const updates = req.body;
+    
+    const updatedPost = await SavedPostsDB.updateSavedPost(postId, userId, updates);
+    if (!updatedPost) {
+      return res.status(404).json({ success: false, error: 'Post not found' });
+    }
+    
+    res.json({ success: true, post: updatedPost });
+  } catch (error) {
+    console.error('❌ Error updating saved post:', error);
+    res.status(500).json({ success: false, error: 'Failed to update saved post' });
+  }
+});
+
+// ====================
 // SUBSCRIPTION AND PAYMENT ROUTES
 // ====================
 

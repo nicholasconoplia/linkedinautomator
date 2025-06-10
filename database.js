@@ -398,6 +398,30 @@ function initializeDatabase() {
           ON CONFLICT (name) DO NOTHING
         `);
 
+        // Saved posts table
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS saved_posts (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            title TEXT,
+            content TEXT NOT NULL,
+            source_url TEXT,
+            source_name TEXT,
+            industry TEXT,
+            tone TEXT,
+            metadata JSONB DEFAULT '{}',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        `);
+
+        // Create index for saved posts
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_saved_posts_user_id 
+          ON saved_posts (user_id)
+        `);
+
         console.log('✅ Database initialized successfully');
         resolve();
       } finally {
@@ -1254,6 +1278,99 @@ const CreditDB = {
   }
 };
 
+// Saved posts operations
+const SavedPostsDB = {
+  // Save a post
+  savePost: async (userId, postData) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        INSERT INTO saved_posts 
+        (user_id, title, content, source_url, source_name, industry, tone, metadata)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+      `, [
+        userId,
+        postData.title || null,
+        postData.content,
+        postData.source_url || null,
+        postData.source_name || null,
+        postData.industry || null,
+        postData.tone || null,
+        postData.metadata || {}
+      ]);
+      
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user's saved posts
+  getUserSavedPosts: async (userId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT * FROM saved_posts 
+        WHERE user_id = $1 
+        ORDER BY created_at DESC
+      `, [userId]);
+      return result.rows;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Delete a saved post
+  deleteSavedPost: async (postId, userId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        DELETE FROM saved_posts 
+        WHERE id = $1 AND user_id = $2
+        RETURNING *
+      `, [postId, userId]);
+      return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Update a saved post
+  updateSavedPost: async (postId, userId, updates) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        UPDATE saved_posts 
+        SET 
+          title = COALESCE($3, title),
+          content = COALESCE($4, content),
+          source_url = COALESCE($5, source_url),
+          source_name = COALESCE($6, source_name),
+          industry = COALESCE($7, industry),
+          tone = COALESCE($8, tone),
+          metadata = COALESCE($9, metadata),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND user_id = $2
+        RETURNING *
+      `, [
+        postId,
+        userId,
+        updates.title,
+        updates.content,
+        updates.source_url,
+        updates.source_name,
+        updates.industry,
+        updates.tone,
+        updates.metadata
+      ]);
+      return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  }
+};
+
 module.exports = {
   initializeDatabase,
   UserDB,
@@ -1262,6 +1379,7 @@ module.exports = {
   SubscriptionDB,
   UsageDB,
   AccessKeysDB,
+  SavedPostsDB,
   pool,
   CreditDB
 }; 

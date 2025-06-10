@@ -30,6 +30,7 @@
                         <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal">Content Generator</a>
                         <a href="/fake-it-mode" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">🎭 Fake It Mode</a>
                         <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
+                        <a href="/saved-posts.html" class="text-[#0d151c] text-sm font-medium leading-normal">💾 Saved Posts</a>
                         <a href="/pricing" class="text-[#0d151c] text-sm font-medium leading-normal">Pricing</a>
                     </div>
                     
@@ -464,25 +465,94 @@
             const postData = generatedPostsData.find(p => p.id === postId);
             if (!postData) return;
 
-            // For now, just copy to clipboard with a different message
             try {
-                await navigator.clipboard.writeText(postData.post);
-                alert('Post saved to clipboard! You can paste it anywhere to save for later.');
+                const response = await fetch('/api/posts/save', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: postData.post,
+                        title: postData.topic,
+                        source_url: postData.article.url,
+                        source_name: postData.article.source,
+                        industry: document.getElementById('industry').value,
+                        tone: postData.tone,
+                        metadata: {
+                            article_title: postData.article.title,
+                            article_summary: postData.article.summary
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save post');
+                }
+
+                // Show success message
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-4 right-4 bg-green-50 text-green-800 px-4 py-2 rounded-lg shadow-lg transition-opacity duration-500';
+                toast.textContent = '✅ Post saved successfully!';
+                document.body.appendChild(toast);
+
+                // Remove toast after 3 seconds
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 500);
+                }, 3000);
             } catch (error) {
-                console.error('Save failed:', error);
-                alert('Failed to save. Please copy manually.');
+                console.error('Error saving post:', error);
+                alert('Failed to save post. Please try again.');
             }
         }
 
-        function saveAllPosts() {
-            const allPosts = generatedPostsData.map(p => p.post).join('\n\n---\n\n');
-            
+        async function saveAllPosts() {
             try {
-                navigator.clipboard.writeText(allPosts);
-                alert('All posts copied to clipboard!');
+                const industry = document.getElementById('industry').value;
+                const promises = generatedPostsData.map(postData => 
+                    fetch('/api/posts/save', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            content: postData.post,
+                            title: postData.topic,
+                            source_url: postData.article.url,
+                            source_name: postData.article.source,
+                            industry: industry,
+                            tone: postData.tone,
+                            metadata: {
+                                article_title: postData.article.title,
+                                article_summary: postData.article.summary
+                            }
+                        })
+                    })
+                );
+
+                const results = await Promise.all(promises);
+                const allSuccessful = results.every(response => response.ok);
+
+                if (allSuccessful) {
+                    // Show success message
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed bottom-4 right-4 bg-green-50 text-green-800 px-4 py-2 rounded-lg shadow-lg transition-opacity duration-500';
+                    toast.textContent = '✅ All posts saved successfully!';
+                    document.body.appendChild(toast);
+
+                    // Remove toast after 3 seconds
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        setTimeout(() => toast.remove(), 500);
+                    }, 3000);
+                } else {
+                    throw new Error('Some posts failed to save');
+                }
             } catch (error) {
-                console.error('Copy all failed:', error);
-                alert('Failed to copy all posts. Please copy manually.');
+                console.error('Error saving all posts:', error);
+                alert('Failed to save all posts. Please try again.');
             }
         }
 
