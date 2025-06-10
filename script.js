@@ -74,14 +74,20 @@ class EmploymentApp {
 
     detectCurrentPage() {
         const path = window.location.pathname;
-        if (path === '/generator') return 'generator';
-        if (path === '/automation') return 'automation';
-        if (path === '/saved-posts') return 'saved-posts';
-        return 'dashboard';
+        console.log('🔍 [Navigation Debug] Current path:', path);
+        let page = 'dashboard';
+        if (path === '/generator') page = 'generator';
+        if (path === '/automation') page = 'automation';
+        if (path === '/saved-posts') page = 'saved-posts';
+        console.log('🔍 [Navigation Debug] Detected page:', page);
+        return page;
     }
     
     async init() {
-        console.log('🚀 Employment initializing for page:', this.currentPage);
+        console.log('🚀 [Navigation Debug] Employment initializing...');
+        console.log('🚀 [Navigation Debug] Current page:', this.currentPage);
+        console.log('🚀 [Navigation Debug] URL:', window.location.href);
+        console.log('🚀 [Navigation Debug] Search params:', window.location.search);
         
         // Setup base event listeners (auth, etc.)
         this.setupAuthEventListeners();
@@ -168,7 +174,7 @@ class EmploymentApp {
     }
     
     setupEventListeners() {
-        console.log('🎛️ Setting up event listeners...');
+        console.log('🎛️ [Navigation Debug] Setting up event listeners for page:', this.currentPage);
         
         // Form handlers - prioritize form submission over button clicks
         if (this.form) {
@@ -231,11 +237,17 @@ class EmploymentApp {
     }
 
     initializeNavigation() {
-        console.log('🧭 Initializing navigation...');
+        console.log('🧭 [Navigation Debug] Initializing navigation...');
+        console.log('🧭 [Navigation Debug] Current page:', this.currentPage);
+        console.log('🧭 [Navigation Debug] Current section:', this.currentSection);
         
         // Add navigation event listeners
         const navTabs = document.querySelectorAll('.nav-tab');
-        console.log('Found nav tabs:', navTabs.length);
+        console.log('🧭 [Navigation Debug] Found nav tabs:', navTabs.length);
+        console.log('🧭 [Navigation Debug] Nav tab elements:', Array.from(navTabs).map(tab => ({
+            section: tab.getAttribute('data-section'),
+            classes: tab.className
+        })));
         
         navTabs.forEach((tab, index) => {
             const sectionName = tab.getAttribute('data-section');
@@ -264,7 +276,11 @@ class EmploymentApp {
     }
 
     switchSection(sectionName) {
-        console.log('🔄 Switching to section:', sectionName);
+        console.log('🔄 [Navigation Debug] ========== SECTION SWITCH ==========');
+        console.log('🔄 [Navigation Debug] Attempting to switch to section:', sectionName);
+        console.log('🔄 [Navigation Debug] Current page:', this.currentPage);
+        console.log('🔄 [Navigation Debug] Current section:', this.currentSection);
+        console.log('🔄 [Navigation Debug] URL:', window.location.href);
         
         // Update navigation tabs
         const navTabs = document.querySelectorAll('.nav-tab');
@@ -1364,7 +1380,12 @@ class EmploymentApp {
     }
     
     async checkAuthStatus() {
-        console.log('🔍 Checking authentication status...');
+        console.log('🔍 [Navigation Debug] ========== AUTH CHECK ==========');
+        console.log('🔍 [Navigation Debug] Checking authentication status...');
+        console.log('🔍 [Navigation Debug] Current page:', this.currentPage);
+        console.log('🔍 [Navigation Debug] Current section:', this.currentSection);
+        console.log('🔍 [Navigation Debug] Token exists:', !!this.getAuthToken());
+        console.log('🔍 [Navigation Debug] URL:', window.location.href);
         try {
             const response = await fetch('/api/auth-status');
             
@@ -1420,7 +1441,12 @@ class EmploymentApp {
     }
     
     showAuthenticatedState() {
-        console.log('🟢 Showing authenticated state for:', this.currentUser?.name);
+        console.log('🟢 [Navigation Debug] ========== AUTH STATE ==========');
+        console.log('🟢 [Navigation Debug] Showing authenticated state');
+        console.log('🟢 [Navigation Debug] User:', this.currentUser?.name);
+        console.log('🟢 [Navigation Debug] Current page:', this.currentPage);
+        console.log('🟢 [Navigation Debug] Current section:', this.currentSection);
+        console.log('🟢 [Navigation Debug] URL:', window.location.href);
         
         if (this.loginSection) {
             console.log('🔸 Hiding login section');
