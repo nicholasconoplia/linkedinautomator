@@ -267,6 +267,20 @@
                         <span class="text-2xl">🚀</span>
                         <span class="font-semibold">Launch Special - Limited Time Pricing</span>
                     </div>
+                    
+                    <!-- Debug Info (remove in production) -->
+                    <div class="mt-6">
+                        <button onclick="updatePaymentLinks(); console.log('Manual payment link update triggered');" 
+                                id="debugButton" style="display: none;"
+                                class="bg-red-500 text-white px-4 py-2 rounded text-sm mr-2">
+                            Update Payment Links
+                        </button>
+                        <button onclick="checkAuthStatus(); console.log('Manual auth check triggered');" 
+                                style="display: none;"
+                                class="bg-green-500 text-white px-4 py-2 rounded text-sm">
+                            Check Auth
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -753,12 +767,27 @@
                     
                     // Show credit balance if available
                     if (currentUser.credits !== undefined) {
-                        document.getElementById('creditCount').textContent = currentUser.credits;
-                        document.getElementById('navCredits').style.display = 'block';
+                        const creditElement = document.getElementById('creditCount');
+                        const navCreditsElement = document.getElementById('navCredits');
+                        
+                        if (creditElement) {
+                            creditElement.textContent = currentUser.credits;
+                        }
+                        if (navCreditsElement) {
+                            navCreditsElement.style.display = 'block';
+                        }
+                    }
+                    
+                    // Show debug buttons for authenticated users
+                    const debugButton = document.getElementById('debugButton');
+                    if (debugButton) {
+                        debugButton.style.display = 'inline-block';
                     }
                     
                     // Update payment links with user data
-                    updatePaymentLinks();
+                    setTimeout(() => {
+                        updatePaymentLinks();
+                    }, 500);
                 } else {
                     console.log('User not authenticated');
                     document.getElementById('authButton').onclick = () => window.location.href = '/auth/linkedin';
@@ -769,25 +798,38 @@
         }
         
         function updatePaymentLinks() {
-            if (!currentUser) return;
+            if (!currentUser || !currentUser.email || !currentUser.id) {
+                console.log('Cannot update payment links - missing user data:', currentUser);
+                return;
+            }
             
-            console.log('Updating payment links for user:', currentUser);
+            console.log('Updating payment links for user:', {
+                id: currentUser.id,
+                email: currentUser.email,
+                name: currentUser.name
+            });
             
-            document.querySelectorAll('a[href*="stripe.com"]').forEach(link => {
+            const stripeLinks = document.querySelectorAll('a[href*="stripe.com"]');
+            console.log(`Found ${stripeLinks.length} Stripe links to update`);
+            
+            stripeLinks.forEach((link, index) => {
                 let href = link.href;
                 const originalHref = href;
-                href = href.replace(/{{USER_EMAIL}}/g, encodeURIComponent(currentUser.email || ''));
-                href = href.replace(/{{USER_ID}}/g, currentUser.id || '');
                 
-                if (originalHref !== href) {
-                    console.log('Updated payment link:', {
-                        original: originalHref,
-                        updated: href
-                    });
-                }
+                // Replace placeholders
+                href = href.replace(/\{\{USER_EMAIL\}\}/g, encodeURIComponent(currentUser.email));
+                href = href.replace(/\{\{USER_ID\}\}/g, currentUser.id);
+                
+                console.log(`Link ${index + 1}:`, {
+                    original: originalHref,
+                    updated: href,
+                    hasPlaceholders: originalHref.includes('{{USER_EMAIL}}') || originalHref.includes('{{USER_ID}}')
+                });
                 
                 link.href = href;
             });
+            
+            console.log('Payment link update completed');
         }
         
         function checkAuthForPurchase(element, planName, credits, price) {

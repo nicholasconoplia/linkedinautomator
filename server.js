@@ -1935,8 +1935,14 @@ app.get('/api/debug/user-status', requireAuth, async (req, res) => {
     // Get credit balance
     const credits = await CreditDB.getCredits(userId);
     
-    // Get recent usage
-    const recentUsage = await db.query(`
+    // Get recent usage using the proper database connection
+    const { Pool } = require('pg');
+    const dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
+    const recentUsage = await dbPool.query(`
       SELECT * FROM usage_tracking 
       WHERE user_id = $1 
       ORDER BY created_at DESC 
@@ -1968,8 +1974,14 @@ app.post('/api/debug/sync-credits', requireAuth, async (req, res) => {
     // Get current credit balance from CreditDB
     const credits = await CreditDB.getCredits(userId);
     
-    // Update the users table
-    await db.query('UPDATE users SET credits = $1 WHERE id = $2', [credits, userId]);
+    // Update the users table using the proper database connection
+    const { Pool } = require('pg');
+    const dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
+    await dbPool.query('UPDATE users SET credits = $1 WHERE id = $2', [credits, userId]);
     
     res.json({
       success: true,
