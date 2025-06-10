@@ -1296,7 +1296,7 @@ const SavedPostsDB = {
         postData.title || null,
         postData.content,
         postData.source_url || null,
-        postData.image_url || null,
+        null, // image_url is not provided in the request
         postData.industry || null,
         postData.tone || null,
         postData.metadata || {}
