@@ -307,6 +307,9 @@ class StripeService {
     try {
       console.log('💳 Processing credit purchase:', session.id);
       console.log('💳 Credit purchase metadata:', session.metadata);
+      console.log('💳 Session customer_details:', session.customer_details);
+      console.log('💳 Session amount_total:', session.amount_total);
+      console.log('💳 Session customer:', session.customer);
       
       let userId = session.metadata?.user_id ? parseInt(session.metadata.user_id) : null;
       let creditAmount = parseInt(session.metadata?.credit_amount || 0);

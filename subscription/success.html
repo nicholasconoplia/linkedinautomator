@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subscription Successful - Employment</title>
+    <title>Payment Successful - Employment</title>
     <script src="https://js.stripe.com/v3/"></script>
     <link rel="stylesheet" href="../styles.css">
     <style>
@@ -133,6 +133,8 @@
             font-size: var(--font-size-base);
             text-transform: uppercase;
             letter-spacing: 1px;
+            border: none;
+            cursor: pointer;
         }
         
         .btn-primary {
@@ -198,60 +200,78 @@
             background: var(--pure-white);
             border-radius: var(--radius-xl);
             padding: var(--spacing-2xl);
-            box-shadow: var(--shadow-lg);
             margin: var(--spacing-xl) 0;
             text-align: left;
-            border: 1px solid var(--border-light);
-            position: relative;
-            overflow: hidden;
+            box-shadow: var(--shadow-lg);
         }
 
-        .subscription-details::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--accent-gradient);
+        .subscription-details h3 {
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-lg);
+            font-weight: var(--font-weight-bold);
         }
-        
+
         .detail-row {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             padding: var(--spacing-md) 0;
             border-bottom: 1px solid var(--border-light);
         }
-        
+
         .detail-row:last-child {
             border-bottom: none;
         }
-        
+
         .detail-label {
-            font-weight: var(--font-weight-semibold);
-            color: var(--text-primary);
-            font-size: var(--font-size-sm);
-        }
-        
-        .detail-value {
             color: var(--text-secondary);
             font-weight: var(--font-weight-medium);
-            font-size: var(--font-size-sm);
         }
 
-        #successSection,
-        #processingSection,
-        #failedSection {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: var(--radius-xl);
-            padding: var(--spacing-3xl);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: var(--shadow-xl);
+        .detail-value {
+            color: var(--text-primary);
+            font-weight: var(--font-weight-bold);
+            text-align: right;
+        }
+
+        .credit-highlight {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-md);
+            font-weight: var(--font-weight-bold);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-bold);
+            text-transform: uppercase;
+        }
+
+        .status-active { background-color: #4CAF50; color: white; }
+        .status-processing { background-color: #FF9800; color: white; }
+        .status-failed { background-color: #f44336; color: white; }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .celebrate-animation {
+            animation: celebrateScale 0.6s ease-out;
+        }
+
+        @keyframes celebrateScale {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
         }
     </style>
 </head>
 <body>
+    <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
@@ -260,62 +280,61 @@
         </div>
     </nav>
 
+    <!-- Main Content -->
     <div class="success-container">
-        <div class="loading" id="loadingSection">
+        <!-- Loading Section -->
+        <div id="loadingSection" class="loading">
             <div class="loading-spinner"></div>
             <h2>Processing your payment...</h2>
-            <p>Please wait while we confirm your subscription.</p>
+            <p>Please wait while we confirm your purchase.</p>
         </div>
 
-        <div id="successSection" style="display: none;">
+        <!-- Success Section -->
+        <div id="successSection" class="hidden">
             <div class="success-icon">🎉</div>
-            <h1 class="success-title">Welcome to Employment!</h1>
-            <p class="success-message">
-                Your subscription has been successfully activated. You can now start generating 
-                AI-powered LinkedIn posts to boost your professional presence.
-            </p>
-
+            <h1 class="success-title" id="successTitle">Welcome to Employment!</h1>
+            <p class="success-message" id="successMessage">Your purchase has been successfully processed. You can now start generating AI-powered LinkedIn posts to boost your professional presence.</p>
+            
             <div class="subscription-details" id="subscriptionDetails">
-                <!-- Subscription details will be populated here -->
+                <!-- Details will be populated by JavaScript -->
             </div>
-
+            
             <div class="action-buttons">
-                <a href="/dashboard" class="btn btn-primary">Start Creating Posts</a>
-                <a href="/subscription/billing" class="btn btn-secondary">Manage Subscription</a>
-                <button onclick="manuallyAddCredits()" class="btn btn-secondary" style="background: #ff6b6b;">Fix Credits (If 0)</button>
+                <a href="/generator" class="btn btn-primary">Start Creating Posts</a>
+                <a href="/dashboard" class="btn btn-secondary">Go to Dashboard</a>
+                <button onclick="refreshCredits()" class="btn btn-secondary" id="refreshCreditsBtn">Refresh Credits</button>
+                <button onclick="manuallyAddCredits()" class="btn btn-secondary" id="manualAddBtn" style="display: none; background: #ff6b6b;">Add Missing Credits</button>
             </div>
         </div>
 
-        <div id="processingSection" style="display: none;">
+        <!-- Processing Section -->
+        <div id="processingSection" class="hidden">
             <div class="success-icon">⏳</div>
-            <h1 class="success-title">Payment Processing</h1>
             <div class="payment-status status-processing">
-                <h3>Your payment is being processed</h3>
-                <p>We'll notify you once the payment is confirmed. This usually takes a few minutes.</p>
+                <h3>Payment Processing</h3>
+                <p>Your payment is being processed. We'll notify you once the payment is confirmed. This usually takes a few minutes.</p>
             </div>
             <div class="action-buttons">
                 <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
             </div>
         </div>
 
-        <div id="failedSection" style="display: none;">
+        <!-- Failed Section -->
+        <div id="failedSection" class="hidden">
             <div class="success-icon">❌</div>
-            <h1 class="success-title" style="color: #f44336;">Payment Failed</h1>
             <div class="payment-status status-failed">
-                <h3>There was an issue with your payment</h3>
-                <p id="errorMessage"></p>
-                <p>Please try again or contact support if the problem persists.</p>
+                <h3>Payment Failed</h3>
+                <p id="errorMessage">There was an issue with your payment. Please try again or contact support if the problem persists.</p>
             </div>
             <div class="action-buttons">
-                <a href="/subscribe" class="btn btn-primary">Try Again</a>
+                <a href="/pricing" class="btn btn-primary">Try Again</a>
                 <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
             </div>
         </div>
     </div>
 
     <script>
-        // Initialize Stripe with your publishable key
-        const stripe = Stripe('pk_test_51RXcasKkxlEtPdqxsNiMUS6x1DXLdL3NVgUNNNbkeUgl3ADRpGPSSf2SxfmB9Ql2y6e847RUSVuhm0a6uMUSVrOu00TaTusJ93');
+        const stripe = Stripe('pk_test_51QY8e0KGVUdIKaE3bpb8FhckLGJqLBkz10Cd5BnvshJM4wJjJtf0k8EgQ6wlxp4D6QqfNkrOYgS2vDbh9ddJ7n7V002HkI7Fj4');
 
         // Get URL parameters
         function getUrlParameter(name) {
@@ -326,54 +345,62 @@
         }
 
         // Display credit pack purchase success
-        function displayCreditPurchaseSuccess(creditAmount) {
-            document.getElementById('successTitle').textContent = '🎉 Credits Purchased!';
-            document.getElementById('successMessage').textContent = `You've successfully purchased ${creditAmount} credits. You can now start generating AI-powered LinkedIn posts!`;
+        function displayCreditPurchaseSuccess(creditAmount, packType = 'Credit Pack') {
+            console.log('📦 Displaying credit purchase success:', creditAmount, packType);
             
-            displaySubscriptionDetails({ credits: creditAmount });
+            document.getElementById('successTitle').textContent = '🎉 Credits Added Successfully!';
+            document.getElementById('successMessage').innerHTML = `
+                Congratulations! <strong>${creditAmount} credits</strong> have been added to your account. 
+                You can now start creating professional LinkedIn posts with AI assistance.
+            `;
+            
+            displaySubscriptionDetails({ 
+                creditPurchase: true, 
+                credits: creditAmount, 
+                packType: packType 
+            });
         }
 
         // Display subscription or credit details
         function displaySubscriptionDetails(data) {
             const detailsContainer = document.getElementById('subscriptionDetails');
             
-            // Check if this is credit purchase or subscription
-            if (data.credits !== undefined) {
-                // Credit purchase
+            if (data.creditPurchase) {
+                // Credit purchase display
                 detailsContainer.innerHTML = `
-                    <h3>Credit Purchase Successful</h3>
-                    <div class="detail-row">
-                        <span class="detail-label">Credits Added:</span>
-                        <span class="detail-value">${data.credits} credits</span>
-                    </div>
+                    <h3>✅ Purchase Summary</h3>
                     <div class="detail-row">
                         <span class="detail-label">Purchase Type:</span>
-                        <span class="detail-value">One-time Credit Purchase</span>
+                        <span class="detail-value">${data.packType}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Credits Added:</span>
+                        <span class="detail-value credit-highlight">+${data.credits} credits</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Status:</span>
-                        <span class="detail-value">Complete</span>
+                        <span class="detail-value"><span class="status-badge status-active">Complete</span></span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Ready to Use:</span>
-                        <span class="detail-value">Generate content now!</span>
+                        <span class="detail-value">✅ Available Now</span>
                     </div>
                 `;
             } else if (data.subscription) {
-                // Subscription
+                // Subscription display
                 const subscription = data.subscription;
                 const nextBilling = new Date(subscription.current_period_end).toLocaleDateString();
                 const status = subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1);
                 
                 detailsContainer.innerHTML = `
-                    <h3>Subscription Details</h3>
+                    <h3>📋 Subscription Details</h3>
                     <div class="detail-row">
                         <span class="detail-label">Plan:</span>
                         <span class="detail-value">${subscription.plan_name || 'Premium Plan'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Status:</span>
-                        <span class="detail-value">${status}</span>
+                        <span class="detail-value"><span class="status-badge status-active">${status}</span></span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Next Billing:</span>
@@ -381,153 +408,111 @@
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Credits Available:</span>
-                        <span class="detail-value">${data.usageLimit?.postsRemaining || 0} credits</span>
+                        <span class="detail-value credit-highlight">${data.usageLimit?.postsRemaining || 0} credits</span>
                     </div>
                 `;
             }
         }
 
-        // Check payment status
-        async function checkPaymentStatus() {
-            const clientSecret = getUrlParameter('payment_intent_client_secret');
-            const paymentIntentId = getUrlParameter('payment_intent');
-            const sessionId = getUrlParameter('session_id');
+        // Refresh credits and check current balance
+        async function refreshCredits() {
+            const button = document.getElementById('refreshCreditsBtn');
+            const originalText = button.textContent;
             
-            // For Payment Links, we might not have payment intent but could have session_id
-            if (!clientSecret && !paymentIntentId && !sessionId) {
-                console.log('🔧 No payment parameters found, checking for recent subscription...');
-                // Wait a moment for webhooks to process, then check subscription
-                setTimeout(async () => {
-                    await checkForRecentSubscription();
-                }, 3000);
-                return;
-            }
-
             try {
-                let paymentIntent;
+                button.textContent = 'Refreshing...';
+                button.disabled = true;
                 
-                if (clientSecret) {
-                    // Retrieve the PaymentIntent using client secret
-                    const result = await stripe.retrievePaymentIntent(clientSecret);
-                    paymentIntent = result.paymentIntent;
-                } else if (paymentIntentId) {
-                    // Try to get payment status from server
+                const response = await fetch('/api/credits/balance', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update the credit display
+                    const creditElement = document.querySelector('.credit-highlight');
+                    if (creditElement) {
+                        creditElement.textContent = `${data.balance} credits`;
+                        creditElement.style.animation = 'celebrateScale 0.6s ease-out';
+                    }
+                    
+                    // Show success message
+                    const successMessage = document.getElementById('successMessage');
+                    successMessage.innerHTML = `
+                        ✅ Credits refreshed! You currently have <strong>${data.balance} credits</strong> available. 
+                        Ready to create amazing LinkedIn posts!
+                    `;
+                } else {
+                    console.error('Failed to refresh credits');
+                }
+            } catch (error) {
+                console.error('Error refreshing credits:', error);
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+
+        // Global variable to store purchase info for manual credit addition
+        let purchaseInfo = { creditAmount: 0, packType: '', sessionId: '' };
+
+        // Check for recent purchases and display appropriate success message
+        async function checkForRecentPurchase() {
+            try {
+                console.log('🔧 Checking for recent purchase...');
+                
+                // Check URL parameters first
+                const urlParams = new URLSearchParams(window.location.search);
+                const sessionId = urlParams.get('session_id');
+                
+                // Store session ID for potential manual credit addition
+                purchaseInfo.sessionId = sessionId;
+                
+                // If we have a session ID, try to get details from Stripe
+                if (sessionId) {
+                    console.log('🔧 Found session ID:', sessionId);
+                    
                     try {
-                        const response = await fetch(`/api/subscription/payment-status/${paymentIntentId}`, {
+                        const response = await fetch(`/api/subscription/session-details/${sessionId}`, {
                             credentials: 'include'
                         });
+                        
                         if (response.ok) {
-                            const data = await response.json();
-                            paymentIntent = { status: data.status };
+                            const sessionData = await response.json();
+                            console.log('📦 Session data:', sessionData);
+                            
+                            // Check if this was a credit purchase
+                            if (sessionData.metadata?.plan_type === 'credit_pack' || 
+                                sessionData.metadata?.credit_amount ||
+                                (sessionData.mode === 'payment' && !sessionData.subscription)) {
+                                
+                                const creditAmount = sessionData.metadata?.credit_amount || 
+                                                   determineCreditAmount(sessionData.amount_total);
+                                const packType = sessionData.metadata?.pack_type || 
+                                               determinePackType(sessionData.amount_total);
+                                
+                                // Store for potential manual addition
+                                purchaseInfo.creditAmount = creditAmount;
+                                purchaseInfo.packType = packType;
+                                
+                                displayCreditPurchaseSuccess(creditAmount, packType);
+                                showSuccessSection();
+                                
+                                // Show manual add button if credits might be missing
+                                setTimeout(() => {
+                                    document.getElementById('manualAddBtn').style.display = 'inline-block';
+                                }, 5000);
+                                
+                                return;
+                            }
                         }
                     } catch (error) {
-                        console.error('Error fetching payment status from server:', error);
-                        // Show manual activation option
-                        showManualActivation();
-                        return;
+                        console.error('Error fetching session details:', error);
                     }
                 }
                 
-                console.log('Payment Intent Status:', paymentIntent?.status);
-
-                // Hide loading
-                document.getElementById('loadingSection').style.display = 'none';
-
-                if (!paymentIntent) {
-                    showManualActivation();
-                    return;
-                }
-
-                switch (paymentIntent.status) {
-                    case 'succeeded':
-                        // Payment successful - get subscription details
-                        try {
-                            const response = await fetch('/api/subscription/status', {
-                                credentials: 'include'
-                            });
-                            
-                            if (response.ok) {
-                                const data = await response.json();
-                                if (data.subscription && data.subscription.status === 'active') {
-                                    displaySubscriptionDetails(data);
-                                    document.getElementById('successSection').style.display = 'block';
-                                } else {
-                                    // Subscription not active yet, try to activate
-                                    await attemptSubscriptionActivation();
-                                }
-                            } else {
-                                await attemptSubscriptionActivation();
-                            }
-                        } catch (error) {
-                            console.error('Error fetching subscription details:', error);
-                            await attemptSubscriptionActivation();
-                        }
-                        break;
-
-                    case 'processing':
-                        document.getElementById('processingSection').style.display = 'block';
-                        // Check status again in 5 seconds
-                        setTimeout(() => {
-                            checkPaymentStatus();
-                        }, 5000);
-                        break;
-
-                    case 'requires_payment_method':
-                        document.getElementById('errorMessage').textContent = 
-                            'Your payment was declined. Please try a different payment method.';
-                        document.getElementById('failedSection').style.display = 'block';
-                        break;
-
-                    default:
-                        showManualActivation();
-                        break;
-                }
-            } catch (error) {
-                console.error('Error checking payment status:', error);
-                showManualActivation();
-            }
-        }
-
-        // Show manual activation option
-        function showManualActivation() {
-            document.getElementById('loadingSection').style.display = 'none';
-            
-            // Update failed section to show manual activation
-            document.getElementById('errorMessage').innerHTML = `
-                <strong>Payment Processing Issue</strong><br>
-                We're having trouble verifying your payment status automatically. 
-                If your payment went through, click the button below to activate your subscription manually.
-            `;
-            
-            // Add manual activation button
-            const actionsDiv = document.querySelector('#failedSection .action-buttons');
-            actionsDiv.innerHTML = `
-                <button class="btn btn-primary" onclick="attemptSubscriptionActivation()">Activate My Subscription</button>
-                <a href="/subscribe" class="btn btn-secondary">Try Payment Again</a>
-                <a href="/dashboard?subscription_updated=true" class="btn btn-secondary">Back to Dashboard</a>
-            `;
-            
-            document.getElementById('failedSection').style.display = 'block';
-        }
-
-        // Check for recent subscription (for Payment Links)
-        async function checkForRecentSubscription() {
-            try {
-                console.log('🔧 Checking for recent subscription...');
-                
-                // First check if this was a credit pack purchase
-                const urlParams = new URLSearchParams(window.location.search);
-                const purchaseType = urlParams.get('purchase_type');
-                const creditAmount = urlParams.get('credits');
-                
-                if (purchaseType === 'credit_pack' && creditAmount) {
-                    console.log('🔧 Detected credit pack purchase');
-                    displayCreditPurchaseSuccess(creditAmount);
-                    document.getElementById('loadingSection').style.display = 'none';
-                    document.getElementById('successSection').style.display = 'block';
-                    return;
-                }
-                
+                // Check for subscription status
                 const response = await fetch('/api/subscription/status', {
                     credentials: 'include'
                 });
@@ -537,132 +522,166 @@
                     console.log('🔧 Subscription data:', data);
                     
                     if (data.subscription && data.subscription.status === 'active') {
-                        // Hide loading
-                        document.getElementById('loadingSection').style.display = 'none';
-                        // Show success
+                        document.getElementById('successTitle').textContent = '🎉 Subscription Activated!';
+                        document.getElementById('successMessage').textContent = `
+                            Your subscription has been successfully activated. You now have access to unlimited LinkedIn post generation!
+                        `;
+                        
                         displaySubscriptionDetails(data);
-                        document.getElementById('successSection').style.display = 'block';
-                        
-                        // Add a "Continue to Dashboard" button after 3 seconds
-                        setTimeout(() => {
-                            const successSection = document.getElementById('successSection');
-                            if (successSection) {
-                                const continueBtn = document.createElement('div');
-                                continueBtn.innerHTML = `
-                                    <div style="text-align: center; margin-top: 20px;">
-                                        <a href="/dashboard?subscription_updated=true" class="btn btn-primary">Continue to Dashboard</a>
-                                    </div>
-                                `;
-                                successSection.appendChild(continueBtn);
-                            }
-                        }, 3000);
-                        
+                        showSuccessSection();
                         return;
                     }
                 }
                 
-                // No subscription found, try again in 5 seconds (up to 30 seconds total)
-                if (window.subscriptionCheckAttempts < 6) {
-                    window.subscriptionCheckAttempts = (window.subscriptionCheckAttempts || 0) + 1;
-                    console.log(`🔧 Subscription not found, retrying... (${window.subscriptionCheckAttempts}/6)`);
-                    setTimeout(() => {
-                        checkForRecentSubscription();
-                    }, 5000);
-                } else {
-                    // Give up and show manual activation
-                    showManualActivation();
-                }
+                // If no specific purchase found, show generic success
+                console.log('🔧 No specific purchase type detected, showing generic success');
+                setTimeout(() => {
+                    document.getElementById('successTitle').textContent = '🎉 Payment Successful!';
+                    document.getElementById('successMessage').textContent = `
+                        Your payment has been processed successfully. If you don't see your credits or subscription update immediately, 
+                        please refresh the page or go to your dashboard.
+                    `;
+                    showSuccessSection();
+                }, 2000);
                 
             } catch (error) {
-                console.error('Error checking for recent subscription:', error);
+                console.error('Error checking for recent purchase:', error);
                 showManualActivation();
             }
         }
 
-        // Attempt to activate subscription manually
-        async function attemptSubscriptionActivation() {
-            try {
-                const response = await fetch('/api/subscription/activate-manual', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // Hide all sections
-                    document.getElementById('loadingSection').style.display = 'none';
-                    document.getElementById('processingSection').style.display = 'none';
-                    document.getElementById('failedSection').style.display = 'none';
-                    
-                    // Show success
-                    displaySubscriptionDetails(data.subscription);
-                    document.getElementById('successSection').style.display = 'block';
-                } else {
-                    const errorData = await response.json();
-                    console.error('Manual activation failed:', errorData);
-                    
-                    document.getElementById('errorMessage').innerHTML = `
-                        <strong>Unable to activate subscription</strong><br>
-                        ${errorData.error || 'Please contact support for assistance.'}
-                    `;
-                }
-            } catch (error) {
-                console.error('Error attempting manual activation:', error);
-                document.getElementById('errorMessage').innerHTML = `
-                    <strong>Activation Error</strong><br>
-                    Unable to activate subscription automatically. Please contact support.
-                `;
-            }
+        // Determine credit amount from payment amount
+        function determineCreditAmount(amountTotal) {
+            if (!amountTotal) return 25; // Default
+            
+            const amountInDollars = amountTotal / 100;
+            
+            if (amountInDollars === 0.99) return 25;
+            if (amountInDollars === 2.49) return 75;
+            if (amountInDollars === 5.99) return 200;
+            
+            return Math.floor(amountInDollars * 25); // Roughly 25 credits per dollar
         }
+
+        // Determine pack type from payment amount
+        function determinePackType(amountTotal) {
+            if (!amountTotal) return 'Credit Pack';
+            
+            const amountInDollars = amountTotal / 100;
+            
+            if (amountInDollars === 0.99) return 'Small Credit Pack (25 credits)';
+            if (amountInDollars === 2.49) return 'Medium Credit Pack (75 credits)';
+            if (amountInDollars === 5.99) return 'Large Credit Pack (200 credits)';
+            
+            return `Credit Pack ($${amountInDollars})`;
+        }
+
+        // Show success section with animation
+        function showSuccessSection() {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('processingSection').style.display = 'none';
+            document.getElementById('failedSection').style.display = 'none';
+            
+            const successSection = document.getElementById('successSection');
+            successSection.classList.remove('hidden');
+            successSection.classList.add('celebrate-animation');
+        }
+
+        // Show manual activation option
+        function showManualActivation() {
+            document.getElementById('loadingSection').style.display = 'none';
+            
+            document.getElementById('errorMessage').innerHTML = `
+                <strong>Payment Verification</strong><br>
+                We're having trouble verifying your payment automatically. If your payment was processed successfully, 
+                please check your dashboard or try refreshing your credits below.
+            `;
+            
+            // Update action buttons
+            const actionsDiv = document.querySelector('#failedSection .action-buttons');
+            actionsDiv.innerHTML = `
+                <button class="btn btn-primary" onclick="refreshCredits()">Check My Credits</button>
+                <a href="/dashboard" class="btn btn-secondary">Go to Dashboard</a>
+                <a href="/pricing" class="btn btn-secondary">Back to Pricing</a>
+            `;
+            
+                         document.getElementById('failedSection').classList.remove('hidden');
+         }
 
         // Manually add credits for failed webhook processing
         async function manuallyAddCredits() {
             try {
-                const button = event.target;
+                const button = document.getElementById('manualAddBtn');
+                const originalText = button.textContent;
+                
+                if (!purchaseInfo.creditAmount || purchaseInfo.creditAmount <= 0) {
+                    alert('❌ No purchase information found for manual credit addition.');
+                    return;
+                }
+                
+                const confirmation = confirm(
+                    `Add ${purchaseInfo.creditAmount} credits to your account?\n\n` +
+                    `This should only be used if the automatic credit addition failed after a successful payment.`
+                );
+                
+                if (!confirmation) return;
+                
                 button.textContent = 'Adding Credits...';
                 button.disabled = true;
                 
-                const response = await fetch('/api/credits/add', {
+                const response = await fetch('/api/credits/manual-add', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        credits: 30,
-                        description: 'Starter plan purchase - manual addition via success page'
+                        credits: purchaseInfo.creditAmount,
+                        reason: `Manual addition for ${purchaseInfo.packType} - Session: ${purchaseInfo.sessionId}`,
+                        sessionId: purchaseInfo.sessionId
                     })
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
-                    alert('✅ Success! ' + data.message + '. The page will refresh to show your updated balance.');
                     
-                    // Refresh the page to show updated balance
-                    setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 1000);
+                    // Update the display
+                    const successMessage = document.getElementById('successMessage');
+                    successMessage.innerHTML = `
+                        ✅ <strong>Credits successfully added!</strong> You now have ${data.new_balance} credits total. 
+                        Ready to create amazing LinkedIn posts!
+                    `;
+                    
+                    // Update credit display
+                    const creditElement = document.querySelector('.credit-highlight');
+                    if (creditElement) {
+                        creditElement.textContent = `${data.new_balance} credits`;
+                        creditElement.style.animation = 'celebrateScale 0.6s ease-out';
+                    }
+                    
+                    // Hide the manual add button
+                    button.style.display = 'none';
+                    
+                    alert('✅ ' + data.message);
                 } else {
                     const errorData = await response.json();
                     alert('❌ Failed to add credits: ' + errorData.error);
-                    button.textContent = 'Fix Credits (If 0)';
+                    button.textContent = originalText;
                     button.disabled = false;
                 }
-                
             } catch (error) {
-                console.error('❌ Error adding credits:', error);
-                alert('❌ Error adding credits. Please try again.');
-                event.target.textContent = 'Fix Credits (If 0)';
-                event.target.disabled = false;
+                console.error('❌ Error manually adding credits:', error);
+                alert('❌ Error adding credits. Please try again or contact support.');
+                
+                const button = document.getElementById('manualAddBtn');
+                button.textContent = 'Add Missing Credits';
+                button.disabled = false;
             }
         }
 
         // Check authentication and payment status on page load
         document.addEventListener('DOMContentLoaded', async () => {
-            // Check authentication using the same method as main site
+            // Check authentication
             try {
                 const authResponse = await fetch('/api/auth-status', {
                     credentials: 'include'
@@ -683,7 +702,8 @@
                 return;
             }
 
-            checkPaymentStatus();
+            // Check for purchase details
+            await checkForRecentPurchase();
         });
     </script>
 </body>

@@ -1767,6 +1767,176 @@ app.get('/api/subscription/payment-status/:paymentIntentId', requireAuth, async 
   }
 });
 
+// Get session details endpoint for success page
+app.get('/api/subscription/session-details/:sessionId', requireAuth, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    console.log('🔍 Fetching session details for:', sessionId);
+    
+    // Get session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    console.log('📦 Session retrieved:', {
+      id: session.id,
+      mode: session.mode,
+      payment_status: session.payment_status,
+      amount_total: session.amount_total,
+      metadata: session.metadata
+    });
+    
+    res.json({
+      id: session.id,
+      mode: session.mode,
+      payment_status: session.payment_status,
+      amount_total: session.amount_total,
+      currency: session.currency,
+      metadata: session.metadata,
+      customer_details: session.customer_details,
+      subscription: session.subscription
+    });
+  } catch (error) {
+    console.error('❌ Error fetching session details:', error);
+    res.status(500).json({ error: 'Failed to fetch session details' });
+  }
+});
+
+// Manual credit addition for troubleshooting purchases
+app.post('/api/credits/manual-add', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { credits, reason, sessionId } = req.body;
+    
+    console.log(`🔧 Manual credit addition requested:`, {
+      userId,
+      credits,
+      reason,
+      sessionId
+    });
+    
+    if (!credits || credits <= 0) {
+      return res.status(400).json({ error: 'Invalid credit amount' });
+    }
+    
+    if (credits > 500) {
+      return res.status(400).json({ error: 'Credit amount too large (max 500)' });
+    }
+    
+    // Add credits using the proper credit system
+    const CreditDB = require('./database').CreditDB;
+    const newBalance = await CreditDB.addCredits(
+      userId, 
+      credits, 
+      reason || `Manual addition via success page (Session: ${sessionId || 'unknown'})`
+    );
+    
+    console.log(`✅ Manually added ${credits} credits to user ${userId}. New balance: ${newBalance}`);
+    
+    res.json({
+      success: true,
+      message: `Successfully added ${credits} credits to your account`,
+      credits_added: credits,
+      new_balance: newBalance
+    });
+  } catch (error) {
+    console.error('❌ Error manually adding credits:', error);
+    res.status(500).json({ error: 'Failed to add credits' });
+  }
+});
+
+// Test webhook endpoint to verify webhook configuration
+app.get('/api/webhooks/test', async (req, res) => {
+  try {
+    console.log('🧪 Testing webhook configuration...');
+    
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    res.json({
+      webhook_secret_configured: !!webhookSecret && webhookSecret !== 'whsec_your_webhook_secret_here',
+      webhook_secret_placeholder: webhookSecret === 'whsec_your_webhook_secret_here',
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error testing webhook:', error);
+    res.status(500).json({ error: 'Failed to test webhook configuration' });
+  }
+});
+
+// Credit pack price IDs
+const CREDIT_PACK_PRICES = {
+  25: 'price_1RYKaLKkxlEtPdqxLAKLndhB',    // $0.99 for 25 credits (Small pack)
+  75: 'price_1RYKajKkxlEtPdqxaSbA8TSi',    // $2.49 for 75 credits (Medium pack)  
+  200: 'price_1RYKbZKkxlEtPdqxjBt0e4xK'   // $5.99 for 200 credits (Large pack)
+};
+
+// Create checkout session for credit purchases
+app.post('/api/credits/create-checkout', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { credits, pack_name } = req.body;
+    
+    console.log('💳 Creating credit checkout session:', {
+      userId,
+      credits,
+      pack_name
+    });
+    
+    if (!credits || credits <= 0) {
+      return res.status(400).json({ error: 'Invalid credit amount' });
+    }
+    
+    // Get the price ID for this credit amount
+    const priceId = CREDIT_PACK_PRICES[credits];
+    if (!priceId) {
+      return res.status(400).json({ 
+        error: `No price ID configured for ${credits} credits. Available: ${Object.keys(CREDIT_PACK_PRICES).join(', ')}` 
+      });
+    }
+    
+    if (priceId.includes('REPLACE_WITH')) {
+      return res.status(500).json({ 
+        error: 'Credit pack price IDs not configured. Please set up price IDs in Stripe dashboard first.' 
+      });
+    }
+    
+    // Create checkout session with existing price ID
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [
+        {
+          price: priceId,  // Use existing price ID instead of dynamic pricing
+          quantity: 1,
+        },
+      ],
+      customer_email: req.user.email,
+      metadata: {
+        user_id: userId.toString(),
+        credit_amount: credits.toString(),
+        pack_type: pack_name,
+        plan_type: 'credit_pack'
+      },
+      success_url: `${req.headers.origin}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.origin}/credits?canceled=true`,
+    });
+    
+    console.log('✅ Credit checkout session created:', session.id);
+    
+    res.json({ 
+      sessionId: session.id,
+      credits: credits,
+      priceId: priceId
+    });
+  } catch (error) {
+    console.error('❌ Error creating credit checkout:', error);
+    res.status(500).json({ 
+      error: 'Failed to create checkout session',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // Quick fix endpoint to activate incomplete subscription (GET and POST)
 app.get('/api/subscription/quick-activate', requireAuth, async (req, res) => {
   try {
@@ -1909,15 +2079,28 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
   try {
     const signature = req.headers['stripe-signature'];
     
+    console.log('🔔 Webhook received with signature:', signature ? 'present' : 'missing');
+    console.log('🔔 Webhook body size:', req.body?.length || 0);
+    
     if (!signature) {
+      console.error('❌ Missing Stripe signature in webhook');
       return res.status(400).json({ error: 'Missing Stripe signature' });
     }
 
-    await stripeService.handleWebhook(req.body, signature);
-    res.json({ received: true });
+    const result = await stripeService.handleWebhook(req.body, signature);
+    console.log('✅ Webhook processed successfully');
+    res.json({ received: true, result });
   } catch (error) {
     console.error('❌ Stripe webhook error:', error);
-    res.status(400).json({ error: 'Webhook processing failed' });
+    console.error('❌ Error details:', {
+      message: error.message,
+      type: error.type,
+      stack: error.stack
+    });
+    res.status(400).json({ 
+      error: 'Webhook processing failed',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -3060,6 +3243,32 @@ app.get('/pricing', (req, res) => {
   } else {
     console.log('⚠️ pricing.html not found');
     res.status(404).send('Pricing page not found');
+  }
+});
+
+// Credits purchase page route
+app.get('/credits', (req, res) => {
+  console.log('💳 Credits route hit');
+  
+  // Set CSP headers to allow Stripe
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; " +
+    "img-src 'self' data: https: http:; " +
+    "connect-src 'self' https://api.stripe.com; " +
+    "frame-src https://js.stripe.com https://hooks.stripe.com; " +
+    "font-src 'self' https://fonts.gstatic.com;"
+  );
+  
+  const creditsPath = path.join(__dirname, 'credits.html');
+  
+  if (fs.existsSync(creditsPath)) {
+    console.log('✅ Serving credits.html');
+    res.sendFile(creditsPath);
+  } else {
+    console.log('⚠️ credits.html not found');
+    res.status(404).send('Credits page not found');
   }
 });
 

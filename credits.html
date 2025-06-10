@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Credits - Employment</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        .credits-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-3xl) var(--spacing-xl);
+        }
+
+        .credits-header {
+            text-align: center;
+            margin-bottom: var(--spacing-3xl);
+        }
+
+        .credits-title {
+            font-size: var(--font-size-4xl);
+            font-weight: var(--font-weight-black);
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .credits-subtitle {
+            font-size: var(--font-size-lg);
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .current-balance {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-2xl);
+            text-align: center;
+            border: 1px solid var(--border-light);
+        }
+
+        .balance-amount {
+            font-size: var(--font-size-2xl);
+            font-weight: var(--font-weight-bold);
+            color: var(--linkedin-blue);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .credit-packs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-3xl);
+        }
+
+        .credit-pack {
+            background: var(--pure-white);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-2xl);
+            border: 2px solid var(--border-light);
+            text-align: center;
+            position: relative;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
+        }
+
+        .credit-pack:hover {
+            border-color: var(--linkedin-blue);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-4px);
+        }
+
+        .credit-pack.popular {
+            border-color: var(--employment-red);
+            position: relative;
+        }
+
+        .credit-pack.popular::before {
+            content: "Most Popular";
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--employment-red);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-bold);
+        }
+
+        .pack-title {
+            font-size: var(--font-size-xl);
+            font-weight: var(--font-weight-bold);
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .pack-credits {
+            font-size: var(--font-size-3xl);
+            font-weight: var(--font-weight-black);
+            color: var(--linkedin-blue);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .pack-price {
+            font-size: var(--font-size-2xl);
+            font-weight: var(--font-weight-bold);
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .pack-price .original {
+            text-decoration: line-through;
+            color: var(--text-secondary);
+            font-size: var(--font-size-lg);
+            margin-right: var(--spacing-sm);
+        }
+
+        .pack-value {
+            background: var(--bg-success);
+            color: var(--text-success);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-bold);
+            margin-bottom: var(--spacing-lg);
+            display: inline-block;
+        }
+
+        .pack-features {
+            list-style: none;
+            padding: 0;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .pack-features li {
+            padding: var(--spacing-xs) 0;
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+        }
+
+        .pack-features li::before {
+            content: "✓";
+            color: var(--employment-red);
+            font-weight: bold;
+            margin-right: var(--spacing-sm);
+        }
+
+        .purchase-btn {
+            width: 100%;
+            padding: var(--spacing-lg);
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: var(--font-size-base);
+            font-weight: var(--font-weight-bold);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .purchase-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-accent);
+        }
+
+        .purchase-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: var(--spacing-sm);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .usage-info {
+            background: var(--bg-info);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-top: var(--spacing-2xl);
+            text-align: center;
+        }
+
+        .usage-info h3 {
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .usage-examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        .usage-example {
+            text-align: center;
+        }
+
+        .usage-example .icon {
+            font-size: 2rem;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .auth-required {
+            background: var(--bg-warning);
+            border: 1px solid var(--border-warning);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            text-align: center;
+            margin: var(--spacing-2xl) 0;
+        }
+
+        .auth-required h3 {
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>🚀 Employment</h2>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/generator" class="nav-link">Generator</a>
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/pricing" class="nav-link">Pricing</a>
+            </div>
+            <div class="nav-auth">
+                <div id="userInfo" class="user-info" style="display: none;">
+                    <span id="userName"></span>
+                    <button onclick="logout()" class="btn-secondary">Logout</button>
+                </div>
+                <button id="loginBtn" class="btn-primary" onclick="login()" style="display: none;">
+                    Continue with LinkedIn
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="credits-container">
+        <!-- Auth Required Message -->
+        <div id="authRequired" class="auth-required" style="display: none;">
+            <h3>🔐 Authentication Required</h3>
+            <p>Please sign in with your LinkedIn account to purchase credits. This ensures credits are added to the correct account.</p>
+            <button onclick="login()" class="btn-primary">Sign In with LinkedIn</button>
+        </div>
+
+        <!-- Credits Content -->
+        <div id="creditsContent" style="display: none;">
+            <div class="credits-header">
+                <h1 class="credits-title">🚀 Power Up Your LinkedIn Presence</h1>
+                <p class="credits-subtitle">
+                    Purchase credits to generate professional LinkedIn posts with AI. 
+                    Each credit creates one high-quality, engaging post tailored to your industry and expertise.
+                </p>
+            </div>
+
+            <!-- Current Balance -->
+            <div class="current-balance">
+                <div class="balance-amount" id="currentBalance">Loading...</div>
+                <p>Current Credit Balance</p>
+            </div>
+
+            <!-- Credit Packs -->
+            <div class="credit-packs">
+                <!-- Small Pack -->
+                <div class="credit-pack">
+                    <div class="pack-title">Starter Pack</div>
+                    <div class="pack-credits">25</div>
+                    <div style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">Credits</div>
+                    <div class="pack-price">$0.99</div>
+                    <div class="pack-value">$0.04 per credit</div>
+                    <ul class="pack-features">
+                        <li>25 AI-generated LinkedIn posts</li>
+                        <li>Professional tone optimization</li>
+                        <li>Industry-specific content</li>
+                        <li>Instant generation</li>
+                        <li>Credits never expire</li>
+                    </ul>
+                    <button class="purchase-btn" onclick="purchaseCredits(25, 'Starter Pack')">
+                        <span class="loading-spinner"></span>
+                        Purchase Starter Pack
+                    </button>
+                </div>
+
+                <!-- Medium Pack -->
+                <div class="credit-pack popular">
+                    <div class="pack-title">Professional Pack</div>
+                    <div class="pack-credits">75</div>
+                    <div style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">Credits</div>
+                    <div class="pack-price">
+                        <span class="original">$2.97</span>
+                        $2.49
+                    </div>
+                    <div class="pack-value">$0.033 per credit • Save 17%</div>
+                    <ul class="pack-features">
+                        <li>75 AI-generated LinkedIn posts</li>
+                        <li>Advanced engagement optimization</li>
+                        <li>Multiple tone options</li>
+                        <li>Priority generation</li>
+                        <li>Credits never expire</li>
+                        <li>Email support included</li>
+                    </ul>
+                    <button class="purchase-btn" onclick="purchaseCredits(75, 'Professional Pack')">
+                        <span class="loading-spinner"></span>
+                        Purchase Professional Pack
+                    </button>
+                </div>
+
+                <!-- Large Pack -->
+                <div class="credit-pack">
+                    <div class="pack-title">Business Pack</div>
+                    <div class="pack-credits">200</div>
+                    <div style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">Credits</div>
+                    <div class="pack-price">
+                        <span class="original">$7.98</span>
+                        $5.99
+                    </div>
+                    <div class="pack-value">$0.03 per credit • Save 25%</div>
+                    <ul class="pack-features">
+                        <li>200 AI-generated LinkedIn posts</li>
+                        <li>Premium content templates</li>
+                        <li>Custom industry focus</li>
+                        <li>Bulk generation capabilities</li>
+                        <li>Credits never expire</li>
+                        <li>Priority customer support</li>
+                        <li>Advanced analytics</li>
+                    </ul>
+                    <button class="purchase-btn" onclick="purchaseCredits(200, 'Business Pack')">
+                        <span class="loading-spinner"></span>
+                        Purchase Business Pack
+                    </button>
+                </div>
+            </div>
+
+            <!-- Usage Information -->
+            <div class="usage-info">
+                <h3>💡 How Credits Work</h3>
+                <p>Each credit generates one professional LinkedIn post. Credits never expire and work perfectly for:</p>
+                
+                <div class="usage-examples">
+                    <div class="usage-example">
+                        <div class="icon">📈</div>
+                        <h4>Industry Insights</h4>
+                        <p>Share expert perspectives on market trends</p>
+                    </div>
+                    <div class="usage-example">
+                        <div class="icon">💼</div>
+                        <h4>Career Updates</h4>
+                        <p>Announce achievements and milestones</p>
+                    </div>
+                    <div class="usage-example">
+                        <div class="icon">🧠</div>
+                        <h4>Thought Leadership</h4>
+                        <p>Establish expertise in your field</p>
+                    </div>
+                    <div class="usage-example">
+                        <div class="icon">🤝</div>
+                        <h4>Network Building</h4>
+                        <p>Engage with your professional community</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stripe = Stripe('pk_test_51QY8e0KGVUdIKaE3bpb8FhckLGJqLBkz10Cd5BnvshJM4wJjJtf0k8EgQ6wlxp4D6QqfNkrOYgS2vDbh9ddJ7n7V002HkI7Fj4');
+        let currentUser = null;
+
+        // Check authentication status on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuthStatus();
+        });
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth-status', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.authenticated) {
+                        currentUser = data.user;
+                        showCreditsContent();
+                        updateUserInfo(data.user);
+                        await loadCurrentBalance();
+                    } else {
+                        showAuthRequired();
+                    }
+                } else {
+                    showAuthRequired();
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                showAuthRequired();
+            }
+        }
+
+        function showCreditsContent() {
+            document.getElementById('authRequired').style.display = 'none';
+            document.getElementById('creditsContent').style.display = 'block';
+        }
+
+        function showAuthRequired() {
+            document.getElementById('authRequired').style.display = 'block';
+            document.getElementById('creditsContent').style.display = 'none';
+            document.getElementById('loginBtn').style.display = 'block';
+        }
+
+        function updateUserInfo(user) {
+            document.getElementById('userName').textContent = user.name;
+            document.getElementById('userInfo').style.display = 'flex';
+            document.getElementById('loginBtn').style.display = 'none';
+        }
+
+        async function loadCurrentBalance() {
+            try {
+                const response = await fetch('/api/credits/balance', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('currentBalance').textContent = `${data.balance} Credits`;
+                } else {
+                    document.getElementById('currentBalance').textContent = 'Unable to load balance';
+                }
+            } catch (error) {
+                console.error('Failed to load balance:', error);
+                document.getElementById('currentBalance').textContent = 'Error loading balance';
+            }
+        }
+
+        async function purchaseCredits(credits, packName) {
+            if (!currentUser) {
+                alert('Please sign in first to purchase credits.');
+                return;
+            }
+
+            const button = event.target;
+            const spinner = button.querySelector('.loading-spinner');
+            const originalText = button.textContent;
+
+            try {
+                // Show loading state
+                button.disabled = true;
+                spinner.style.display = 'inline-block';
+                button.innerHTML = `<span class="loading-spinner" style="display: inline-block;"></span> Processing...`;
+
+                console.log('Creating checkout session for:', {
+                    credits,
+                    packName,
+                    userId: currentUser.id
+                });
+
+                // Create checkout session
+                const response = await fetch('/api/credits/create-checkout', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        credits: credits,
+                        pack_name: packName
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to create checkout session');
+                }
+
+                const { sessionId } = await response.json();
+                console.log('Checkout session created:', sessionId);
+
+                // Redirect to Stripe Checkout
+                const result = await stripe.redirectToCheckout({
+                    sessionId: sessionId
+                });
+
+                if (result.error) {
+                    throw new Error(result.error.message);
+                }
+
+            } catch (error) {
+                console.error('Purchase error:', error);
+                alert('Failed to start checkout: ' + error.message);
+                
+                // Reset button state
+                button.disabled = false;
+                spinner.style.display = 'none';
+                button.textContent = originalText;
+            }
+        }
+
+        function login() {
+            window.location.href = '/auth/linkedin';
+        }
+
+        function logout() {
+            window.location.href = '/logout';
+        }
+    </script>
+</body>
+</html> 
