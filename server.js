@@ -1045,13 +1045,29 @@ app.get('/api/linkedin-posts', requireAuth, async (req, res) => {
 // Save a post for later
 app.post('/api/posts/save', requireAuth, async (req, res) => {
   try {
+    console.log('📝 [Save Post] Request received');
+    console.log('👤 User:', req.user.id, req.user.name);
+    console.log('📦 Post data:', JSON.stringify(req.body, null, 2));
+    
     const userId = req.user.id;
     const postData = req.body;
     
+    // Validate required fields
+    if (!postData.content) {
+      console.error('❌ [Save Post] Missing required field: content');
+      return res.status(400).json({ success: false, error: 'Post content is required' });
+    }
+    
+    console.log('✅ [Save Post] Data validation passed');
+    console.log('💾 [Save Post] Saving to database...');
+    
     const savedPost = await SavedPostsDB.savePost(userId, postData);
+    console.log('✅ [Save Post] Successfully saved post:', savedPost.id);
+    
     res.json({ success: true, post: savedPost });
   } catch (error) {
-    console.error('❌ Error saving post:', error);
+    console.error('❌ [Save Post] Error:', error);
+    console.error('❌ [Save Post] Stack:', error.stack);
     res.status(500).json({ success: false, error: 'Failed to save post' });
   }
 });

@@ -709,28 +709,48 @@
     <!-- Save for Later functionality -->
     <script>
         document.getElementById('saveForLaterBtn').addEventListener('click', async () => {
+            console.log('💾 [Generator Save] Starting save operation');
+            
             try {
                 const content = document.querySelector('#output .generator-output p').textContent;
                 const topic = document.getElementById('topic').value;
                 const tone = document.getElementById('tone').value;
                 const industry = document.getElementById('studentField')?.value;
                 
+                if (!content) {
+                    console.error('❌ [Generator Save] No content found in output');
+                    alert('No content to save. Please generate content first.');
+                    return;
+                }
+                
+                const token = localStorage.getItem('token');
+                console.log('🔐 [Generator Save] Token exists:', !!token);
+                console.log('🔐 [Generator Save] Token preview:', token ? `${token.substring(0, 20)}...` : 'none');
+                
+                const saveData = {
+                    content,
+                    title: topic,
+                    tone,
+                    industry
+                };
+                
+                console.log('📦 [Generator Save] Sending data:', JSON.stringify(saveData, null, 2));
+                
                 const response = await fetch('/api/posts/save', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        content,
-                        title: topic,
-                        tone,
-                        industry
-                    })
+                    body: JSON.stringify(saveData)
                 });
 
+                console.log('📡 [Generator Save] Response status:', response.status);
+                const responseData = await response.json();
+                console.log('📡 [Generator Save] Response data:', responseData);
+
                 if (!response.ok) {
-                    throw new Error('Failed to save post');
+                    throw new Error(responseData.error || 'Failed to save post');
                 }
 
                 // Show success message
@@ -745,7 +765,8 @@
                     setTimeout(() => toast.remove(), 500);
                 }, 3000);
             } catch (error) {
-                console.error('Error saving post:', error);
+                console.error('❌ [Generator Save] Error:', error);
+                console.error('❌ [Generator Save] Error details:', error.message);
                 alert('Failed to save post. Please try again.');
             }
         });

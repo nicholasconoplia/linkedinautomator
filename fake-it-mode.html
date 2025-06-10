@@ -462,32 +462,49 @@
         }
 
         async function saveForLater(postId) {
+            console.log('💾 [Client Save] Starting save operation for post:', postId);
+            
             const postData = generatedPostsData.find(p => p.id === postId);
-            if (!postData) return;
+            if (!postData) {
+                console.error('❌ [Client Save] Post data not found for ID:', postId);
+                return;
+            }
 
             try {
+                const token = localStorage.getItem('token');
+                console.log('🔐 [Client Save] Token exists:', !!token);
+                console.log('🔐 [Client Save] Token preview:', token ? `${token.substring(0, 20)}...` : 'none');
+                
+                const saveData = {
+                    content: postData.post,
+                    title: postData.topic,
+                    source_url: postData.article.url,
+                    source_name: postData.article.source,
+                    industry: document.getElementById('industry').value,
+                    tone: postData.tone,
+                    metadata: {
+                        article_title: postData.article.title,
+                        article_summary: postData.article.summary
+                    }
+                };
+                
+                console.log('📦 [Client Save] Sending data:', JSON.stringify(saveData, null, 2));
+                
                 const response = await fetch('/api/posts/save', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        content: postData.post,
-                        title: postData.topic,
-                        source_url: postData.article.url,
-                        source_name: postData.article.source,
-                        industry: document.getElementById('industry').value,
-                        tone: postData.tone,
-                        metadata: {
-                            article_title: postData.article.title,
-                            article_summary: postData.article.summary
-                        }
-                    })
+                    body: JSON.stringify(saveData)
                 });
 
+                console.log('📡 [Client Save] Response status:', response.status);
+                const responseData = await response.json();
+                console.log('📡 [Client Save] Response data:', responseData);
+
                 if (!response.ok) {
-                    throw new Error('Failed to save post');
+                    throw new Error(responseData.error || 'Failed to save post');
                 }
 
                 // Show success message
@@ -502,7 +519,8 @@
                     setTimeout(() => toast.remove(), 500);
                 }, 3000);
             } catch (error) {
-                console.error('Error saving post:', error);
+                console.error('❌ [Client Save] Error:', error);
+                console.error('❌ [Client Save] Error details:', error.message);
                 alert('Failed to save post. Please try again.');
             }
         }

@@ -1282,14 +1282,16 @@ const CreditDB = {
 const SavedPostsDB = {
   // Save a post
   savePost: async (userId, postData) => {
+    console.log('💾 [DB Save Post] Starting save operation');
+    console.log('👤 [DB Save Post] User ID:', userId);
+    console.log('📦 [DB Save Post] Data:', JSON.stringify(postData, null, 2));
+    
     const client = await pool.connect();
     try {
-      const result = await client.query(`
-        INSERT INTO saved_posts 
-        (user_id, title, content, source_url, source_name, industry, tone, metadata)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING *
-      `, [
+      console.log('🔌 [DB Save Post] Connected to database');
+      
+      // Prepare query parameters
+      const params = [
         userId,
         postData.title || null,
         postData.content,
@@ -1298,10 +1300,27 @@ const SavedPostsDB = {
         postData.industry || null,
         postData.tone || null,
         postData.metadata || {}
-      ]);
+      ];
+      
+      console.log('🔧 [DB Save Post] Query parameters:', JSON.stringify(params, null, 2));
+      
+      const result = await client.query(`
+        INSERT INTO saved_posts 
+        (user_id, title, content, source_url, source_name, industry, tone, metadata)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+      `, params);
+      
+      console.log('✅ [DB Save Post] Insert successful');
+      console.log('📄 [DB Save Post] Saved post:', result.rows[0]);
       
       return result.rows[0];
+    } catch (error) {
+      console.error('❌ [DB Save Post] Database error:', error);
+      console.error('❌ [DB Save Post] Stack:', error.stack);
+      throw error; // Re-throw to be handled by the caller
     } finally {
+      console.log('🔌 [DB Save Post] Releasing database connection');
       client.release();
     }
   },
