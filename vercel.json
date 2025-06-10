@@ -29,6 +29,7 @@
     { "source": "/serve-index", "destination": "server.js" },
     { "source": "/debug", "destination": "server.js" },
     { "source": "/catch-all-debug/(.*)", "destination": "server.js" },
+    { "source": "/api/payments/(.*)", "destination": "/api/payments/$1" },
     { "source": "/api/(.*)", "destination": "server.js" },
     { "source": "/auth/(.*)", "destination": "server.js" },
     { "source": "/generate", "destination": "server.js" },

@@ -2064,103 +2064,11 @@ app.post('/api/subscription/checkout', requireAuth, async (req, res) => {
 // PAYMENT SAFETY & LEGAL COMPLIANCE SYSTEM
 // ====================
 
-// Get user's complete payment history
-app.get('/api/payments/history', requireAuth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    console.log('📋 Getting payment history for user:', userId);
-    
-    const { Pool } = require('pg');
-    const dbPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
-    
-    // Get all payment-related transactions
-    const paymentHistory = await dbPool.query(`
-      SELECT 
-        ut.*,
-        us.plan_name,
-        us.status as subscription_status,
-        us.stripe_subscription_id,
-        us.stripe_customer_id
-      FROM usage_tracking ut
-      LEFT JOIN user_subscriptions us ON ut.user_id = us.user_id
-      WHERE ut.user_id = $1 
-      AND (
-        ut.metadata::text LIKE '%purchase%' OR 
-        ut.metadata::text LIKE '%payment%' OR 
-        ut.metadata::text LIKE '%credit_added%' OR
-        ut.metadata::text LIKE '%subscription%' OR
-        ut.action = 'credit_purchase' OR
-        ut.action = 'subscription_created'
-      )
-      ORDER BY ut.created_at DESC
-      LIMIT 50
-    `, [userId]);
-    
-    // Get Stripe payment history if customer exists
-    let stripePayments = [];
-    try {
-      const customer = await stripe.customers.list({
-        email: req.user.email,
-        limit: 1
-      });
-      
-      if (customer.data.length > 0) {
-        const charges = await stripe.charges.list({
-          customer: customer.data[0].id,
-          limit: 50
-        });
-        
-        const paymentIntents = await stripe.paymentIntents.list({
-          customer: customer.data[0].id,
-          limit: 50
-        });
-        
-        stripePayments = [
-          ...charges.data.map(charge => ({
-            id: charge.id,
-            type: 'charge',
-            amount: charge.amount / 100,
-            currency: charge.currency.toUpperCase(),
-            status: charge.status,
-            created: new Date(charge.created * 1000),
-            description: charge.description,
-            receipt_url: charge.receipt_url,
-            refunded: charge.refunded,
-            refund_amount: charge.amount_refunded / 100
-          })),
-          ...paymentIntents.data.map(intent => ({
-            id: intent.id,
-            type: 'payment_intent',
-            amount: intent.amount / 100,
-            currency: intent.currency.toUpperCase(),
-            status: intent.status,
-            created: new Date(intent.created * 1000),
-            description: intent.description
-          }))
-        ].sort((a, b) => b.created - a.created);
-      }
-    } catch (stripeError) {
-      console.error('Error fetching Stripe payment history:', stripeError);
-    }
-    
-    res.json({
-      success: true,
-      database_history: paymentHistory.rows,
-      stripe_history: stripePayments,
-      user_email: req.user.email
-    });
-    
-  } catch (error) {
-    console.error('Error fetching payment history:', error);
-    res.status(500).json({ error: 'Failed to fetch payment history' });
-  }
-});
+// Payment history is now handled by /api/payments/history.js Vercel function
 
 // Request refund for a specific payment
-app.post('/api/payments/request-refund', requireAuth, async (req, res) => {
+// Request refund is now handled by /api/payments/request-refund.js Vercel function
+/* app.post('/api/payments/request-refund', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { payment_id, reason, amount, description } = req.body;
@@ -2276,7 +2184,7 @@ app.post('/api/payments/request-refund', requireAuth, async (req, res) => {
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
-});
+}); */
 
 // Handle payment failures and errors
 app.post('/api/payments/handle-failure', requireAuth, async (req, res) => {
