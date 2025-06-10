@@ -378,19 +378,26 @@
             document.getElementById('paymentHistoryLoading').classList.remove('hidden');
             
             try {
+                console.log('🔍 Attempting to load payment history...');
                 const response = await fetch('/api/payments/history', {
                     credentials: 'include'
                 });
                 
+                console.log('📡 Payment history response status:', response.status);
+                console.log('📡 Payment history response ok:', response.ok);
+                
                 if (!response.ok) {
-                    throw new Error('Failed to load payment history');
+                    const errorText = await response.text();
+                    console.error('❌ Payment history error response:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to load payment history'}`);
                 }
                 
                 const data = await response.json();
+                console.log('✅ Payment history loaded successfully:', data);
                 displayPaymentHistory(data);
                 
             } catch (error) {
-                console.error('Error loading payment history:', error);
+                console.error('❌ Error loading payment history:', error);
                 alert('Failed to load payment history: ' + error.message);
             } finally {
                 // Reset button state
