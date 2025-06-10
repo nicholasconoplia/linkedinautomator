@@ -3579,7 +3579,7 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
 
     // Deduct 1 credit for the generation
     const newCreditBalance = await CreditDB.deductCredits(userId, 1, 'Content generation');
-    
+
     // Track usage for the authenticated user
     await UsageDB.trackUsage(userId, 'post_generation', estimatedCost, estimatedTokens, {
       topic,
@@ -4614,7 +4614,7 @@ app.post('/api/repurpose-tweet', rateLimitMiddleware, async (req, res) => {
 
     // Deduct 1 credit for tweet repurposing
     const newCreditBalance = await CreditDB.deductCredits(userId, 1, 'Tweet repurposing');
-    
+
     // Track usage
     await UsageDB.trackUsage(userId, 'post_generation', 0.00136, 1200, {
       topic,
@@ -4861,7 +4861,7 @@ app.post('/api/automation/generate-queue', requireAuth, async (req, res) => {
 
     // Deduct 1 credit for automation queue generation
     const newCreditBalance = await CreditDB.deductCredits(userId, 1, 'Automation queue generation');
-    
+
     console.log(`🤖 Generated ${queue.length} posts for automation queue`);
     console.log(`💰 Deducted 1 credit from user ${userId} for automation queue. New balance: ${newCreditBalance}`);
 

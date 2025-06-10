@@ -828,6 +828,20 @@
                 return;
             }
             
+            // Map plan names to their Stripe price IDs
+            const planPriceIds = {
+                'starter': 'price_1RXelQKkxlEtPdqxvLmom609',
+                'professional': 'price_1RXelRKkxlEtPdqxrGxYu3Bp',
+                'business': 'price_1RXelRKkxlEtPdqxveicYc5e'
+            };
+            
+            const priceId = planPriceIds[planName.toLowerCase()];
+            if (!priceId) {
+                console.error('Invalid plan name:', planName);
+                alert('Invalid subscription plan. Please try again.');
+                return;
+            }
+            
             try {
                 const response = await fetch('/api/subscription/checkout', {
                     method: 'POST',
@@ -835,17 +849,17 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        plan: planName
+                        priceId: priceId
                     })
                 });
                 
                 const data = await response.json();
                 
-                if (data.success) {
+                if (response.ok && data.url) {
                     // Redirect to Stripe Checkout
                     window.location.href = data.url;
                 } else {
-                    console.error('Subscription checkout failed:', data.error);
+                    console.error('Subscription checkout failed:', data.error || data);
                     alert('Failed to create subscription checkout. Please try again.');
                 }
             } catch (error) {
