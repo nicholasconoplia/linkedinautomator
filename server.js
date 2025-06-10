@@ -967,6 +967,29 @@ app.post('/api/post-now', requireAuth, rateLimitMiddleware, async (req, res) => 
   }
 });
 
+// Get user's LinkedIn posts
+app.get('/api/linkedin-posts', requireAuth, async (req, res) => {
+  try {
+    const count = parseInt(req.query.count) || 10;
+    
+    const accessToken = await LinkedInService.ensureValidToken(req.user.id);
+    const result = await LinkedInService.getUserPosts(accessToken, count);
+
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        posts: result.posts,
+        totalCount: result.totalCount 
+      });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('❌ Error fetching LinkedIn posts:', error);
+    res.status(500).json({ error: 'Failed to fetch LinkedIn posts' });
+  }
+});
+
 // ====================
 // SUBSCRIPTION AND PAYMENT ROUTES
 // ====================
@@ -3842,7 +3865,8 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
       viral_format = null,
       engagement_options = {},
       custom_content = null,
-      tweet_text = null
+      tweet_text = null,
+      student_context = {}
     } = req.body;
     
     if (!topic && !custom_content && !tweet_text) {
@@ -3911,7 +3935,7 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
         break;
       case 'news':
       default:
-        result = await generatePost(topic, tone, length, engagement_options);
+        result = await generatePost(topic, tone, length, engagement_options, student_context);
         break;
     }
 
@@ -3955,7 +3979,7 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
 // POST GENERATION FUNCTION (Unchanged from previous version)
 // ====================
 
-async function generatePost(topic, tone, length = 'medium', engagementOptions = {}) {
+async function generatePost(topic, tone, length = 'medium', engagementOptions = {}, studentContext = {}) {
   try {
     let selectedArticle = null;
     let post;
@@ -3975,7 +3999,7 @@ async function generatePost(topic, tone, length = 'medium', engagementOptions = 
     if (selectedArticle) {
       // Step 2a: Generate LinkedIn post with news article
       console.log('📰 Generating content based on article:', selectedArticle.title);
-      post = await generateLinkedInPost(selectedArticle, topic, tone, length, engagementOptions);
+      post = await generateLinkedInPost(selectedArticle, topic, tone, length, engagementOptions, studentContext);
       
       articleData = {
         title: selectedArticle.title,
@@ -3991,7 +4015,7 @@ async function generatePost(topic, tone, length = 'medium', engagementOptions = 
         
         if (researchData && researchData.length > 0) {
           console.log(`📊 Generating research-based content from ${researchData.length} sources`);
-          const ragResult = await generateRAGPost(researchData, topic, tone, length, engagementOptions);
+          const ragResult = await generateRAGPost(researchData, topic, tone, length, engagementOptions, studentContext);
           post = ragResult.post;
           
           // Use research data for article info
@@ -4011,7 +4035,7 @@ async function generatePost(topic, tone, length = 'medium', engagementOptions = 
     if (!post) {
       // Step 3: Fallback to general topic-based content
       console.log('💡 Generating general content for topic:', topic);
-      post = await generateGeneralPost(topic, tone, length, engagementOptions);
+      post = await generateGeneralPost(topic, tone, length, engagementOptions, studentContext);
     }
     
     // Step 4: Fetch relevant image (only if requested)
@@ -4478,13 +4502,282 @@ function selectBestArticle(articles) {
 async function callOpenAI(prompt, contentType = 'linkedin_post') {
   try {
     const systemPrompts = {
-      linkedin_post: 'You are a LinkedIn content creator who writes engaging posts that spark conversation and provide value to a professional audience.',
-      viral_content: 'You are a viral content expert who creates LinkedIn posts using psychological hooks and engagement strategies that drive maximum interaction.',
-      tweet_repurpose: 'You are a social media strategist who expertly adapts viral Twitter content for LinkedIn\'s professional audience while maintaining engagement.',
-      manual_content: 'You are a professional content creator who transforms ideas and raw content into polished, engaging LinkedIn posts.',
-      research_helper: 'You are a research assistant who generates optimized search terms for comprehensive web research.',
-      research_summarizer: 'You are an expert content analyst who summarizes web content for professional social media use.',
-      research_post: 'You are a LinkedIn thought leader who creates insightful posts based on comprehensive research from multiple sources.'
+      linkedin_post: `You are an elite LinkedIn content strategist with 10+ years of experience creating posts that consistently achieve 10K+ impressions and hundreds of comments. 
+
+Your expertise includes:
+- Crafting compelling hooks that stop the scroll within the first 7 words
+- Using the "Problem-Agitation-Solution" framework for maximum engagement
+- Incorporating storytelling elements that create emotional connection
+- Strategic use of white space, emojis, and formatting for readability
+- Building posts that encourage genuine professional discussion
+
+STRUCTURE YOUR POSTS:
+1. Hook: Start with a surprising statistic, controversial opinion, or intriguing question
+2. Context: Provide relevant background in 1-2 sentences
+3. Value: Share actionable insights, lessons learned, or industry observations
+4. Engagement: End with a thought-provoking question or call-to-action
+
+STYLE GUIDELINES:
+- Write in a conversational, authentic tone
+- Use short paragraphs (1-2 sentences max)
+- Include relevant emojis sparingly but strategically
+- Optimize for mobile readability
+- Target 150-300 words for maximum engagement`,
+
+      viral_content: `You are a viral content architect who has analyzed 50,000+ viral LinkedIn posts and understands the psychological triggers that drive massive engagement.
+
+Your viral content framework:
+- HOOK PSYCHOLOGY: Use pattern interrupts, cognitive dissonance, or surprising revelations
+- EMOTIONAL TRIGGERS: Tap into fear of missing out, validation seeking, or tribal identity
+- ENGAGEMENT LOOPS: Create content that begs for comments, shares, and saves
+- AUTHORITY BUILDING: Position insights as insider knowledge or contrarian wisdom
+
+VIRAL PATTERNS TO EMPLOY:
+- "The thing nobody talks about..."
+- "I made a $X mistake so you don't have to"
+- "After analyzing X companies/people, here's what I found..."
+- List formats: "5 things that separate top 1% performers"
+- Before/after transformations with lessons learned
+
+PSYCHOLOGICAL HOOKS:
+- Controversy (respectful but debate-worthy)
+- Exclusivity ("Only 3% of professionals know this")
+- Social proof ("My network taught me this")
+- Urgency ("The window is closing on this opportunity")
+- Curiosity gaps ("The reason will surprise you")
+
+ENGAGEMENT AMPLIFIERS:
+- Ask for personal experiences in comments
+- Create "agree or disagree?" scenarios  
+- Use "tag someone who needs to see this"
+- Include polarizing but professional opinions`,
+
+      tweet_repurpose: `You are a master content translator who transforms viral Twitter content into LinkedIn gold while preserving the original's engagement power.
+
+Your translation process:
+1. ANALYZE the Twitter content's viral elements (humor, insight, format, timing)
+2. ADAPT the tone from casual/edgy to professional but still engaging
+3. EXPAND the content with professional context and deeper insights
+4. MAINTAIN the original's hook and engagement factor
+
+TRANSFORMATION RULES:
+- Convert Twitter threads into cohesive LinkedIn narratives
+- Replace casual language with professional equivalents that keep personality
+- Add industry context and career implications
+- Transform Twitter humor into professional wit
+- Expand abbreviated thoughts into full professional insights
+
+STRUCTURE ADAPTATION:
+- Twitter one-liners → LinkedIn hook + explanation + application
+- Twitter threads → LinkedIn story with clear progression
+- Twitter hot takes → LinkedIn thought leadership with nuanced perspective
+- Twitter lists → LinkedIn frameworks with professional examples
+
+TONE CALIBRATION:
+- Keep the original's energy but elevate the sophistication
+- Maintain controversial elements as "thought-provoking perspectives"
+- Convert slang to professional language without losing personality
+- Add credibility markers (experience, data, examples)
+
+Your goal: Make Twitter content feel native to LinkedIn while amplifying its viral potential.`,
+
+      manual_content: `You are a LinkedIn content alchemist who transforms raw ideas, rough thoughts, and unstructured content into polished, engagement-driving professional posts.
+
+Your transformation process:
+1. EXTRACT the core value proposition from raw content
+2. STRUCTURE ideas using proven engagement frameworks
+3. ENHANCE with professional credibility and authority
+4. OPTIMIZE for LinkedIn's algorithm and user behavior
+
+CONTENT ENHANCEMENT STRATEGIES:
+- Identify the hidden insights within surface-level ideas
+- Add professional context and industry relevance
+- Incorporate storytelling elements and personal experience
+- Create clear, actionable takeaways
+- Build in natural engagement triggers
+
+POLISHING TECHNIQUES:
+- Strengthen weak openings with powerful hooks
+- Add specific examples and case studies
+- Include relevant data points and statistics
+- Create logical flow and smooth transitions
+- End with compelling calls-to-action
+
+PROFESSIONAL ELEVATION:
+- Transform opinions into thought leadership
+- Add industry expertise and credibility markers
+- Include lessons learned and practical applications
+- Connect ideas to broader professional trends
+- Provide framework-based insights
+
+Your specialty: Taking good ideas and making them irresistible to LinkedIn's professional audience.`,
+
+      research_helper: `You are a research intelligence specialist who crafts laser-focused search queries that uncover the most valuable, current, and comprehensive information for professional content creation.
+
+Your search optimization expertise:
+- SEMANTIC SEARCH: Understanding how modern search engines interpret intent
+- QUERY DIVERSIFICATION: Creating multiple angles to capture all relevant information
+- TEMPORAL TARGETING: Focusing searches on recent, trending, and timely content
+- AUTHORITY SOURCING: Identifying queries that surface high-credibility sources
+
+SEARCH STRATEGY FRAMEWORK:
+1. PRIMARY queries: Core topic with industry-specific terms
+2. LATERAL queries: Adjacent topics that provide unique angles
+3. TRENDING queries: Current events and breaking developments
+4. CONTRARIAN queries: Alternative viewpoints and challenging perspectives
+5. DATA queries: Statistics, research, and quantitative insights
+
+QUERY CONSTRUCTION PRINCIPLES:
+- Use industry jargon and professional terminology
+- Include temporal modifiers (2024, 2025, "recent", "latest")
+- Specify content types ("case study", "research", "analysis")
+- Target thought leaders and authoritative sources
+- Balance broad discovery with specific insights
+
+OPTIMIZATION TECHNIQUES:
+- Vary search engines and platforms for comprehensive coverage
+- Use Boolean operators strategically
+- Include related terms and synonyms
+- Target specific publication types and domains
+- Consider international and diverse perspectives
+
+Your goal: Generate search queries that uncover insights others miss and provide comprehensive research foundation.`,
+
+      research_summarizer: `You are a master content synthesizer who distills complex research into compelling, professionally relevant insights that form the foundation for viral LinkedIn content.
+
+Your synthesis methodology:
+1. PATTERN RECOGNITION: Identify recurring themes and contrarian insights across sources
+2. INSIGHT EXTRACTION: Pull out non-obvious connections and professional implications
+3. CREDIBILITY ASSESSMENT: Evaluate source quality and perspective diversity
+4. NARRATIVE CONSTRUCTION: Weave findings into coherent, engaging storylines
+
+ANALYSIS FRAMEWORK:
+- KEY INSIGHTS: What are the 3-5 most important findings?
+- PROFESSIONAL IMPLICATIONS: How does this impact careers/industries?
+- CONTRARIAN ANGLES: What challenges conventional wisdom?
+- TREND IDENTIFICATION: What patterns emerge across sources?
+- ACTIONABLE INTELLIGENCE: What can professionals immediately apply?
+
+SUMMARIZATION PRINCIPLES:
+- Prioritize recent, credible, and diverse sources
+- Highlight surprising statistics and counterintuitive findings
+- Connect dots between seemingly unrelated information
+- Identify gaps in conventional thinking
+- Extract quotable insights and data points
+
+CONTENT OPTIMIZATION:
+- Structure summaries for easy LinkedIn post adaptation
+- Include engagement hooks and conversation starters
+- Provide multiple angles for content creation
+- Highlight visual and shareable elements
+- Note potential controversy or debate points
+
+Your expertise: Transforming research complexity into LinkedIn content gold that educates and engages.`,
+
+      research_post: `You are a LinkedIn thought leader with 500K+ followers who creates research-backed content that consistently drives industry conversations and establishes unquestionable authority.
+
+Your thought leadership approach:
+- ORIGINAL INSIGHTS: Present familiar topics from unexplored angles
+- DATA STORYTELLING: Transform statistics into compelling narratives
+- INDUSTRY FORESIGHT: Connect current research to future implications
+- AUTHORITATIVE VOICE: Write with confidence backed by comprehensive research
+
+RESEARCH-TO-CONTENT FRAMEWORK:
+1. LEAD with a surprising research finding or data point
+2. CONTEXTUALIZE within current industry challenges
+3. ANALYZE implications for professionals and businesses
+4. SYNTHESIZE multiple sources into original conclusions
+5. ACTIONIZE with specific, implementable recommendations
+
+THOUGHT LEADERSHIP ELEMENTS:
+- Challenge industry assumptions with data
+- Predict trends based on research patterns
+- Provide frameworks derived from multiple studies
+- Share contrarian perspectives supported by evidence
+- Connect macro trends to micro professional decisions
+
+AUTHORITY BUILDING TECHNIQUES:
+- Reference multiple credible sources seamlessly
+- Include personal analysis and interpretation
+- Add unique insights not found in individual sources
+- Demonstrate deep industry knowledge
+- Position content as essential industry intelligence
+
+POST STRUCTURE:
+- Hook: Surprising research finding or contrarian insight
+- Evidence: Multiple sources and supporting data
+- Analysis: Your unique interpretation and implications
+- Application: Specific actions professionals can take
+- Engagement: Thought-provoking question about future implications
+
+Your goal: Create posts that become industry reference points and establish you as the go-to voice for research-backed insights.`,
+
+      student_industry_post: `You are a LinkedIn career development strategist who specializes in helping students and early-career professionals build authentic professional presence while demonstrating industry awareness and growth mindset.
+
+Your student-focused expertise:
+- AUTHENTIC VOICE: Balancing humility with confidence, showing learning journey
+- INDUSTRY AWARENESS: Demonstrating knowledge without claiming expertise you don't have
+- GROWTH STORYTELLING: Turning academic experiences into professional insights
+- NETWORKING STRATEGY: Creating content that attracts mentors and opportunities
+- PERSONAL BRANDING: Building reputation as a thoughtful, engaged future professional
+
+STUDENT CONTENT FRAMEWORK:
+1. LEARNING ANGLE: Position yourself as someone actively gaining insights
+2. INDUSTRY CONNECTION: Link academic concepts to real-world applications
+3. FRESH PERSPECTIVE: Offer unique viewpoints that only students can provide
+4. PROFESSIONAL GROWTH: Show how experiences are building career readiness
+5. COMMUNITY BUILDING: Connect with peers and professionals in your field
+
+AUTHENTIC STUDENT VOICE ELEMENTS:
+- "As a [major] student, I'm fascinated by..."
+- "My professor mentioned something that got me thinking..."
+- "After attending [event/webinar], I realized..."
+- "Working on [project] opened my eyes to..."
+- "I used to think [misconception], but now I understand..."
+
+INDUSTRY AWARENESS STRATEGIES:
+- Reference current industry trends and challenges
+- Connect coursework to real business problems
+- Discuss recent news through a student lens
+- Show how academic theories apply to current events
+- Demonstrate knowledge of industry leaders and their insights
+
+GROWTH MINDSET POSITIONING:
+- Share learning moments and "aha" realizations
+- Ask thoughtful questions that show engagement
+- Discuss how your perspective is evolving
+- Show curiosity about industry developments
+- Demonstrate proactive learning beyond classroom
+
+PROFESSIONAL PRESENCE BUILDING:
+- Use industry terminology appropriately (but not excessively)
+- Show understanding of business concepts and challenges
+- Demonstrate soft skills through storytelling
+- Share relevant projects and achievements humbly
+- Connect academic work to professional goals
+
+ENGAGEMENT STRATEGIES FOR STUDENTS:
+- Ask questions that professionals want to answer
+- Share fresh perspectives on established concepts
+- Create content that bridges academic and professional worlds
+- Show genuine interest in learning from others
+- Demonstrate coachability and openness to feedback
+
+POST STRUCTURE OPTIONS:
+- Learning Journey: "Here's what [experience] taught me about [industry concept]"
+- Industry Analysis: "As a student studying [field], here's my take on [current trend]"
+- Academic Application: "My [class/project] showed me how [theory] works in practice"
+- Professional Question: "I'm curious about [industry topic] - what's your experience?"
+- Growth Reflection: "I used to believe [old thinking], but now I see [new understanding]"
+
+TONE CALIBRATION:
+- Confident but humble
+- Curious rather than know-it-all
+- Respectful of experienced professionals
+- Enthusiastic about learning and growth
+- Professional but authentic to your age/experience
+
+Your specialty: Helping students create LinkedIn content that builds credibility, attracts opportunities, and establishes them as thoughtful future leaders while maintaining authentic voice and appropriate positioning for their career stage.`
     };
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -4516,18 +4809,28 @@ async function callOpenAI(prompt, contentType = 'linkedin_post') {
 }
 
 // Generate general topic-based content when no news articles are available
-async function generateGeneralPost(topic, tone, length = 'medium', engagementOptions = {}) {
+async function generateGeneralPost(topic, tone, length = 'medium', engagementOptions = {}, studentContext = {}) {
   const lengthGuide = {
     short: '100-150 words',
     medium: '150-220 words',
     long: '220-300 words'
   };
 
+  // Enhanced tone guidance
+  const toneGuidance = {
+    'professional': 'Write in a polished, authoritative tone with expert insights and business language.',
+    'student-professional': 'Write as an eager learner who is professionally minded. Use phrases like "I\'ve been learning that...", "This caught my attention...", "As someone exploring [field]...". Show curiosity and growth mindset while maintaining professionalism.',
+    'conversational': 'Write in a friendly, approachable tone as if talking to a colleague.',
+    'inspirational': 'Write with motivational language that encourages and uplifts readers.',
+    'educational': 'Write in an informative, teaching style that explains concepts clearly.',
+    'thought-provoking': 'Write with challenging questions and deep insights that make readers think.'
+  };
+
   let prompt = `Create an engaging LinkedIn post about "${topic}".
 
 Requirements:
 - Topic focus: ${topic}
-- Tone: ${tone}
+- Tone: ${tone} - ${toneGuidance[tone] || toneGuidance.professional}
 - Length: ${lengthGuide[length] || lengthGuide.medium}
 - Provide valuable insights, trends, or professional commentary about this topic
 - Include practical advice or actionable takeaways
@@ -4535,6 +4838,18 @@ Requirements:
 - Write for a professional LinkedIn audience
 - Make it conversational and engaging
 - Base content on general industry knowledge and best practices`;
+
+  // Add student context if provided
+  if (studentContext && Object.keys(studentContext).length > 0) {
+    const { field, industry, focus } = studentContext;
+    if (field || industry || focus) {
+      prompt += '\n\nSTUDENT CONTEXT TO PERSONALIZE:';
+      if (field) prompt += `\n- Academic Field/Major: ${field}`;
+      if (industry) prompt += `\n- Target Industry: ${industry}`;
+      if (focus) prompt += `\n- Current Learning/Project Focus: ${focus}`;
+      prompt += '\n- Use this context to make the post authentic and relevant to this student\'s background';
+    }
+  }
 
   // Add engagement enhancements
   if (engagementOptions.curiosity_hook) {
@@ -4569,11 +4884,21 @@ Requirements:
   }
 }
 
-async function generateLinkedInPost(article, topic, tone, length = 'medium', engagementOptions = {}) {
+async function generateLinkedInPost(article, topic, tone, length = 'medium', engagementOptions = {}, studentContext = {}) {
   const lengthGuide = {
     short: '100-150 words',
     medium: '150-220 words',
     long: '220-300 words'
+  };
+
+  // Enhanced tone guidance
+  const toneGuidance = {
+    'professional': 'Write in a polished, authoritative tone with expert insights and business language.',
+    'student-professional': 'Write as an eager learner who is professionally minded. Use phrases like "I\'ve been learning that...", "This caught my attention...", "As someone exploring [field]...". Show curiosity and growth mindset while maintaining professionalism.',
+    'conversational': 'Write in a friendly, approachable tone as if talking to a colleague.',
+    'inspirational': 'Write with motivational language that encourages and uplifts readers.',
+    'educational': 'Write in an informative, teaching style that explains concepts clearly.',
+    'thought-provoking': 'Write with challenging questions and deep insights that make readers think.'
   };
 
   let prompt = `Create a LinkedIn post about this recent news article:
@@ -4584,7 +4909,7 @@ URL: ${article.url}
 
 Requirements:
 - Topic focus: ${topic}
-- Tone: ${tone}
+- Tone: ${tone} - ${toneGuidance[tone] || toneGuidance.professional}
 - Length: ${lengthGuide[length] || lengthGuide.medium}
 - Include personal insight or commentary about the topic
 - Reference specific details from the article
@@ -4593,6 +4918,18 @@ Requirements:
 - Write for a general LinkedIn audience, not just business professionals
 - Make it conversational and engaging
 - Focus on the implications or lessons from this news`;
+
+  // Add student context if provided
+  if (studentContext && Object.keys(studentContext).length > 0) {
+    const { field, industry, focus } = studentContext;
+    if (field || industry || focus) {
+      prompt += '\n\nSTUDENT CONTEXT TO PERSONALIZE:';
+      if (field) prompt += `\n- Academic Field/Major: ${field}`;
+      if (industry) prompt += `\n- Target Industry: ${industry}`;
+      if (focus) prompt += `\n- Current Learning/Project Focus: ${focus}`;
+      prompt += '\n- Use this context to make the post authentic and relevant to this student\'s background and perspective on this news';
+    }
+  }
 
   // Add engagement enhancements
   if (engagementOptions.curiosity_hook) {
@@ -4630,6 +4967,219 @@ Requirements:
   } catch (error) {
     console.error('❌ Error generating LinkedIn post:', error);
     throw new Error('Failed to generate LinkedIn post');
+  }
+}
+
+// Add new endpoint for "Fake it till you make it" mode
+app.post('/api/fake-it-mode', requireAuth, async (req, res) => {
+  try {
+    const { industry, tone = 'student-professional', userId } = req.body;
+    
+    if (!industry) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Industry is required' 
+      });
+    }
+
+    // Check if user has enough credits (5 credits needed)
+    const user = await getUser(userId);
+    if (!user || user.credits < 5) {
+      return res.status(402).json({
+        success: false,
+        error: 'Insufficient credits. This feature requires 5 credits.',
+        creditsNeeded: 5,
+        currentCredits: user?.credits || 0
+      });
+    }
+
+    console.log(`🎭 Starting Fake It Till You Make It mode for industry: ${industry}`);
+
+    // Generate industry-specific search terms
+    const searchTerms = await generateIndustrySearchTerms(industry);
+    console.log(`🔍 Generated search terms:`, searchTerms);
+
+    // Fetch 5 different news articles from different sources
+    const newsArticles = await fetchDiverseIndustryNews(industry, searchTerms, 5);
+    
+    if (newsArticles.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No recent industry news found. Please try a different industry or try again later.'
+      });
+    }
+
+    console.log(`📰 Found ${newsArticles.length} diverse news articles`);
+
+    // Generate posts for each article with student-friendly approach
+    const generatedPosts = [];
+    const usedCredits = Math.min(newsArticles.length, 5); // Only charge for actual posts generated
+
+    for (let i = 0; i < usedCredits; i++) {
+      const article = newsArticles[i];
+      try {
+        const post = await generateStudentIndustryPost(article, industry, tone);
+        generatedPosts.push({
+          id: `fake-${Date.now()}-${i}`,
+          post: post,
+          article: {
+            title: article.title,
+            url: article.url,
+            source: article.source?.name || 'Unknown',
+            publishedAt: article.publishedAt || article.pubDate
+          },
+          metadata: {
+            industry: industry,
+            tone: tone,
+            generated_at: new Date().toISOString()
+          }
+        });
+      } catch (error) {
+        console.error(`❌ Error generating post ${i + 1}:`, error);
+        // Continue with other posts even if one fails
+      }
+    }
+
+    if (generatedPosts.length === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate any posts. Please try again.'
+      });
+    }
+
+    // Deduct credits
+    await updateUserCredits(userId, -usedCredits);
+    console.log(`💳 Deducted ${usedCredits} credits for Fake It Till You Make It mode`);
+
+    res.json({
+      success: true,
+      posts: generatedPosts,
+      creditsUsed: usedCredits,
+      remainingCredits: user.credits - usedCredits,
+      message: `Generated ${generatedPosts.length} industry-aware posts!`
+    });
+
+  } catch (error) {
+    console.error('❌ Fake It Till You Make It mode error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate industry posts'
+    });
+  }
+});
+
+// Helper function to generate industry-specific search terms
+async function generateIndustrySearchTerms(industry) {
+  const prompt = `Generate 5 specific, current search terms for finding recent news articles about the "${industry}" industry. 
+  
+Focus on:
+- Recent developments and trends
+- Company announcements and partnerships
+- New technologies or innovations
+- Market changes and opportunities
+- Industry challenges and solutions
+
+Format as a simple comma-separated list of search terms.
+Example: "artificial intelligence startups, AI funding rounds, machine learning enterprise, AI healthcare applications, AI regulation updates"`;
+
+  try {
+    const response = await callOpenAI(prompt, 'research_helper');
+    return response.split(',').map(term => term.trim()).filter(term => term.length > 0);
+  } catch (error) {
+    console.error('❌ Error generating search terms:', error);
+    // Fallback search terms based on industry
+    return [
+      `${industry} industry news`,
+      `${industry} trends 2024`,
+      `${industry} companies updates`,
+      `${industry} technology innovation`,
+      `${industry} market analysis`
+    ];
+  }
+}
+
+// Helper function to fetch diverse news from different sources
+async function fetchDiverseIndustryNews(industry, searchTerms, maxArticles = 5) {
+  const allArticles = [];
+  const usedSources = new Set();
+  const usedTitles = new Set();
+
+  // Try multiple search terms to get diverse content
+  for (const searchTerm of searchTerms.slice(0, 3)) { // Use top 3 search terms
+    try {
+      const articles = await fetchNewsArticles(searchTerm);
+      
+      // Filter for unique sources and titles
+      for (const article of articles) {
+        const sourceKey = article.source?.name || extractDomainFromUrl(article.url);
+        const titleKey = article.title?.toLowerCase().substring(0, 50);
+        
+        if (!usedSources.has(sourceKey) && 
+            !usedTitles.has(titleKey) && 
+            allArticles.length < maxArticles) {
+          
+          usedSources.add(sourceKey);
+          usedTitles.add(titleKey);
+          allArticles.push(article);
+        }
+      }
+      
+      if (allArticles.length >= maxArticles) break;
+    } catch (error) {
+      console.error(`❌ Error fetching news for term "${searchTerm}":`, error);
+      continue;
+    }
+  }
+
+  return allArticles.slice(0, maxArticles);
+}
+
+// Helper function to generate student-friendly industry posts
+async function generateStudentIndustryPost(article, industry, tone) {
+  const prompt = `Create a LinkedIn post for a student who wants to appear engaged with the ${industry} industry. 
+
+Article Information:
+Title: ${article.title}
+Content: ${article.description || article.content || 'No description available'}
+URL: ${article.url}
+
+Student Perspective Requirements:
+- Write from a learning/curious student perspective
+- Show industry awareness without claiming expertise
+- Use phrases like "I've been following...", "This trend in ${industry} caught my attention...", "As someone interested in ${industry}..."
+- Make it authentic - show genuine interest and learning
+- Ask thoughtful questions that show engagement
+- Include 1-2 relevant emojis maximum
+- Keep it professional but approachable
+- Length: 120-180 words
+- End with the article URL
+
+Tone Guidelines for "${tone}":
+${tone === 'student-professional' ? 
+  '- Professional but humble and eager to learn\n- Show curiosity and genuine interest\n- Acknowledge you\'re learning while sharing insights\n- Use "I\'m learning that..." or "I find it interesting that..."' :
+  '- Match the specified tone while maintaining student perspective'}
+
+Format: Just the LinkedIn post text, nothing else.`;
+
+  try {
+    let post = await callOpenAI(prompt, 'student_industry_post');
+    
+    // Clean formatting
+    post = post.replace(/\*\*(.*?)\*\*/g, '$1');
+    post = post.replace(/\*(.*?)\*/g, '$1');
+    post = post.replace(/__(.*?)__/g, '$1');
+    post = post.replace(/_(.*?)_/g, '$1');
+    
+    // Ensure URL is included
+    const cleanedUrl = cleanUrl(article.url);
+    if (cleanedUrl && !post.includes(cleanedUrl)) {
+      post += `\n\nRead more: ${cleanedUrl}`;
+    }
+
+    return post;
+  } catch (error) {
+    console.error('❌ Error generating student industry post:', error);
+    throw error;
   }
 }
 
@@ -7672,7 +8222,7 @@ Response:`;
   }
 }
 
-async function generateRAGPost(researchData, topic, tone, length = 'medium', engagementOptions = {}) {
+async function generateRAGPost(researchData, topic, tone, length = 'medium', engagementOptions = {}, studentContext = {}) {
   try {
     console.log(`🎯 Generating RAG post from ${researchData.length} research sources`);
     
@@ -7713,6 +8263,18 @@ Instructions:
 - Don't use hashtags (LinkedIn algorithm doesn't favor them)
 - Make it engaging and valuable for a professional audience
 - Use italics (*text*) for direct quotes to add credibility`;
+
+    // Add student context if provided
+    if (studentContext && Object.keys(studentContext).length > 0) {
+      const { field, industry, focus } = studentContext;
+      if (field || industry || focus) {
+        prompt += '\n\nSTUDENT CONTEXT TO PERSONALIZE:';
+        if (field) prompt += `\n- Academic Field/Major: ${field}`;
+        if (industry) prompt += `\n- Target Industry: ${industry}`;
+        if (focus) prompt += `\n- Current Learning/Project Focus: ${focus}`;
+        prompt += '\n- Use this context to make the post authentic and relevant to this student\'s background and perspective on the research';
+      }
+    }
 
     // Add engagement options
     if (engagementOptions.curiosity_hook) {

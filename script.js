@@ -212,6 +212,14 @@ class EmploymentApp {
             this.handleContentTypeChange();
         }
 
+        // Tone change handler for student context
+        const toneSelect = document.getElementById('tone');
+        if (toneSelect) {
+            toneSelect.addEventListener('change', this.handleToneChange.bind(this));
+            // Initialize based on current selection
+            this.handleToneChange();
+        }
+
         // Initialize navigation
         this.initializeNavigation();
     }
@@ -302,17 +310,7 @@ class EmploymentApp {
     async loadDashboardData() {
         console.log('📊 Loading dashboard data...');
         
-        // Load recent activity for dashboard
-        const activityList = document.getElementById('dashboardActivityList');
-        if (activityList) {
-            activityList.innerHTML = '<div class="loading">Loading recent activity...</div>';
-            try {
-                await this.loadRecentActivity();
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                activityList.innerHTML = '<div class="text-center py-8 text-[#6b7280]">No recent activity</div>';
-            }
-        }
+        // Recent activity removed due to LinkedIn API restrictions
     }
 
 
@@ -2006,8 +2004,7 @@ class EmploymentApp {
             // Load scheduled posts
             await this.loadScheduledPosts();
             
-            // Load recent activity
-            await this.loadRecentActivity();
+            // Recent activity removed due to LinkedIn API restrictions
         } catch (error) {
             console.error('Failed to load user data:', error);
         }
@@ -2121,52 +2118,7 @@ class EmploymentApp {
         scheduledTableBody.innerHTML = scheduledHtml;
     }
     
-    async loadRecentActivity() {
-        if (!this.activityList) return;
-        
-        if (!this.isLoggedIn) {
-            this.activityList.innerHTML = '<div class="loading">Connect LinkedIn to view activity</div>';
-            return;
-        }
-        
-        // Mock recent activity data for now since the API endpoint doesn't exist yet
-        const mockActivities = [
-            {
-                title: 'Generated AI content about Technology',
-                timestamp: Date.now() - 1000 * 60 * 15, // 15 minutes ago
-                status: 'posted'
-            },
-            {
-                title: 'Generated AI content about Leadership',
-                timestamp: Date.now() - 1000 * 60 * 60 * 2, // 2 hours ago
-                status: 'posted'
-            },
-            {
-                title: 'Generated AI content about Innovation',
-                timestamp: Date.now() - 1000 * 60 * 60 * 24, // 1 day ago
-                status: 'posted'
-            }
-        ];
-        
-        try {
-            this.activityList.innerHTML = mockActivities.map(activity => `
-                <div class="border-b border-[#cedce8] pb-4 mb-4 last:border-b-0 last:mb-0">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <div class="text-[#0d151c] font-medium text-sm mb-1">${activity.title}</div>
-                            <div class="text-[#49749c] text-xs">${this.formatDate(activity.timestamp)}</div>
-                        </div>
-                        <div class="ml-3">
-                            <span class="bg-[#d1fae5] text-[#065f46] px-2 py-1 rounded-full text-xs font-medium capitalize">${activity.status}</span>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        } catch (error) {
-            console.error('❌ Error loading activity:', error);
-            this.activityList.innerHTML = '<div class="text-center py-8 text-[#49749c]">Failed to load activity</div>';
-        }
-    }
+    // loadRecentActivity function removed - LinkedIn API restrictions
     
     displayRecentActivity(posts) {
         // Support both old and new activity list elements
@@ -2693,7 +2645,7 @@ class EmploymentApp {
             if (response.ok) {
                 const result = await response.json();
                 this.showSuccess(`Posted to LinkedIn successfully! ${useArticleLink ? '(with article link preview)' : '(with image)'}`);
-                await this.loadRecentActivity();
+                // Recent activity removed
             } else {
                 const error = await response.json();
                 
@@ -2893,6 +2845,16 @@ class EmploymentApp {
         const length = document.getElementById('length')?.value || 'medium';
         const contentType = document.getElementById('contentType')?.value || 'news';
         
+        // Get student context if student-professional tone is selected
+        let studentContext = {};
+        if (tone === 'student-professional') {
+            studentContext = {
+                field: document.getElementById('studentField')?.value?.trim() || '',
+                industry: document.getElementById('targetIndustry')?.value?.trim() || '',
+                focus: document.getElementById('currentFocus')?.value?.trim() || ''
+            };
+        }
+        
         // Get engagement options
         const engagementOptions = this.getEngagementOptions();
         
@@ -2937,13 +2899,13 @@ class EmploymentApp {
             switch (contentType) {
                 case 'news':
                     console.log(`🎯 Generating news-based content for: ${topic}`);
-                    await this.generatePost(topic, tone, length, engagementOptions);
+                    await this.generatePost(topic, tone, length, engagementOptions, studentContext);
                     break;
                 case 'research':
                     const keywords = document.getElementById('keywords')?.value?.trim() || '';
                     console.log(`🔍 Generating research-based content for: ${topic} with keywords: ${keywords}`);
                     try {
-                        await this.generateResearchPost(topic, tone, length, engagementOptions, keywords);
+                        await this.generateResearchPost(topic, tone, length, engagementOptions, keywords, studentContext);
                     } catch (researchError) {
                         console.log('🔄 Research generation failed, falling back to news-based content...');
                         
@@ -2956,28 +2918,28 @@ class EmploymentApp {
                         // Automatically fall back to news-based generation
                         console.log(`🔍 Fallback: Generating news-based content for: ${topic}`);
                         this.setLoadingState(true); // Re-enable loading for fallback
-                        await this.generatePost(topic, tone, length, engagementOptions);
+                        await this.generatePost(topic, tone, length, engagementOptions, studentContext);
                         return; // Exit to avoid double error handling
                     }
                     break;
                 case 'viral':
                     const viralFormat = document.getElementById('viralFormat')?.value || 'open-loop';
                     console.log(`🔥 Generating viral content for: ${topic} with format: ${viralFormat}`);
-                    await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions);
+                    await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions, studentContext);
                     break;
                 case 'tweet':
                     const tweetText = document.getElementById('tweetText')?.value?.trim() || '';
                     console.log(`🔄 Repurposing tweet: ${tweetText.substring(0, 50)}...`);
-                    await this.generateRepurposedTweet(tweetText, topic, tone, length, engagementOptions);
+                    await this.generateRepurposedTweet(tweetText, topic, tone, length, engagementOptions, studentContext);
                     break;
                 case 'manual':
                     const customContent = document.getElementById('customContent')?.value?.trim() || '';
                     console.log(`🧠 Generating manual content from: ${customContent.substring(0, 50)}...`);
-                    await this.generateManualPost(customContent, tone, length, engagementOptions);
+                    await this.generateManualPost(customContent, tone, length, engagementOptions, studentContext);
                     break;
                 default:
                     console.log(`🎯 Fallback to news-based content for: ${topic}`);
-                    await this.generatePost(topic, tone, length, engagementOptions);
+                    await this.generatePost(topic, tone, length, engagementOptions, studentContext);
             }
         } catch (error) {
             console.error('❌ Generation failed:', error);
@@ -3033,6 +2995,20 @@ class EmploymentApp {
             default:
                 // 'news' - no additional sections needed
                 break;
+        }
+    }
+
+    handleToneChange() {
+        const tone = document.getElementById('tone')?.value || 'professional';
+        const studentContext = document.getElementById('studentContext');
+        
+        // Show student context panel only when "Student Professional" tone is selected
+        if (studentContext) {
+            if (tone === 'student-professional') {
+                studentContext.style.display = 'block';
+            } else {
+                studentContext.style.display = 'none';
+            }
         }
     }
     
@@ -3330,7 +3306,7 @@ class EmploymentApp {
 
 
     
-    async generatePost(topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
+    async generatePost(topic, tone = 'professional', length = 'medium', engagementOptions = {}, studentContext = {}) {
         try {
             // Store current topic for image refresh
             this.currentTopic = topic;
@@ -3351,7 +3327,8 @@ class EmploymentApp {
                 topic,
                 tone,
                 length,
-                engagement_options: engagementOptions
+                engagement_options: engagementOptions,
+                student_context: studentContext
             };
             
             console.log('📤 Sending request to generate post:', requestData);
@@ -4327,7 +4304,7 @@ class EmploymentApp {
 
 
     // Generate manual post (like ChatGPT, without news API)
-    async generateManualPost(topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
+    async generateManualPost(topic, tone = 'professional', length = 'medium', engagementOptions = {}, studentContext = {}) {
         try {
             // Get auth token from localStorage or cookie
             const authToken = this.getAuthToken();
@@ -4346,7 +4323,8 @@ class EmploymentApp {
                 tone,
                 length,
                 post_type: 'manual',
-                engagement_options: engagementOptions
+                engagement_options: engagementOptions,
+                student_context: studentContext
             };
             
             console.log('📤 Sending manual post request:', requestData);
@@ -4416,7 +4394,7 @@ class EmploymentApp {
     }
 
     // Generate viral format post
-    async generateViralPost(topic, tone = 'professional', length = 'medium', viralFormat = 'open-loop', engagementOptions = {}) {
+    async generateViralPost(topic, tone = 'professional', length = 'medium', viralFormat = 'open-loop', engagementOptions = {}, studentContext = {}) {
         try {
             const authToken = this.getAuthToken();
             
@@ -4434,7 +4412,8 @@ class EmploymentApp {
                 length,
                 post_type: 'viral',
                 viral_format: viralFormat,
-                engagement_options: engagementOptions
+                engagement_options: engagementOptions,
+                student_context: studentContext
             };
             
             console.log('📤 Sending viral post request:', requestData);

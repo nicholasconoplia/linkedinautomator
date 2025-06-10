@@ -330,6 +330,7 @@
                     <div class="flex items-center gap-9">
                         <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal">Dashboard</a>
                         <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">Content Generator</a>
+                        <a href="/fake-it-mode.html" class="text-[#0d151c] text-sm font-medium leading-normal">🎭 Fake It Mode</a>
                         <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
                     </div>
                     
@@ -399,6 +400,7 @@
                                     <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Content Tone</p>
                                     <select id="tone" name="tone" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
                                         <option value="professional">🎯 Professional</option>
+                                        <option value="student-professional">🎓 Student Professional</option>
                                         <option value="conversational">💬 Conversational</option>
                                         <option value="inspirational">✨ Inspirational</option>
                                         <option value="educational">📚 Educational</option>
@@ -508,6 +510,40 @@
                                     <input type="checkbox" id="includeImage" name="includeImage" checked class="h-5 w-5 rounded border-[#cedce8] border-2 bg-transparent text-[#0b80ee] checked:bg-[#0b80ee] checked:border-[#0b80ee] checked:bg-[image:--checkbox-tick-svg] focus:ring-0 focus:ring-offset-0 focus:border-[#cedce8] focus:outline-none" />
                                     <p class="text-[#0d151c] text-base font-normal leading-normal">Add a Custom Relevant Image</p>
                                 </label>
+                            </div>
+
+                            <!-- Student Context for Better AI -->
+                            <div id="studentContext" style="display: none;" class="px-4 py-3">
+                                <div class="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-4 mb-4">
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <div class="text-blue-600 text-lg">🎓</div>
+                                        <h4 class="text-blue-900 font-semibold">Student Context (Makes AI Much Better!)</h4>
+                                    </div>
+                                    <p class="text-blue-700 text-sm mb-4">Tell the AI about your academic background so it creates authentic, relevant posts for your field.</p>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-blue-900 mb-2">Your Field/Major</label>
+                                            <input id="studentField" name="studentField" type="text" 
+                                                class="w-full rounded-lg border border-blue-200 bg-white p-3 text-sm focus:border-blue-400 focus:outline-none"
+                                                placeholder="e.g., Computer Science, Marketing, Finance, Engineering..." />
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-medium text-blue-900 mb-2">Target Industry</label>
+                                            <input id="targetIndustry" name="targetIndustry" type="text" 
+                                                class="w-full rounded-lg border border-blue-200 bg-white p-3 text-sm focus:border-blue-400 focus:outline-none"
+                                                placeholder="e.g., Tech, Finance, Healthcare, Consulting..." />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <label class="block text-sm font-medium text-blue-900 mb-2">Current Learning/Project Focus</label>
+                                        <input id="currentFocus" name="currentFocus" type="text" 
+                                            class="w-full rounded-lg border border-blue-200 bg-white p-3 text-sm focus:border-blue-400 focus:outline-none"
+                                            placeholder="e.g., Machine Learning course, internship application, capstone project..." />
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Personal Context Panel -->

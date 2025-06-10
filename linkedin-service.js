@@ -227,6 +227,72 @@ class LinkedInService {
     }
   }
 
+  // Get user's recent posts with engagement data
+  async getUserPosts(accessToken, count = 10) {
+    try {
+      // First get the user's profile ID
+      const profileResponse = await axios.get(`${this.apiBaseUrl}/userinfo`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const authorId = profileResponse.data.sub;
+      console.log('📋 Fetching posts for user ID:', authorId);
+
+      // Get the user's posts using the Posts API
+      const postsResponse = await axios.get(`${this.postsApiBaseUrl}/posts`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Restli-Protocol-Version': '2.0.0',
+          'LinkedIn-Version': this.linkedinVersion
+        },
+        params: {
+          author: `urn:li:person:${authorId}`,
+          sortBy: 'CREATED',
+          count: count
+        }
+      });
+
+      console.log('✅ Posts fetched successfully:', postsResponse.data);
+
+      // Transform the posts data to include engagement metrics if available
+      const posts = postsResponse.data.elements || [];
+      const transformedPosts = posts.map(post => ({
+        id: post.id,
+        content: post.commentary || 'No content',
+        createdAt: post.createdAt ? new Date(post.createdAt).toISOString() : new Date().toISOString(),
+        visibility: post.visibility || 'PUBLIC',
+        engagement: {
+          likes: 0, // LinkedIn doesn't provide this in basic posts response
+          comments: 0,
+          shares: 0,
+          views: 0
+        },
+        url: post.id ? `https://www.linkedin.com/posts/activity-${post.id}` : null,
+        hasImage: !!(post.content && post.content.media),
+        hasArticle: !!(post.content && post.content.article)
+      }));
+
+      return {
+        success: true,
+        posts: transformedPosts,
+        totalCount: posts.length
+      };
+
+    } catch (error) {
+      console.error('❌ LinkedIn posts fetch error:', error.response?.data || error.message);
+      
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+        posts: []
+      };
+    }
+  }
+
   // Refresh access token
   async refreshAccessToken(refreshToken) {
     try {

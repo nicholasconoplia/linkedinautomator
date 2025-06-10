@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake It Till You Make It - Industry Trend Posts</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
+</head>
+<body class="bg-gray-50 font-inter">
+    
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold text-blue-600">Employment</a>
+                    <span class="ml-3 text-sm text-gray-500">Fake It Till You Make It Mode</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="creditsDisplay" class="text-sm text-gray-600">
+                        Credits: <span id="userCredits" class="font-semibold">-</span>
+                    </div>
+                    <a href="/generator.html" class="text-blue-600 hover:text-blue-800">← Back to Generator</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-4">🎭 Fake It Till You Make It</h1>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                Generate 5 industry-aware LinkedIn posts that make you appear engaged with current trends 
+                without requiring deep knowledge. Perfect for students building professional presence!
+            </p>
+            <div class="mt-4 inline-flex items-center px-4 py-2 bg-amber-100 text-amber-800 rounded-lg">
+                <span class="text-2xl mr-2">⚡</span>
+                <span class="font-medium">Costs 5 credits • Generates 5 different posts from 5 news sources</span>
+            </div>
+        </div>
+
+        <!-- Input Form -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="space-y-6">
+                
+                <!-- Industry Input -->
+                <div>
+                    <label for="industry" class="block text-sm font-medium text-gray-700 mb-2">
+                        Your Target Industry
+                    </label>
+                    <input 
+                        type="text" 
+                        id="industry" 
+                        placeholder="e.g., Technology, Healthcare, Finance, Marketing, Renewable Energy..."
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                    <p class="mt-2 text-sm text-gray-500">
+                        Enter the industry you want to appear knowledgeable about
+                    </p>
+                </div>
+
+                <!-- Tone Selection -->
+                <div>
+                    <label for="tone" class="block text-sm font-medium text-gray-700 mb-2">
+                        Tone & Style
+                    </label>
+                    <select id="tone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="student-professional">🎓 Student Professional (Recommended)</option>
+                        <option value="curious-learner">🤔 Curious Learner</option>
+                        <option value="thoughtful-observer">💭 Thoughtful Observer</option>
+                        <option value="aspiring-professional">🚀 Aspiring Professional</option>
+                    </select>
+                    <p class="mt-2 text-sm text-gray-500">
+                        Choose how you want to sound when commenting on industry trends
+                    </p>
+                </div>
+
+                <!-- Generate Button -->
+                <button 
+                    id="generateBtn" 
+                    onclick="generateIndustryPosts()"
+                    class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium text-lg shadow-lg hover:shadow-xl"
+                >
+                    🎭 Generate 5 Industry Posts (5 Credits)
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden">
+            <div class="bg-white rounded-xl shadow-lg p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Researching Industry Trends...</h3>
+                <p class="text-gray-600">Finding the latest news and generating your posts</p>
+                <div class="mt-4 bg-gray-100 rounded-lg p-4">
+                    <div class="text-sm text-gray-600" id="loadingStatus">Starting research...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsContainer" class="hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Your Industry Posts</h2>
+                    <div class="text-sm text-gray-600">
+                        <span id="creditsUsed" class="font-semibold"></span> credits used
+                    </div>
+                </div>
+                
+                <div id="generatedPosts" class="space-y-6">
+                    <!-- Posts will be inserted here -->
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-8 flex flex-col sm:flex-row gap-4">
+                    <button 
+                        onclick="generateIndustryPosts()" 
+                        class="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                        Generate New Set
+                    </button>
+                    <button 
+                        onclick="saveAllPosts()" 
+                        class="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    >
+                        Save All Posts
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorContainer" class="hidden">
+            <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+                <div class="flex items-center mb-4">
+                    <span class="text-2xl mr-3">❌</span>
+                    <h3 class="text-lg font-semibold text-red-800">Generation Failed</h3>
+                </div>
+                <p id="errorMessage" class="text-red-700 mb-4"></p>
+                <button 
+                    onclick="tryAgain()" 
+                    class="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                    Try Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let generatedPostsData = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadUserCredits();
+        });
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    currentUser = await response.json();
+                } else {
+                    // Redirect to login if not authenticated
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/';
+            }
+        }
+
+        async function loadUserCredits() {
+            try {
+                const response = await fetch('/api/user/credits');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('userCredits').textContent = data.credits;
+                } else {
+                    document.getElementById('userCredits').textContent = '0';
+                }
+            } catch (error) {
+                console.error('Failed to load credits:', error);
+                document.getElementById('userCredits').textContent = '0';
+            }
+        }
+
+        async function generateIndustryPosts() {
+            const industry = document.getElementById('industry').value.trim();
+            const tone = document.getElementById('tone').value;
+
+            if (!industry) {
+                alert('Please enter an industry to research');
+                return;
+            }
+
+            // Hide other states and show loading
+            hideAllStates();
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('generateBtn').textContent = 'Researching...';
+
+            updateLoadingStatus('Searching for industry news...');
+
+            try {
+                const response = await fetch('/api/fake-it-mode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        industry: industry,
+                        tone: tone,
+                        userId: currentUser?.id
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    generatedPostsData = data.posts;
+                    displayResults(data);
+                    await loadUserCredits(); // Refresh credits
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                console.error('Generation failed:', error);
+                showError('Failed to generate posts. Please try again.');
+            } finally {
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('generateBtn').textContent = '🎭 Generate 5 Industry Posts (5 Credits)';
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        function updateLoadingStatus(status) {
+            document.getElementById('loadingStatus').textContent = status;
+        }
+
+        function hideAllStates() {
+            document.getElementById('resultsContainer').classList.add('hidden');
+            document.getElementById('errorContainer').classList.add('hidden');
+            document.getElementById('loadingState').classList.add('hidden');
+        }
+
+        function displayResults(data) {
+            const container = document.getElementById('generatedPosts');
+            container.innerHTML = '';
+
+            document.getElementById('creditsUsed').textContent = data.creditsUsed;
+
+            data.posts.forEach((postData, index) => {
+                const postElement = createPostElement(postData, index);
+                container.appendChild(postElement);
+            });
+
+            document.getElementById('resultsContainer').classList.remove('hidden');
+        }
+
+        function createPostElement(postData, index) {
+            const div = document.createElement('div');
+            div.className = 'border border-gray-200 rounded-lg p-6 bg-gray-50';
+            
+            div.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center">
+                        <span class="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full mr-3">
+                            Post ${index + 1}
+                        </span>
+                        <div class="text-sm text-gray-600">
+                            <strong>Source:</strong> ${postData.article.source} | 
+                            <strong>Published:</strong> ${new Date(postData.article.publishedAt).toLocaleDateString()}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-900 mb-2">Article: ${postData.article.title}</h4>
+                </div>
+
+                <div class="bg-white rounded-lg p-4 mb-4">
+                    <div class="whitespace-pre-wrap text-gray-800">${postData.post}</div>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <button 
+                        onclick="copyToClipboard('${postData.id}')" 
+                        class="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                        📋 Copy Post
+                    </button>
+                    <button 
+                        onclick="postToLinkedIn('${postData.id}')" 
+                        class="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                        📤 Post to LinkedIn
+                    </button>
+                    <button 
+                        onclick="saveForLater('${postData.id}')" 
+                        class="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                    >
+                        💾 Save for Later
+                    </button>
+                    <a 
+                        href="${postData.article.url}" 
+                        target="_blank" 
+                        class="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                    >
+                        🔗 Read Article
+                    </a>
+                </div>
+            `;
+
+            return div;
+        }
+
+        async function copyToClipboard(postId) {
+            const postData = generatedPostsData.find(p => p.id === postId);
+            if (!postData) return;
+
+            try {
+                await navigator.clipboard.writeText(postData.post);
+                alert('Post copied to clipboard!');
+            } catch (error) {
+                console.error('Copy failed:', error);
+                alert('Failed to copy. Please select and copy manually.');
+            }
+        }
+
+        async function postToLinkedIn(postId) {
+            const postData = generatedPostsData.find(p => p.id === postId);
+            if (!postData) return;
+
+            if (confirm('Post this content directly to LinkedIn?')) {
+                try {
+                    const response = await fetch('/api/linkedin/post', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            content: postData.post,
+                            userId: currentUser?.id
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('Successfully posted to LinkedIn!');
+                    } else {
+                        alert('Failed to post to LinkedIn: ' + (result.error || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('LinkedIn posting failed:', error);
+                    alert('Failed to post to LinkedIn. Please try again.');
+                }
+            }
+        }
+
+        async function saveForLater(postId) {
+            const postData = generatedPostsData.find(p => p.id === postId);
+            if (!postData) return;
+
+            // For now, just copy to clipboard with a different message
+            try {
+                await navigator.clipboard.writeText(postData.post);
+                alert('Post saved to clipboard! You can paste it anywhere to save for later.');
+            } catch (error) {
+                console.error('Save failed:', error);
+                alert('Failed to save. Please copy manually.');
+            }
+        }
+
+        function saveAllPosts() {
+            const allPosts = generatedPostsData.map(p => p.post).join('\n\n---\n\n');
+            
+            try {
+                navigator.clipboard.writeText(allPosts);
+                alert('All posts copied to clipboard!');
+            } catch (error) {
+                console.error('Copy all failed:', error);
+                alert('Failed to copy all posts. Please copy manually.');
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorContainer').classList.remove('hidden');
+        }
+
+        function tryAgain() {
+            hideAllStates();
+        }
+    </script>
+</body>
+</html> 
