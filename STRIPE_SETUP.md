@@ -1,11 +1,11 @@
-# 💳 Stripe Payment Setup Guide for PostPilot
+# 💳 Stripe Payment Setup Guide for Employment
 
-This guide will help you set up Stripe for subscription payments and access key management in PostPilot.
+This guide will help you set up Stripe for subscription payments and access key management in Employment.
 
 ## 📋 Prerequisites
 
 1. **Stripe Account**: Create a free account at [stripe.com](https://stripe.com)
-2. **PostPilot Application**: Fully functional with database
+2. **Employment Application**: Fully functional with database
 3. **Domain**: Required for webhooks (localhost works for development)
 
 ## 🚀 Step 1: Create Stripe Account & Get API Keys
@@ -31,19 +31,19 @@ This guide will help you set up Stripe for subscription payments and access key 
 Go to **Products** in Stripe Dashboard and create these products:
 
 ```
-1. PostPilot Starter
+1. Employment Starter
    - Description: Perfect for individuals
    - Price: $2.99/month
 
-2. PostPilot Professional  
+2. Employment Professional  
    - Description: For active professionals
    - Price: $9.99/month
 
-3. PostPilot Business
+3. Employment Business
    - Description: For businesses and teams
    - Price: $19.99/month
 
-4. PostPilot Enterprise
+4. Employment Enterprise
    - Description: Unlimited posting
    - Price: $49.99/month
 ```
@@ -254,7 +254,7 @@ const changePlan = async (subscriptionId, newPriceId) => {
 ### Getting Help:
 - [Stripe Documentation](https://stripe.com/docs)
 - [Stripe Discord Community](https://discord.gg/stripe)
-- [PostPilot Support](mailto:support@postpilot.com) (when live)
+- [Employment Support](mailto:support@Employment.com) (when live)
 
 ## 📊 Revenue Tracking
 
@@ -266,4 +266,4 @@ Monitor your success in Stripe Dashboard:
 
 ---
 
-🎉 **Congratulations!** You've successfully set up Stripe payments for PostPilot. Your users can now subscribe to plans and you can start generating revenue from your AI-powered LinkedIn content platform! 
+🎉 **Congratulations!** You've successfully set up Stripe payments for Employment. Your users can now subscribe to plans and you can start generating revenue from your AI-powered LinkedIn content platform! 

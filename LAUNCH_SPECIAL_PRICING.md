@@ -1,4 +1,4 @@
-# 🔥 50% OFF LAUNCH SPECIAL - PostPilot
+# 🔥 50% OFF LAUNCH SPECIAL - Employment
 
 ## 🎯 **INSANE Launch Pricing - Limited Time!**
 
@@ -37,7 +37,7 @@
 ## 📊 **Competitive Destruction:**
 
 ```
-🔥 PostPilot Launch Special:
+🔥 Employment Launch Special:
    $0.49 for 30 posts = $0.016 per post
 
 ❌ Competitor A: $29 for 30 posts = $0.97 per post
@@ -99,7 +99,7 @@ You're 60x cheaper than some competitors!
 
 ### **Week 1: "Early Bird Special"**
 ```
-🚀 "PostPilot Launch Week!"
+🚀 "Employment Launch Week!"
 🔥 50% OFF Everything
 ⏰ Limited Time Only
 💥 Lock in these prices forever!

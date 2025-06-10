@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com;">
-    <title>Subscribe to PostPilot</title>
+    <title>Subscribe to Employment</title>
     <script src="https://js.stripe.com/v3/"></script>
     <link rel="stylesheet" href="styles.css">
     <style>
-        /* PostPilot Subscription Page - Using Theme Colors */
+        /* Employment Subscription Page - Using Theme Colors */
         .subscription-container {
             max-width: 800px;
             margin: 0 auto;
@@ -35,18 +35,18 @@
         }
         
         .plan-card:hover {
-            border-color: var(--postpilot-red);
+            border-color: var(--Employment-red);
             transform: translateY(-8px);
             box-shadow: 0 8px 25px rgba(233, 69, 96, 0.15);
         }
         
         .plan-card.selected {
-            border-color: var(--postpilot-red);
+            border-color: var(--Employment-red);
             background: linear-gradient(135deg, #FFF5F7 0%, var(--pure-white) 100%);
         }
         
         .plan-card.popular {
-            border-color: var(--postpilot-red);
+            border-color: var(--Employment-red);
             position: relative;
             transform: scale(1.05);
         }
@@ -78,7 +78,7 @@
         .plan-price {
             font-size: 2.5rem;
             font-weight: var(--font-weight-black);
-            color: var(--postpilot-red);
+            color: var(--Employment-red);
             margin-bottom: var(--spacing-xs);
             line-height: 1;
         }
@@ -115,7 +115,7 @@
         
         .plan-features li::before {
             content: "✓";
-            color: var(--postpilot-red);
+            color: var(--Employment-red);
             font-weight: var(--font-weight-bold);
             margin-right: var(--spacing-sm);
             font-size: var(--font-size-base);
@@ -167,7 +167,7 @@
         }
         
         .error-message {
-            color: var(--postpilot-red);
+            color: var(--Employment-red);
             margin-top: var(--spacing-md);
             font-size: var(--font-size-sm);
             font-weight: var(--font-weight-medium);
@@ -249,7 +249,7 @@
         }
         
         .nav-links a:hover {
-            color: var(--postpilot-red);
+            color: var(--Employment-red);
         }
     </style>
 </head>
@@ -257,7 +257,7 @@
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
-                <h2>🚀 PostPilot</h2>
+                <h2>🚀 Employment</h2>
             </div>
             <div class="nav-links">
                 <a href="/dashboard">← Back to Dashboard</a>
@@ -271,7 +271,7 @@
         </div>
         
         <div class="hero-section">
-            <h1>Choose Your PostPilot Plan</h1>
+            <h1>Choose Your Employment Plan</h1>
             <p>Unlock the power of AI-driven LinkedIn content generation</p>
         </div>
 

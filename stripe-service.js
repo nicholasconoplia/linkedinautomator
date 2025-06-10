@@ -162,9 +162,16 @@ class StripeService {
   async handleCheckoutCompleted(session) {
     try {
       console.log('🔔 Processing checkout completion:', session.id);
+      console.log('🔔 Session metadata:', session.metadata);
       
-      // Check if this is a credit purchase (one-time payment without subscription)
-      if (!session.subscription && session.metadata?.credit_amount) {
+      // Check if this is a one-time credit purchase
+      if (session.metadata?.plan_type === 'credit_pack' && session.metadata?.credit_amount) {
+        await this.handleCreditPurchase(session);
+        return;
+      }
+      
+      // Check if this is a subscription (existing logic for backwards compatibility)
+      if (!session.subscription && session.metadata?.credit_amount && session.metadata?.plan_type !== 'credit_pack') {
         await this.handleCreditPurchase(session);
         return;
       }
@@ -234,6 +241,23 @@ class StripeService {
         });
 
         console.log('✅ Subscription updated in database for user:', userId);
+        
+        // Add monthly credits for new subscription
+        try {
+          const CreditDB = require('./database').CreditDB;
+          const creditsToAdd = plan.posts_limit || 30; // Default to 30 if not specified
+          
+          await CreditDB.addCredits(
+            userId, 
+            creditsToAdd, 
+            `Monthly credits for ${plan.name} subscription`
+          );
+          
+          console.log(`✅ Added ${creditsToAdd} monthly credits for subscription`);
+        } catch (creditError) {
+          console.error('⚠️ Failed to add monthly credits:', creditError);
+          // Don't fail the entire process if credit addition fails
+        }
         
         // Reset monthly usage for new subscription
         try {

@@ -1901,7 +1901,7 @@ app.post('/api/admin/access-key/create', async (req, res) => {
   try {
     // Admin authentication check
     const adminPassword = req.headers['x-admin-key'] || req.query.key;
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'postpilot-admin-2024';
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'Employment-admin-2024';
     
     if (!adminPassword || adminPassword !== expectedPassword) {
       return res.status(401).json({ error: 'Admin authentication required' });
@@ -1961,7 +1961,7 @@ app.get('/api/admin/access-keys', async (req, res) => {
   try {
     // Admin authentication check
     const adminPassword = req.headers['x-admin-key'] || req.query.key;
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'postpilot-admin-2024';
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'Employment-admin-2024';
     
     if (!adminPassword || adminPassword !== expectedPassword) {
       return res.status(401).json({ error: 'Admin authentication required' });
@@ -1985,7 +1985,7 @@ app.delete('/api/admin/access-key/:keyId', async (req, res) => {
   try {
     // Admin authentication check
     const adminPassword = req.headers['x-admin-key'] || req.query.key;
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'postpilot-admin-2024';
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'Employment-admin-2024';
     
     if (!adminPassword || adminPassword !== expectedPassword) {
       return res.status(401).json({ error: 'Admin authentication required' });
@@ -2927,7 +2927,7 @@ app.get('/admin', (req, res) => {
   
   // Simple password protection - check for admin password in query parameter
   const adminPassword = req.query.key;
-  const expectedPassword = process.env.ADMIN_PASSWORD || 'postpilot-admin-2024';
+  const expectedPassword = process.env.ADMIN_PASSWORD || 'Employment-admin-2024';
   
   if (!adminPassword || adminPassword !== expectedPassword) {
     console.log('🚫 Unauthorized admin access attempt');
@@ -5281,7 +5281,7 @@ app.get('/migrate', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PostPilot - Database Migration</title>
+    <title>Employment - Database Migration</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -5351,7 +5351,7 @@ app.get('/migrate', (req, res) => {
 </head>
 <body>
     <div class="container">
-        <h1>🚀 PostPilot Database Migration</h1>
+        <h1>🚀 Employment Database Migration</h1>
         
         <div class="migration-box">
             <h3>Fix Subscription Status Constraint</h3>

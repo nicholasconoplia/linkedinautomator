@@ -1,6 +1,6 @@
-# 💰 PostPilot Monetization System - Complete Deployment Guide
+# 💰 Employment Monetization System - Complete Deployment Guide
 
-Your PostPilot platform now includes a full subscription and monetization system! Here's everything you need to know to deploy and start earning revenue.
+Your Employment platform now includes a full subscription and monetization system! Here's everything you need to know to deploy and start earning revenue.
 
 ## 🎯 What's Been Implemented
 
@@ -42,10 +42,10 @@ Your PostPilot platform now includes a full subscription and monetization system
 
 2. **Create Products & Prices**
    ```
-   - PostPilot Starter ($2.99/month)
-   - PostPilot Professional ($9.99/month) 
-   - PostPilot Business ($19.99/month)
-   - PostPilot Enterprise ($49.99/month)
+   - Employment Starter ($2.99/month)
+   - Employment Professional ($9.99/month) 
+   - Employment Business ($19.99/month)
+   - Employment Enterprise ($49.99/month)
    ```
 
 3. **Get API Keys**

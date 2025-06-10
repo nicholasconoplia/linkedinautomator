@@ -374,7 +374,7 @@ function initializeDatabase() {
         // Insert default subscription plans
         await client.query(`
           INSERT INTO subscription_plans (name, price, posts_limit, features, stripe_price_id) VALUES
-          ('Free Trial', 0.00, 5, '{"description": "Try PostPilot with 5 free posts", "promotion": "Always Free"}', null),
+          ('Free Trial', 0.00, 5, '{"description": "Try Employment with 5 free posts", "promotion": "Always Free"}', null),
           ('Starter', 0.49, 30, '{"description": "Perfect for individuals", "features": ["30 posts/month", "Basic templates", "Email support"], "original_price": 0.99, "promotion": "🔥 50% OFF Launch Special"}', null),
           ('Professional', 1.49, 100, '{"description": "For active professionals", "features": ["100 posts/month", "All templates", "Priority support", "Automation"], "original_price": 2.99, "promotion": "🔥 50% OFF Launch Special"}', null),
           ('Business', 2.49, 300, '{"description": "For businesses and teams", "features": ["300 posts/month", "Advanced analytics", "Custom branding", "API access"], "original_price": 4.99, "promotion": "🔥 50% OFF Launch Special"}', null),

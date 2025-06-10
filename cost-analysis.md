@@ -1,4 +1,4 @@
-# PostPilot Cost Analysis & Pricing Strategy
+# Employment Cost Analysis & Pricing Strategy
 
 ## 📊 API Cost Breakdown
 

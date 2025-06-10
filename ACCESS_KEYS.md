@@ -1,18 +1,18 @@
-# 🔑 PostPilot Access Keys
+# 🔑 Employment Access Keys
 
 ## Available Test Access Keys
 
 Here are some access keys you can use to get additional posts:
 
-### 🎯 **POSTPILOT-FREE-10**
+### 🎯 **Employment-FREE-10**
 - **Posts**: 10 additional posts
 - **Description**: Free 10 Posts bonus
 
-### 🚀 **POSTPILOT-TRIAL-25** 
+### 🚀 **Employment-TRIAL-25** 
 - **Posts**: 25 additional posts
 - **Description**: Trial 25 Posts package
 
-### 💎 **POSTPILOT-BONUS-50**
+### 💎 **Employment-BONUS-50**
 - **Posts**: 50 additional posts  
 - **Description**: Bonus 50 Posts package
 
@@ -26,7 +26,7 @@ Here are some access keys you can use to get additional posts:
 
 ## How to Use Access Keys
 
-1. **Login** to PostPilot with your LinkedIn account
+1. **Login** to Employment with your LinkedIn account
 2. When you reach your post limit, click **"Upgrade Plan"**
 3. In the subscription modal, look for the **"Access Key"** section
 4. Enter one of the access keys above

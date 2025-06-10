@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# PostPilot Local Development Setup Script
-echo "🚀 PostPilot Local Development Environment"
+# Employment Local Development Setup Script
+echo "🚀 Employment Local Development Environment"
 echo "=========================================="
 
 # Check if PostgreSQL is running

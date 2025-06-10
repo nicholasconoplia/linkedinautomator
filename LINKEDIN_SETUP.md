@@ -172,7 +172,7 @@ Once LinkedIn OAuth is set up:
 **You need to update your LinkedIn app settings to work with localhost:**
 
 1. **Go to LinkedIn Developer Console**: https://www.linkedin.com/developers/apps
-2. **Select your PostPilot app**
+2. **Select your Employment app**
 3. **Go to "Auth" tab**
 4. **Update "Authorized redirect URLs for your app"**:
    - **Remove** your production URL (if present)

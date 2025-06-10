@@ -1,4 +1,4 @@
-/* PostPilot - AI-Driven LinkedIn Content Platform */
+/* Employment - AI-Driven LinkedIn Content Platform */
 
 * {
     margin: 0;
@@ -7,10 +7,10 @@
 }
 
 :root {
-    /* PostPilot Brand Colors */
-    --postpilot-red: #E94560;
-    --postpilot-red-light: #FF6B8A;
-    --postpilot-red-dark: #D63851;
+    /* Employment Brand Colors */
+    --Employment-red: #E94560;
+    --Employment-red-light: #FF6B8A;
+    --Employment-red-dark: #D63851;
     --linkedin-blue: #0077B5;
     --linkedin-blue-dark: #005885;
     --navy-blue: #1A1A2E;
@@ -156,7 +156,7 @@ body {
 .logo svg {
     width: 48px;
     height: 48px;
-    fill: var(--postpilot-red);
+    fill: var(--Employment-red);
 }
 
 .logo h1 {
@@ -504,7 +504,7 @@ body {
     content: '→';
     position: absolute;
     left: 0;
-    color: var(--postpilot-red);
+    color: var(--Employment-red);
     font-weight: var(--font-weight-bold);
     transition: all 0.2s ease;
 }
@@ -549,9 +549,9 @@ body {
 }
 
 .action-btn:hover {
-    background: var(--postpilot-red);
+    background: var(--Employment-red);
     color: white;
-    border-color: var(--postpilot-red);
+    border-color: var(--Employment-red);
     transform: translateY(-2px);
     box-shadow: var(--shadow-sm);
 }
@@ -575,7 +575,7 @@ body {
 }
 
 .post-text .hashtag {
-    color: var(--postpilot-red);
+    color: var(--Employment-red);
     font-weight: var(--font-weight-bold);
     transition: all 0.2s ease;
 }
@@ -907,9 +907,9 @@ body {
 }
 
 .logout-btn:hover {
-    background: var(--postpilot-red);
+    background: var(--Employment-red);
     color: white;
-    border-color: var(--postpilot-red);
+    border-color: var(--Employment-red);
 }
 
 /* Subscription Status Styles */
@@ -998,9 +998,9 @@ body {
 }
 
 .btn-secondary:hover {
-    background: var(--postpilot-red);
+    background: var(--Employment-red);
     color: white;
-    border-color: var(--postpilot-red);
+    border-color: var(--Employment-red);
     transform: translateY(-2px);
 }
 
@@ -1479,7 +1479,7 @@ a:focus-visible {
 }
 
 /* ================================
-   PRICING SECTION - POSTPILOT THEME
+   PRICING SECTION - Employment THEME
    ================================ */
 
 .pricing-section {
@@ -1567,7 +1567,7 @@ a:focus-visible {
 .pricing-card:hover {
     transform: translateY(-8px);
     box-shadow: 0 30px 60px rgba(0,0,0,0.25);
-    border-color: var(--postpilot-red);
+    border-color: var(--Employment-red);
 }
 
 .pricing-card:hover::before {
@@ -1575,7 +1575,7 @@ a:focus-visible {
 }
 
 .pricing-card.popular {
-    border-color: var(--postpilot-red);
+    border-color: var(--Employment-red);
     transform: scale(1.05);
     box-shadow: 0 25px 50px rgba(233, 69, 96, 0.2);
 }
@@ -1607,7 +1607,7 @@ a:focus-visible {
 .pricing-card .price {
     font-size: 3.5rem;
     font-weight: var(--font-weight-black);
-    color: var(--postpilot-red);
+    color: var(--Employment-red);
     margin-bottom: var(--spacing-xs);
     line-height: 1;
     position: relative;
@@ -1648,7 +1648,7 @@ a:focus-visible {
 
 .pricing-card .features li::before {
     content: "✓";
-    color: var(--postpilot-red);
+    color: var(--Employment-red);
     font-weight: var(--font-weight-bold);
     margin-right: var(--spacing-md);
     font-size: var(--font-size-lg);
@@ -1702,7 +1702,7 @@ a:focus-visible {
 }
 
 .pricing-card.popular .cta-button:hover {
-    background: linear-gradient(135deg, var(--postpilot-red-dark) 0%, var(--postpilot-red) 100%);
+    background: linear-gradient(135deg, var(--Employment-red-dark) 0%, var(--Employment-red) 100%);
 }
 
 .pricing-card .promotion {
@@ -1750,7 +1750,7 @@ a:focus-visible {
     overflow-y: auto;
     box-shadow: 0 30px 80px rgba(26, 26, 46, 0.3);
     animation: modalSlideIn 0.4s ease-out;
-    border: 2px solid var(--postpilot-red);
+    border: 2px solid var(--Employment-red);
 }
 
 @keyframes modalSlideIn {
@@ -1794,7 +1794,7 @@ a:focus-visible {
 }
 
 .modal-close:hover {
-    color: var(--postpilot-red);
+    color: var(--Employment-red);
     background: var(--bg-secondary);
     transform: rotate(90deg);
 }
@@ -1821,13 +1821,13 @@ a:focus-visible {
 }
 
 .plan-card-modal:hover {
-    border-color: var(--postpilot-red);
+    border-color: var(--Employment-red);
     transform: translateY(-4px);
     box-shadow: 0 8px 25px rgba(233, 69, 96, 0.15);
 }
 
 .plan-card-modal.popular {
-    border-color: var(--postpilot-red);
+    border-color: var(--Employment-red);
     background: linear-gradient(135deg, #FFF5F7 0%, var(--pure-white) 100%);
 }
 
@@ -1857,7 +1857,7 @@ a:focus-visible {
 .plan-price-modal {
     font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-black);
-    color: var(--postpilot-red);
+    color: var(--Employment-red);
     margin-bottom: var(--spacing-xs);
 }
 
@@ -1890,7 +1890,7 @@ a:focus-visible {
 
 .plan-features-modal li::before {
     content: "✓";
-    color: var(--postpilot-red);
+    color: var(--Employment-red);
     font-weight: var(--font-weight-bold);
     margin-right: var(--spacing-xs);
     font-size: var(--font-size-sm);
@@ -1934,7 +1934,7 @@ a:focus-visible {
 
 .access-key-form input:focus {
     outline: none;
-    border-color: var(--postpilot-red);
+    border-color: var(--Employment-red);
     box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.1);
 }
 
