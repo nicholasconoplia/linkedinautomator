@@ -3811,10 +3811,10 @@ app.get('/saved-posts', (req, res) => {
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; " +
-    "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; " +
-    "img-src 'self' data: https:; " +
-    "connect-src 'self'"
+    "img-src 'self' data: https: http:; " +
+    "connect-src 'self' https://api.openai.com https://api.linkedin.com"
   );
   
   const savedPostsPath = path.join(__dirname, 'saved-posts.html');

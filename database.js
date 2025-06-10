@@ -387,17 +387,6 @@ function initializeDatabase() {
           ON automation_analytics (user_id, posted_at)
         `);
 
-        // Insert default subscription plans
-        await client.query(`
-          INSERT INTO subscription_plans (name, price, posts_limit, features, stripe_price_id) VALUES
-          ('Free Trial', 0.00, 5, '{"description": "Try Employment with 5 free posts", "promotion": "Always Free"}', null),
-          ('Starter', 0.49, 30, '{"description": "Perfect for individuals", "features": ["30 posts/month", "Basic templates", "Email support"], "original_price": 0.99, "promotion": "🔥 50% OFF Launch Special"}', null),
-          ('Professional', 1.49, 100, '{"description": "For active professionals", "features": ["100 posts/month", "All templates", "Priority support", "Automation"], "original_price": 2.99, "promotion": "🔥 50% OFF Launch Special"}', null),
-          ('Business', 2.49, 300, '{"description": "For businesses and teams", "features": ["300 posts/month", "Advanced analytics", "Custom branding", "API access"], "original_price": 4.99, "promotion": "🔥 50% OFF Launch Special"}', null),
-          ('Enterprise', 4.99, -1, '{"description": "Unlimited posting", "features": ["Unlimited posts", "White-label", "Dedicated support", "Custom integrations"], "original_price": 9.99, "promotion": "🔥 50% OFF Launch Special"}', null)
-          ON CONFLICT (name) DO NOTHING
-        `);
-
         // Saved posts table
         await client.query(`
           CREATE TABLE IF NOT EXISTS saved_posts (
@@ -406,7 +395,7 @@ function initializeDatabase() {
             title TEXT,
             content TEXT NOT NULL,
             source_url TEXT,
-            source_name TEXT,
+            image_url TEXT,
             industry TEXT,
             tone TEXT,
             metadata JSONB DEFAULT '{}',
@@ -416,10 +405,21 @@ function initializeDatabase() {
           )
         `);
 
-        // Create index for saved posts
+        // Create index for saved_posts
         await client.query(`
-          CREATE INDEX IF NOT EXISTS idx_saved_posts_user_id 
+          CREATE INDEX IF NOT EXISTS idx_saved_posts_user 
           ON saved_posts (user_id)
+        `);
+
+        // Insert default subscription plans
+        await client.query(`
+          INSERT INTO subscription_plans (name, price, posts_limit, features, stripe_price_id) VALUES
+          ('Free Trial', 0.00, 5, '{"description": "Try Employment with 5 free posts", "promotion": "Always Free"}', null),
+          ('Starter', 0.49, 30, '{"description": "Perfect for individuals", "features": ["30 posts/month", "Basic templates", "Email support"], "original_price": 0.99, "promotion": "🔥 50% OFF Launch Special"}', null),
+          ('Professional', 1.49, 100, '{"description": "For active professionals", "features": ["100 posts/month", "All templates", "Priority support", "Automation"], "original_price": 2.99, "promotion": "🔥 50% OFF Launch Special"}', null),
+          ('Business', 2.49, 300, '{"description": "For businesses and teams", "features": ["300 posts/month", "Advanced analytics", "Custom branding", "API access"], "original_price": 4.99, "promotion": "🔥 50% OFF Launch Special"}', null),
+          ('Enterprise', 4.99, -1, '{"description": "Unlimited posting", "features": ["Unlimited posts", "White-label", "Dedicated support", "Custom integrations"], "original_price": 9.99, "promotion": "🔥 50% OFF Launch Special"}', null)
+          ON CONFLICT (name) DO NOTHING
         `);
 
         console.log('✅ Database initialized successfully');
