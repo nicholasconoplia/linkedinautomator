@@ -4973,7 +4973,7 @@ Requirements:
 // Add new endpoint for "Fake it till you make it" mode
 app.post('/api/fake-it-mode', requireAuth, async (req, res) => {
   try {
-    const { industry, tone = 'student-professional', userId } = req.body;
+    const { industry, tone = 'student-professional' } = req.body;
     
     if (!industry) {
       return res.status(400).json({ 
@@ -4983,7 +4983,7 @@ app.post('/api/fake-it-mode', requireAuth, async (req, res) => {
     }
 
     // Check if user has enough credits (5 credits needed)
-    const user = await getUser(userId);
+    const user = await UserDB.getUserById(req.user.id);
     if (!user || user.credits < 5) {
       return res.status(402).json({
         success: false,
@@ -5013,7 +5013,7 @@ app.post('/api/fake-it-mode', requireAuth, async (req, res) => {
 
     // Generate posts for each article with student-friendly approach
     const generatedPosts = [];
-    const usedCredits = Math.min(newsArticles.length, 5); // Only charge for actual posts generated
+    const usedCredits = Math.min(newsArticles.length, 5);
 
     for (let i = 0; i < usedCredits; i++) {
       const article = newsArticles[i];
@@ -5047,15 +5047,15 @@ app.post('/api/fake-it-mode', requireAuth, async (req, res) => {
       });
     }
 
-    // Deduct credits
-    await updateUserCredits(userId, -usedCredits);
+    // Deduct credits using CreditDB
+    const newBalance = await CreditDB.deductCredits(req.user.id, usedCredits, 'Fake It Till You Make It mode');
     console.log(`💳 Deducted ${usedCredits} credits for Fake It Till You Make It mode`);
 
     res.json({
       success: true,
       posts: generatedPosts,
       creditsUsed: usedCredits,
-      remainingCredits: user.credits - usedCredits,
+      remainingCredits: newBalance,
       message: `Generated ${generatedPosts.length} industry-aware posts!`
     });
 
@@ -5065,6 +5065,17 @@ app.post('/api/fake-it-mode', requireAuth, async (req, res) => {
       success: false,
       error: 'Failed to generate industry posts'
     });
+  }
+});
+
+// Add credits endpoint
+app.get('/api/user/credits', requireAuth, async (req, res) => {
+  try {
+    const credits = await CreditDB.getCredits(req.user.id);
+    res.json({ credits });
+  } catch (error) {
+    console.error('❌ Error fetching user credits:', error);
+    res.status(500).json({ error: 'Failed to fetch credits' });
   }
 });
 
