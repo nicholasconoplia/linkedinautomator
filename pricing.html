@@ -761,9 +761,12 @@
                     
                     console.log('User authenticated:', currentUser);
                     
-                    // Update auth section
-                    document.getElementById('authButton').textContent = 'Dashboard';
-                    document.getElementById('authButton').onclick = () => window.location.href = '/dashboard';
+                    // Update auth section (if it exists)
+                    const authButton = document.getElementById('authButton');
+                    if (authButton) {
+                        authButton.textContent = 'Dashboard';
+                        authButton.onclick = () => window.location.href = '/dashboard';
+                    }
                     
                     // Show credit balance if available
                     if (currentUser.credits !== undefined) {
@@ -785,12 +788,23 @@
                     }
                     
                     // Update payment links with user data
+                    console.log('About to update payment links in 500ms...');
                     setTimeout(() => {
+                        console.log('Running updatePaymentLinks() now...');
                         updatePaymentLinks();
+                        
+                        // Also try again after another delay to ensure DOM is ready
+                        setTimeout(() => {
+                            console.log('Second attempt at updating payment links...');
+                            updatePaymentLinks();
+                        }, 1000);
                     }, 500);
                 } else {
                     console.log('User not authenticated');
-                    document.getElementById('authButton').onclick = () => window.location.href = '/auth/linkedin';
+                    const authButton = document.getElementById('authButton');
+                    if (authButton) {
+                        authButton.onclick = () => window.location.href = '/auth/linkedin';
+                    }
                 }
             } catch (error) {
                 console.error('Error checking auth status:', error);
@@ -798,38 +812,72 @@
         }
         
         function updatePaymentLinks() {
+            console.log('🔗 updatePaymentLinks() called');
+            
             if (!currentUser || !currentUser.email || !currentUser.id) {
-                console.log('Cannot update payment links - missing user data:', currentUser);
+                console.log('❌ Cannot update payment links - missing user data:', currentUser);
                 return;
             }
             
-            console.log('Updating payment links for user:', {
+            console.log('✅ User data available:', {
                 id: currentUser.id,
                 email: currentUser.email,
                 name: currentUser.name
             });
             
-            const stripeLinks = document.querySelectorAll('a[href*="stripe.com"]');
-            console.log(`Found ${stripeLinks.length} Stripe links to update`);
+            // Try multiple selectors to find Stripe links
+            const selectors = [
+                'a[href*="stripe.com"]',
+                'a[href*="buy.stripe.com"]',
+                'a[href*="{{USER_EMAIL}}"]',
+                'a[href*="{{USER_ID}}"]'
+            ];
             
-            stripeLinks.forEach((link, index) => {
+            let allStripeLinks = [];
+            
+            selectors.forEach(selector => {
+                const links = document.querySelectorAll(selector);
+                console.log(`🔍 Selector "${selector}" found ${links.length} links`);
+                allStripeLinks.push(...links);
+            });
+            
+            // Remove duplicates
+            const uniqueLinks = [...new Set(allStripeLinks)];
+            console.log(`📋 Total unique Stripe links found: ${uniqueLinks.length}`);
+            
+            if (uniqueLinks.length === 0) {
+                console.log('⚠️ No Stripe links found! Checking all links...');
+                const allLinks = document.querySelectorAll('a');
+                console.log(`🔗 Total links on page: ${allLinks.length}`);
+                allLinks.forEach((link, index) => {
+                    if (link.href && (link.href.includes('stripe') || link.href.includes('{{USER'))) {
+                        console.log(`Link ${index}: ${link.href}`);
+                    }
+                });
+                return;
+            }
+            
+            uniqueLinks.forEach((link, index) => {
                 let href = link.href;
                 const originalHref = href;
+                
+                console.log(`🔗 Processing link ${index + 1}:`, originalHref);
                 
                 // Replace placeholders
                 href = href.replace(/\{\{USER_EMAIL\}\}/g, encodeURIComponent(currentUser.email));
                 href = href.replace(/\{\{USER_ID\}\}/g, currentUser.id);
                 
-                console.log(`Link ${index + 1}:`, {
-                    original: originalHref,
-                    updated: href,
-                    hasPlaceholders: originalHref.includes('{{USER_EMAIL}}') || originalHref.includes('{{USER_ID}}')
-                });
+                const hasPlaceholders = originalHref.includes('{{USER_EMAIL}}') || originalHref.includes('{{USER_ID}}');
+                
+                console.log(`  ➡️ Original: ${originalHref}`);
+                console.log(`  ➡️ Updated:  ${href}`);
+                console.log(`  ➡️ Had placeholders: ${hasPlaceholders}`);
+                console.log(`  ➡️ Changed: ${originalHref !== href}`);
                 
                 link.href = href;
             });
             
-            console.log('Payment link update completed');
+            console.log('✅ Payment link update completed');
         }
         
         function checkAuthForPurchase(element, planName, credits, price) {
