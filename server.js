@@ -3817,13 +3817,17 @@ app.get('/saved-posts', (req, res) => {
     "connect-src 'self'"
   );
   
-  const savedPostsPath = path.join(__dirname, 'saved-posts');
+  const savedPostsPath = path.join(__dirname, 'saved-posts.html');
   
   if (fs.existsSync(savedPostsPath)) {
-    console.log('✅ Serving saved-posts page');
-    res.sendFile(savedPostsPath);
+    console.log('✅ Serving saved-posts.html');
+    res.sendFile(savedPostsPath, {
+      headers: {
+        'Content-Type': 'text/html'
+      }
+    });
   } else {
-    console.log('⚠️ saved-posts page not found');
+    console.log('⚠️ saved-posts.html not found');
     res.status(404).send('Saved posts page not found');
   }
 });
