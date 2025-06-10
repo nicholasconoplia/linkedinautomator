@@ -6,32 +6,40 @@
     <title>Saved Posts - Employment</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
 </head>
-<body class="bg-gray-50">
-    <div class="min-h-screen">
-        <!-- Navigation -->
-        <nav class="bg-white shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16">
-                    <div class="flex">
-                        <div class="flex-shrink-0 flex items-center">
-                            <a href="/" class="text-2xl font-bold text-gray-800">Employment</a>
-                        </div>
-                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                            <a href="/generator" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Generator</a>
-                            <a href="/automation" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Automation</a>
-                            <a href="/saved-posts" class="border-blue-500 text-blue-600 px-3 py-2 rounded-md text-sm font-medium" aria-current="page">Saved Posts</a>
-                            <a href="/fake-it-mode" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Fake It Mode</a>
-                        </div>
-                    </div>
-                    <div class="flex items-center">
-                        <a href="/manage-subscription" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Subscription</a>
-                        <a href="/credits" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Credits</a>
-                        <button id="logoutBtn" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">Logout</button>
-                    </div>
+<body class="bg-gray-50 font-inter">
+    <div class="relative flex size-full min-h-screen flex-col bg-slate-50 group/design-root overflow-x-hidden" style='font-family: Inter, "Noto Sans", sans-serif;'>
+        <!-- Header -->
+        <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e7edf4] px-10 py-3">
+            <div class="flex items-center gap-4 text-[#0d151c]">
+                <div class="size-4">
+                    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 42.4379C4 42.4379 14.0962 36.0744 24 41.1692C35.0664 46.8624 44 42.2078 44 42.2078L44 7.01134C44 7.01134 35.068 11.6577 24.0031 5.96913C14.0971 0.876274 4 7.27094 4 7.27094L4 42.4379Z" fill="currentColor"></path>
+                    </svg>
+                </div>
+                <h2 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em]">Employment</h2>
+            </div>
+            
+            <div class="flex flex-1 justify-end gap-8">
+                <div class="flex items-center gap-9">
+                    <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal">Dashboard</a>
+                    <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal">Content Generator</a>
+                    <a href="/fake-it-mode" class="text-[#0d151c] text-sm font-medium leading-normal">🎭 Fake It Mode</a>
+                    <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
+                    <a href="/saved-posts" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">💾 Saved Posts</a>
+                    <a href="/pricing" class="text-[#0d151c] text-sm font-medium leading-normal">Pricing</a>
+                </div>
+                
+                <!-- User Info -->
+                <div id="user-info" class="hidden flex items-center gap-3">
+                    <span class="text-[#0d151c] text-sm font-medium" id="userName"></span>
+                    <span class="text-[#49749c] text-sm font-medium" id="creditDisplay"></span>
+                    <button id="logoutBtn" class="text-[#49749c] text-sm font-medium hover:text-[#0d151c]">Sign Out</button>
                 </div>
             </div>
-        </nav>
+        </header>
 
         <!-- Main Content -->
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -41,10 +49,6 @@
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900">Saved Posts</h1>
                         <p class="mt-2 text-gray-600">Access your archived posts, sources, and content.</p>
-                    </div>
-                    <div id="user-info" class="hidden flex items-center space-x-4">
-                        <span class="text-sm text-gray-600" id="userName"></span>
-                        <span class="text-sm text-gray-600" id="creditDisplay"></span>
                     </div>
                 </div>
             </div>
@@ -168,6 +172,14 @@
                 document.getElementById('empty-state').classList.add('hidden');
                 
                 const response = await fetch('/api/posts/saved');
+                
+                if (response.status === 404) {
+                    // No posts found - show empty state
+                    document.getElementById('loading-state').classList.add('hidden');
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    return;
+                }
+                
                 if (!response.ok) {
                     throw new Error('Failed to load saved posts');
                 }
@@ -193,7 +205,9 @@
                 container.classList.remove('hidden');
             } catch (error) {
                 console.error('Error loading saved posts:', error);
-                showToast('Failed to load saved posts. Please try again.');
+                // Show empty state instead of error message when no posts are found
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
             }
         }
 
@@ -296,5 +310,4 @@
         });
     </script>
 </body>
-</html> 
 </html> 
