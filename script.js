@@ -1384,6 +1384,9 @@ class EmploymentApp {
                     this.isLoggedIn = true;
                     this.showAuthenticatedState();
                     
+                    // Update credit display with latest balance
+                    this.updateCreditDisplay();
+                    
                     // Check subscription status after authentication
                     setTimeout(async () => {
                         const hasAccess = await this.checkSubscriptionLimit();
@@ -1433,6 +1436,9 @@ class EmploymentApp {
             userName.textContent = this.currentUser.name;
         }
         
+        // Update credit balance display
+        this.updateCreditDisplay();
+        
         // Update user profile picture
         const userProfilePic = document.getElementById('userProfilePic');
         if (userProfilePic) {
@@ -1464,6 +1470,31 @@ class EmploymentApp {
         
         // Load and display subscription status
         this.loadSubscriptionStatus();
+    }
+    
+    updateCreditDisplay() {
+        if (!this.currentUser) return;
+        
+        const credits = this.currentUser.credits || 0;
+        
+        // Find or create credit display element
+        let creditDisplay = document.getElementById('creditDisplay');
+        if (!creditDisplay) {
+            creditDisplay = document.createElement('div');
+            creditDisplay.id = 'creditDisplay';
+            creditDisplay.className = 'text-sm font-medium text-gray-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200';
+            
+            // Insert next to user name
+            const userSection = this.userSection;
+            if (userSection) {
+                userSection.appendChild(creditDisplay);
+            }
+        }
+        
+        creditDisplay.innerHTML = `💳 ${credits} credits`;
+        creditDisplay.title = `You have ${credits} credits available for content generation`;
+        
+        console.log('💳 Updated credit display:', credits);
     }
     
     showUnauthenticatedState() {
@@ -2968,6 +2999,46 @@ class EmploymentApp {
         }
     }
 
+    // Show credit purchase modal
+    async showCreditPurchaseModal(currentCredits = 0) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Insufficient Credits</h2>
+                <p class="text-gray-600 mb-6">You need credits to generate content. Current balance: <strong>${currentCredits} credits</strong></p>
+                
+                <div class="space-y-4 mb-6">
+                    <div class="border rounded-lg p-4 text-center">
+                        <div class="text-lg font-semibold">30 Credits - $0.49</div>
+                        <div class="text-sm text-gray-600">Perfect for getting started</div>
+                        <a href="/pricing" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg inline-block hover:bg-blue-700">
+                            Buy Now
+                        </a>
+                    </div>
+                    <div class="border rounded-lg p-4 text-center bg-blue-50">
+                        <div class="text-lg font-semibold">100 Credits - $1.49</div>
+                        <div class="text-sm text-gray-600">Best value for professionals</div>
+                        <a href="/pricing" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg inline-block hover:bg-blue-700">
+                            Buy Now
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="flex gap-4">
+                    <button onclick="this.closest('.fixed').remove()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <a href="/pricing" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-center hover:bg-blue-700">
+                        View All Plans
+                    </a>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+
     async showSubscriptionModal(usageData = null) {
         const modal = document.getElementById('subscriptionModal');
         const usageInfo = document.getElementById('usageInfo');
@@ -3200,10 +3271,14 @@ class EmploymentApp {
                     errorData = { error: 'Server error occurred' };
                 }
                 
-                // Check if it's a subscription limit error
-                if (response.status === 403 && errorData.needsUpgrade) {
-                    await this.showSubscriptionModal();
-                    throw new Error(errorData.error || 'Subscription limit reached');
+                // Check if it's a credit or subscription limit error
+                if (response.status === 403 && (errorData.needsUpgrade || errorData.needsCredits)) {
+                    if (errorData.needsCredits) {
+                        await this.showCreditPurchaseModal(errorData.creditsRemaining || 0);
+                    } else {
+                        await this.showSubscriptionModal();
+                    }
+                    throw new Error(errorData.error || 'Credits or subscription required');
                 }
                 
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -3231,8 +3306,14 @@ class EmploymentApp {
                 this.currentImageUrl = data.image?.url;
                 this.currentArticleData = data.article;
                 
+                // Update credit balance if provided
+                if (data.credits && this.currentUser) {
+                    this.currentUser.credits = data.credits.remaining;
+                    this.updateCreditDisplay();
+                }
+                
                 this.displayGeneratedContent(data);
-                this.showSuccess('Content generated successfully!');
+                this.showSuccess(`Content generated successfully! ${data.credits ? `(${data.credits.remaining} credits remaining)` : ''}`);
                 
                 console.log('✅ Content generated successfully');
         } else {

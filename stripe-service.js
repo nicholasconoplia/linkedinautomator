@@ -163,6 +163,12 @@ class StripeService {
     try {
       console.log('🔔 Processing checkout completion:', session.id);
       
+      // Check if this is a credit purchase (one-time payment without subscription)
+      if (!session.subscription && session.metadata?.credit_amount) {
+        await this.handleCreditPurchase(session);
+        return;
+      }
+      
       // Get subscription if this is a subscription payment
       let subscription = null;
       if (session.subscription) {
@@ -243,6 +249,64 @@ class StripeService {
       }
     } catch (error) {
       console.error('❌ Error handling checkout completion:', error);
+    }
+  }
+
+  // Handle credit purchase from payment links
+  async handleCreditPurchase(session) {
+    try {
+      console.log('💳 Processing credit purchase:', session.id);
+      
+      let userId = session.metadata?.user_id ? parseInt(session.metadata.user_id) : null;
+      const creditAmount = parseInt(session.metadata?.credit_amount || 0);
+      const planName = session.metadata?.plan_name || 'Credit Purchase';
+      
+      // For Payment Links, try to find user by customer email
+      if (!userId && session.customer_details?.email) {
+        console.log('🔧 Finding user by email for credit purchase:', session.customer_details.email);
+        
+        const UserDB = require('./database').UserDB;
+        const user = await UserDB.getUserByEmail(session.customer_details.email);
+        if (user) {
+          userId = user.id;
+          console.log('✅ Found user by email for credit purchase:', userId);
+        }
+      }
+      
+      // If still no user found, try by existing stripe customer ID
+      if (!userId && session.customer) {
+        console.log('🔧 Trying to find user by Stripe customer ID for credit purchase:', session.customer);
+        const SubscriptionDB = require('./database').SubscriptionDB;
+        const existingSubscription = await SubscriptionDB.getUserSubscriptionByCustomer(session.customer);
+        if (existingSubscription) {
+          userId = existingSubscription.user_id;
+          console.log('✅ Found user by existing customer record for credit purchase:', userId);
+        }
+      }
+      
+      if (!userId) {
+        console.error('❌ Could not determine user ID for credit purchase:', session.id);
+        console.error('❌ Session details:', {
+          customer_email: session.customer_details?.email,
+          customer_id: session.customer,
+          metadata: session.metadata
+        });
+        return;
+      }
+      
+      if (!creditAmount || creditAmount <= 0) {
+        console.error('❌ Invalid credit amount for purchase:', creditAmount);
+        return;
+      }
+      
+      // Add credits to user account
+      const CreditDB = require('./database').CreditDB;
+      const newBalance = await CreditDB.addCredits(userId, creditAmount, `${planName} purchase via Stripe`);
+      
+      console.log(`✅ Credit purchase completed for user ${userId}: +${creditAmount} credits, new balance: ${newBalance}`);
+      
+    } catch (error) {
+      console.error('❌ Error handling credit purchase:', error);
     }
   }
 

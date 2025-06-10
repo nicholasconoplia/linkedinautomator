@@ -84,10 +84,25 @@ function initializeDatabase() {
             access_token TEXT NOT NULL,
             refresh_token TEXT,
             token_expires_at BIGINT,
+            credits INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
         `);
+
+        // Add credits column if it doesn't exist (for existing databases)
+        try {
+          await client.query(`
+            ALTER TABLE users 
+            ADD COLUMN credits INTEGER DEFAULT 0
+          `);
+          console.log('✅ Added credits column to users table');
+        } catch (error) {
+          // Column already exists, which is fine
+          if (!error.message.includes('already exists')) {
+            console.log('ℹ️ Credits column already exists in users table');
+          }
+        }
 
         // User preferences table
         await client.query(`
@@ -206,7 +221,7 @@ function initializeDatabase() {
           CREATE TABLE IF NOT EXISTS usage_tracking (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
-            action_type TEXT NOT NULL CHECK (action_type IN ('post_generation', 'post_publish', 'image_fetch')),
+            action_type TEXT NOT NULL CHECK (action_type IN ('post_generation', 'post_publish', 'image_fetch', 'credit_added', 'credit_deducted')),
             cost DECIMAL(10,6) DEFAULT 0,
             tokens_used INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -479,6 +494,19 @@ const UserDB = {
       ]);
       
       return result.rowCount;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Update user's last activity
+  updateLastActivity: async (userId) => {
+    const client = await pool.connect();
+    try {
+      await client.query(
+        'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [userId]
+      );
     } finally {
       client.release();
     }
@@ -1090,6 +1118,87 @@ const AccessKeysDB = {
   }
 };
 
+// Credit management operations
+const CreditDB = {
+  // Add credits to user account
+  addCredits: async (userId, amount, description = 'Purchase') => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        UPDATE users 
+        SET credits = credits + $1, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $2 
+        RETURNING credits
+      `, [amount, userId]);
+      
+      // Log the credit transaction
+      await client.query(`
+        INSERT INTO usage_tracking (user_id, action_type, metadata)
+        VALUES ($1, 'credit_added', $2)
+      `, [userId, { amount, description, timestamp: new Date().toISOString() }]);
+      
+      console.log(`✅ Added ${amount} credits to user ${userId}. New balance: ${result.rows[0]?.credits || 0}`);
+      return result.rows[0]?.credits || 0;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Deduct credits from user account
+  deductCredits: async (userId, amount, description = 'Content generation') => {
+    const client = await pool.connect();
+    try {
+      // First check if user has enough credits
+      const userResult = await client.query('SELECT credits FROM users WHERE id = $1', [userId]);
+      const currentCredits = userResult.rows[0]?.credits || 0;
+      
+      if (currentCredits < amount) {
+        throw new Error(`Insufficient credits. Current: ${currentCredits}, Required: ${amount}`);
+      }
+      
+      const result = await client.query(`
+        UPDATE users 
+        SET credits = credits - $1, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $2 
+        RETURNING credits
+      `, [amount, userId]);
+      
+      // Log the credit transaction
+      await client.query(`
+        INSERT INTO usage_tracking (user_id, action_type, metadata)
+        VALUES ($1, 'credit_deducted', $2)
+      `, [userId, { amount, description, timestamp: new Date().toISOString() }]);
+      
+      console.log(`✅ Deducted ${amount} credits from user ${userId}. New balance: ${result.rows[0]?.credits || 0}`);
+      return result.rows[0]?.credits || 0;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user's current credit balance
+  getCredits: async (userId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query('SELECT credits FROM users WHERE id = $1', [userId]);
+      return result.rows[0]?.credits || 0;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Check if user has enough credits for an action
+  hasCredits: async (userId, requiredAmount) => {
+    const currentCredits = await CreditDB.getCredits(userId);
+    return {
+      hasEnough: currentCredits >= requiredAmount,
+      currentCredits,
+      requiredAmount,
+      shortfall: Math.max(0, requiredAmount - currentCredits)
+    };
+  }
+};
+
 module.exports = {
   initializeDatabase,
   UserDB,
@@ -1098,5 +1207,6 @@ module.exports = {
   SubscriptionDB,
   UsageDB,
   AccessKeysDB,
-  pool
+  pool,
+  CreditDB
 }; 

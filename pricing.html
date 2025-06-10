@@ -176,12 +176,12 @@
                         
                         <div class="mb-8">
                             <div class="price-amount text-5xl font-bold mb-2">$0.49</div>
-                            <div class="text-gray-500">per month</div>
+                            <div class="text-gray-500">one-time payment</div>
                         </div>
                         
                         <div class="mb-8">
-                            <div class="text-3xl font-bold text-blue-600 mb-2">30 Posts</div>
-                            <div class="text-gray-500">AI-generated content per month</div>
+                            <div class="text-3xl font-bold text-blue-600 mb-2">30 Credits</div>
+                            <div class="text-gray-500">Generate 30 posts or automations</div>
                         </div>
                         
                         <ul class="text-left mb-8 space-y-3">
@@ -195,7 +195,6 @@
                             </li>
                             <li class="flex items-center gap-3">
                                 <span class="feature-checkmark">✓</span>
-                                <span>Professional templates</span>
                             </li>
                             <li class="flex items-center gap-3">
                                 <span class="feature-checkmark">✓</span>
@@ -207,9 +206,10 @@
                             </li>
                         </ul>
                         
-                        <a href="https://buy.stripe.com/28E4gA6LC7L50J53Q2abK00" 
+                        <a href="https://buy.stripe.com/28E4gA6LC7L50J53Q2abK00?prefilled_email={{USER_EMAIL}}&client_reference_id={{USER_ID}}&metadata[user_id]={{USER_ID}}&metadata[credit_amount]=30&metadata[plan_name]=starter" 
+                           onclick="return checkAuthForPurchase(this, 'starter', 30, 0.49)"
                            class="upgrade-btn w-full py-4 text-white font-bold rounded-xl block text-center">
-                            Get Started
+                            Buy 30 Credits
                         </a>
                     </div>
                     
@@ -222,12 +222,12 @@
                         
                         <div class="mb-8">
                             <div class="price-amount text-5xl font-bold mb-2">$1.49</div>
-                            <div class="text-gray-500">per month</div>
+                            <div class="text-gray-500">one-time payment</div>
                         </div>
                         
                         <div class="mb-8">
-                            <div class="text-3xl font-bold text-blue-600 mb-2">100 Posts</div>
-                            <div class="text-gray-500">AI-generated content per month</div>
+                            <div class="text-3xl font-bold text-blue-600 mb-2">100 Credits</div>
+                            <div class="text-gray-500">Generate 100 posts or automations</div>
                         </div>
                         
                         <ul class="text-left mb-8 space-y-3">
@@ -253,9 +253,10 @@
                             </li>
                         </ul>
                         
-                        <a href="https://buy.stripe.com/00w7sM6LC1mH8bx0DQabK01" 
+                        <a href="https://buy.stripe.com/00w7sM6LC1mH8bx0DQabK01?prefilled_email={{USER_EMAIL}}&client_reference_id={{USER_ID}}&metadata[user_id]={{USER_ID}}&metadata[credit_amount]=100&metadata[plan_name]=professional" 
+                           onclick="return checkAuthForPurchase(this, 'professional', 100, 1.49)"
                            class="upgrade-btn popular w-full py-4 text-white font-bold rounded-xl block text-center">
-                            Start Professional
+                            Buy 100 Credits
                         </a>
                     </div>
                     
@@ -268,12 +269,12 @@
                         
                         <div class="mb-8">
                             <div class="price-amount text-5xl font-bold mb-2">$2.49</div>
-                            <div class="text-gray-500">per month</div>
+                            <div class="text-gray-500">one-time payment</div>
                         </div>
                         
                         <div class="mb-8">
-                            <div class="text-3xl font-bold text-blue-600 mb-2">300 Posts</div>
-                            <div class="text-gray-500">AI-generated content per month</div>
+                            <div class="text-3xl font-bold text-blue-600 mb-2">300 Credits</div>
+                            <div class="text-gray-500">Generate 300 posts or automations</div>
                         </div>
                         
                         <ul class="text-left mb-8 space-y-3">
@@ -299,9 +300,10 @@
                             </li>
                         </ul>
                         
-                        <a href="https://buy.stripe.com/7sY5kE5Hy2qLgI3euGabK02" 
+                        <a href="https://buy.stripe.com/7sY5kE5Hy2qLgI3euGabK02?prefilled_email={{USER_EMAIL}}&client_reference_id={{USER_ID}}&metadata[user_id]={{USER_ID}}&metadata[credit_amount]=300&metadata[plan_name]=business" 
+                           onclick="return checkAuthForPurchase(this, 'business', 300, 2.49)"
                            class="upgrade-btn w-full py-4 text-white font-bold rounded-xl block text-center">
-                            Scale Your Business
+                            Buy 300 Credits
                         </a>
                     </div>
                 </div>
@@ -351,16 +353,52 @@
 
     <script>
         // Check authentication status
+        let isAuthenticated = false;
+        let currentUser = null;
+        
         document.addEventListener('DOMContentLoaded', function() {
             checkAuthStatus();
+            checkPurchaseSuccess();
         });
+        
+        function checkPurchaseSuccess() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const success = urlParams.get('success');
+            const credits = urlParams.get('credits');
+            
+            if (success === 'true' && credits) {
+                showSuccessMessage(`🎉 Success! ${credits} credits have been added to your account.`);
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+        
+        function showSuccessMessage(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-center';
+            successDiv.innerHTML = `
+                <div class="text-green-800 font-semibold">${message}</div>
+                <div class="text-green-600 text-sm mt-1">You can now generate content!</div>
+            `;
+            
+            // Insert after hero section
+            const heroSection = document.querySelector('.hero-gradient');
+            heroSection.parentNode.insertBefore(successDiv, heroSection.nextSibling);
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                successDiv.remove();
+            }, 10000);
+        }
         
         async function checkAuthStatus() {
             try {
-                const response = await fetch('/api/auth/status');
+                const response = await fetch('/api/auth-status');
                 const data = await response.json();
                 
                 if (data.authenticated) {
+                    isAuthenticated = true;
+                    currentUser = data.user;
                     document.getElementById('loginSection').style.display = 'none';
                     document.getElementById('userSection').style.display = 'block';
                     document.getElementById('userName').textContent = data.user.name || 'User';
@@ -370,13 +408,66 @@
                         profilePic.src = data.user.profile_picture;
                         profilePic.style.display = 'block';
                     }
+                    
+                    // Show current credit balance if available
+                    if (data.user.credits !== undefined) {
+                        showCreditBalance(data.user.credits);
+                    }
                 } else {
+                    isAuthenticated = false;
+                    currentUser = null;
                     document.getElementById('loginSection').style.display = 'block';
                     document.getElementById('userSection').style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error checking auth status:', error);
+                isAuthenticated = false;
             }
+        }
+        
+        function showCreditBalance(credits) {
+            const creditDisplay = document.createElement('div');
+            creditDisplay.id = 'creditDisplay';
+            creditDisplay.className = 'bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-center';
+            creditDisplay.innerHTML = `
+                <h3 class="text-lg font-semibold text-blue-800">Your Credits</h3>
+                <div class="text-3xl font-bold text-blue-600">${credits}</div>
+                <div class="text-blue-600">Available Credits</div>
+            `;
+            
+            // Insert before the pricing cards
+            const pricingSection = document.querySelector('.max-w-7xl');
+            pricingSection.insertBefore(creditDisplay, pricingSection.firstChild);
+        }
+        
+        function checkAuthForPurchase(linkElement, planName, creditAmount, price) {
+            // Check if user is authenticated
+            if (!isAuthenticated) {
+                alert('Please connect your LinkedIn account first to purchase credits.');
+                window.location.href = '/auth/linkedin';
+                return false; // Prevent link navigation
+            }
+            
+            // User is authenticated, customize the payment link
+            if (currentUser) {
+                let href = linkElement.href;
+                
+                // Replace placeholders with actual user data
+                href = href.replace('{{USER_EMAIL}}', encodeURIComponent(currentUser.email || ''));
+                href = href.replace(/{{USER_ID}}/g, currentUser.id);
+                
+                // Update the link href
+                linkElement.href = href;
+                
+                console.log('🔗 Redirecting to payment link with user data:', {
+                    userId: currentUser.id,
+                    email: currentUser.email,
+                    planName,
+                    creditAmount
+                });
+            }
+            
+            return true; // Allow link navigation
         }
         
         // Handle logout

@@ -715,7 +715,9 @@ app.get('/api/auth-status', async (req, res) => {
           email: user.email,
           linkedin_id: user.linkedin_id,
           profilePicture: user.profile_url,
-          headline: user.headline || 'Professional'
+          profile_picture: user.profile_url,
+          headline: user.headline || 'Professional',
+          credits: user.credits || 0
         }
       });
     } catch (error) {
@@ -938,6 +940,75 @@ app.post('/api/post-now', requireAuth, rateLimitMiddleware, async (req, res) => 
 
 // Initialize Stripe service
 const stripeService = new StripeService();
+
+// ====================
+// CREDIT PURCHASE ROUTES
+// ====================
+
+// Create credit purchase checkout session
+app.post('/api/credits/purchase', requireAuth, async (req, res) => {
+  try {
+    const { planName, creditAmount, price } = req.body;
+    const userId = req.user.id;
+    
+    if (!planName || !creditAmount || !price) {
+      return res.status(400).json({ 
+        error: 'Plan name, credit amount, and price are required' 
+      });
+    }
+
+    console.log('💳 Creating credit purchase checkout session:', { 
+      userId, 
+      planName, 
+      creditAmount, 
+      price 
+    });
+
+    // Create Stripe checkout session for credit purchase
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `${planName} - ${creditAmount} Credits`,
+              description: `Purchase ${creditAmount} credits for content generation`,
+            },
+            unit_amount: Math.round(price * 100), // Convert to cents
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${req.headers.origin || 'https://employment.vercel.app'}/pricing?success=true&credits=${creditAmount}`,
+      cancel_url: `${req.headers.origin || 'https://employment.vercel.app'}/pricing?canceled=true`,
+      metadata: {
+        user_id: userId.toString(),
+        credit_amount: creditAmount.toString(),
+        plan_name: planName
+      }
+    });
+
+    console.log('✅ Stripe checkout session created:', session.id);
+
+    res.json({ checkoutUrl: session.url });
+  } catch (error) {
+    console.error('❌ Error creating credit purchase session:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// Get user's current credits
+app.get('/api/credits/balance', requireAuth, async (req, res) => {
+  try {
+    const credits = await CreditDB.getCredits(req.user.id);
+    res.json({ credits });
+  } catch (error) {
+    console.error('❌ Error fetching credit balance:', error);
+    res.status(500).json({ error: 'Failed to fetch credit balance' });
+  }
+});
 
 // Get subscription plans
 app.get('/api/subscription/plans', async (req, res) => {
@@ -2974,12 +3045,14 @@ app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async 
     console.log(`🎯 Tone: ${tone}, Length: ${length}`);
     console.log(`⚙️ Engagement options:`, engagement_options);
 
-    // Check user's post limit
-    if (req.user.posts_remaining <= 0) {
-      console.log('❌ User has no posts remaining');
+    // Check user's credit balance
+    const creditCheck = await CreditDB.hasCredits(req.user.id, 1);
+    if (!creditCheck.hasEnough) {
+      console.log('❌ User has insufficient credits:', creditCheck.currentCredits);
       return res.status(403).json({ 
-        error: 'Post limit reached. Please upgrade your plan.',
-        posts_remaining: 0
+        error: 'Insufficient credits for research post generation.',
+        creditsRemaining: creditCheck.currentCredits,
+        needsCredits: true
       });
     }
 
@@ -3001,6 +3074,9 @@ app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async 
     // Fetch relevant image
     const image = engagement_options.include_image !== false ? await fetchRelevantImage(topic) : null;
     
+    // Deduct 1 credit for research post generation
+    const newCreditBalance = await CreditDB.deductCredits(req.user.id, 1, 'Research post generation');
+    
     // Track usage (same way as regular generate post endpoint)
     const estimatedCost = 0.00136; // $0.00136 per post as calculated
     const estimatedTokens = 1200; // ~800 input + 400 output tokens
@@ -3011,13 +3087,15 @@ app.post('/api/generate-research-post', requireAuth, rateLimitMiddleware, async 
       length,
       post_type: 'research_based',
       research_sources_count: researchData.length,
+      credits_deducted: 1,
+      new_credit_balance: newCreditBalance,
       timestamp: new Date().toISOString()
     });
     
     console.log('✅ BYOB research post generated successfully');
     console.log(`📊 Sources used: ${researchData.length}`);
     console.log(`📄 Post length: ${result.post.length} characters`);
-    console.log(`💰 Tracked usage for user ${req.user.id}: $${estimatedCost} (research_based)`);
+    console.log(`💰 Deducted 1 credit from user ${req.user.id}: $${estimatedCost} (research_based). New balance: ${newCreditBalance}`);
 
     res.json({
       success: true,
@@ -3103,14 +3181,14 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
 
     const userId = decoded.id;
     
-    // Check usage limits for authenticated users
-    const usageCheck = await UsageDB.checkUsageLimit(userId);
-    if (!usageCheck.hasAccess) {
+    // Check credit balance for authenticated users
+    const creditCheck = await CreditDB.hasCredits(userId, 1); // 1 credit per generation
+    if (!creditCheck.hasEnough) {
       return res.status(403).json({
-        error: 'Usage limit exceeded',
-        reason: usageCheck.reason,
-        postsRemaining: usageCheck.postsRemaining,
-        needsUpgrade: true
+        error: 'Insufficient credits',
+        reason: `You need 1 credit to generate content. Current balance: ${creditCheck.currentCredits}`,
+        creditsRemaining: creditCheck.currentCredits,
+        needsCredits: true
       });
     }
 
@@ -3148,6 +3226,9 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
         break;
     }
 
+    // Deduct 1 credit for the generation
+    const newCreditBalance = await CreditDB.deductCredits(userId, 1, 'Content generation');
+    
     // Track usage for the authenticated user
     await UsageDB.trackUsage(userId, 'post_generation', estimatedCost, estimatedTokens, {
       topic,
@@ -3156,10 +3237,18 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
       post_type,
       viral_format,
       article_source: result.article?.source,
+      credits_deducted: 1,
+      new_credit_balance: newCreditBalance,
       timestamp: new Date().toISOString()
     });
     
-    console.log(`💰 Tracked usage for user ${userId}: $${estimatedCost} (${post_type})`);
+    console.log(`💰 Deducted 1 credit from user ${userId}: $${estimatedCost} (${post_type}). New balance: ${newCreditBalance}`);
+
+    // Add credit info to response
+    result.credits = {
+      used: 1,
+      remaining: newCreditBalance
+    };
 
     res.json(result);
   } catch (error) {
@@ -4105,27 +4194,38 @@ app.post('/api/repurpose-tweet', rateLimitMiddleware, async (req, res) => {
 
     const userId = decoded.id;
     
-    // Check usage limits
-    const usageCheck = await UsageDB.checkUsageLimit(userId);
-    if (!usageCheck.hasAccess) {
+    // Check credit balance
+    const creditCheck = await CreditDB.hasCredits(userId, 1);
+    if (!creditCheck.hasEnough) {
       return res.status(403).json({
-        error: 'Usage limit exceeded',
-        reason: usageCheck.reason,
-        postsRemaining: usageCheck.postsRemaining,
-        needsUpgrade: true
+        error: 'Insufficient credits',
+        reason: `You need 1 credit to repurpose content. Current balance: ${creditCheck.currentCredits}`,
+        creditsRemaining: creditCheck.currentCredits,
+        needsCredits: true
       });
     }
 
     const result = await repurposeTweet(tweet_text, topic, tone, length);
 
+    // Deduct 1 credit for tweet repurposing
+    const newCreditBalance = await CreditDB.deductCredits(userId, 1, 'Tweet repurposing');
+    
     // Track usage
     await UsageDB.trackUsage(userId, 'post_generation', 0.00136, 1200, {
       topic,
       tone,
       length,
       post_type: 'repurposed_tweet',
+      credits_deducted: 1,
+      new_credit_balance: newCreditBalance,
       timestamp: new Date().toISOString()
     });
+
+    // Add credit info to response
+    result.credits = {
+      used: 1,
+      remaining: newCreditBalance
+    };
 
     res.json(result);
   } catch (error) {
@@ -4271,6 +4371,17 @@ app.post('/api/automation/generate-queue', requireAuth, async (req, res) => {
     const userId = req.user.id;
     const { weeks = 4 } = req.body;
 
+    // Check credit balance - automation queue generation costs 1 credit
+    const creditCheck = await CreditDB.hasCredits(userId, 1);
+    if (!creditCheck.hasEnough) {
+      return res.status(403).json({
+        error: 'Insufficient credits',
+        reason: `You need 1 credit to generate automation queue. Current balance: ${creditCheck.currentCredits}`,
+        creditsRemaining: creditCheck.currentCredits,
+        needsCredits: true
+      });
+    }
+
     // Get automation settings
     const settingsResult = await pool.query(
       'SELECT * FROM automation_settings WHERE user_id = $1',
@@ -4343,8 +4454,21 @@ app.post('/api/automation/generate-queue', requireAuth, async (req, res) => {
       `, [item.user_id, item.automation_settings_id, item.topic, item.content_type, item.viral_format, item.tone, item.scheduled_for, item.status]);
     }
 
+    // Deduct 1 credit for automation queue generation
+    const newCreditBalance = await CreditDB.deductCredits(userId, 1, 'Automation queue generation');
+    
     console.log(`🤖 Generated ${queue.length} posts for automation queue`);
-    res.json({ success: true, generated: queue.length, queue });
+    console.log(`💰 Deducted 1 credit from user ${userId} for automation queue. New balance: ${newCreditBalance}`);
+
+    res.json({ 
+      success: true, 
+      generated: queue.length, 
+      queue,
+      credits: {
+        used: 1,
+        remaining: newCreditBalance
+      }
+    });
   } catch (error) {
     console.error('❌ Error generating automation queue:', error);
     res.status(500).json({ error: 'Failed to generate automation queue' });
@@ -6882,3 +7006,39 @@ Instructions:
     throw error;
   }
 }
+
+// Get authentication status
+app.get('/api/auth/status', async (req, res) => {
+  try {
+    const token = extractJWTFromRequest(req);
+    
+    if (!token) {
+      return res.json({ authenticated: false });
+    }
+
+    const decoded = verifyJWT(token);
+    if (!decoded) {
+      return res.json({ authenticated: false });
+    }
+
+    // Get user data including credits
+    const user = await UserDB.getUserById(decoded.id);
+    if (!user) {
+      return res.json({ authenticated: false });
+    }
+
+    res.json({
+      authenticated: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        profile_picture: user.profile_url,
+        credits: user.credits || 0
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error checking auth status:', error);
+    res.json({ authenticated: false });
+  }
+});
