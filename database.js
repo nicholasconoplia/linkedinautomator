@@ -1296,7 +1296,7 @@ const SavedPostsDB = {
         postData.title || null,
         postData.content,
         postData.source_url || null,
-        postData.source_name || null,
+        postData.image_url || null,
         postData.industry || null,
         postData.tone || null,
         postData.metadata || {}
@@ -1306,7 +1306,7 @@ const SavedPostsDB = {
       
       const result = await client.query(`
         INSERT INTO saved_posts 
-        (user_id, title, content, source_url, source_name, industry, tone, metadata)
+        (user_id, title, content, source_url, image_url, industry, tone, metadata)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `, params);
