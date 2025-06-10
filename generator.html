@@ -712,7 +712,14 @@
             console.log('💾 [Generator Save] Starting save operation');
             
             try {
-                const content = document.querySelector('#output .generator-output p').textContent;
+                const outputDiv = document.querySelector('#output');
+                if (!outputDiv || outputDiv.querySelector('.text-[#49749c]')) {
+                    console.error('❌ [Generator Save] No generated content found');
+                    alert('Please generate content first before saving.');
+                    return;
+                }
+                
+                const content = outputDiv.textContent.trim();
                 const topic = document.getElementById('topic').value;
                 const tone = document.getElementById('tone').value;
                 const industry = document.getElementById('studentField')?.value;
