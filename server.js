@@ -15,7 +15,7 @@ const https = require('https');
 const cheerio = require('cheerio');
 
 // Import our modules
-const { initializeDatabase, UserDB, PreferencesDB, PostsDB, SubscriptionDB, UsageDB, AccessKeysDB, CreditDB, pool } = require('./database');
+const { initializeDatabase, UserDB, PreferencesDB, PostsDB, SubscriptionDB, UsageDB, AccessKeysDB, CreditDB, SavedPostsDB, pool } = require('./database');
 const LinkedInService = require('./linkedin-service');
 const PostScheduler = require('./scheduler');
 const StripeService = require('./stripe-service');
