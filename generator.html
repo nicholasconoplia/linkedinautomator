@@ -510,6 +510,60 @@
                                 </label>
                             </div>
 
+                            <!-- Personal Context Panel -->
+                            <h3 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Personal Context</h3>
+                            <div class="px-4">
+                                <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 mb-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-purple-600 text-lg">👤</div>
+                                            <h4 class="text-purple-900 font-semibold text-sm">Add Your Personal Context</h4>
+                                        </div>
+                                        <button type="button" id="contextToggle" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+                                            <span id="toggleText">Show</span> ▼
+                                        </button>
+                                    </div>
+                                    <p class="text-purple-700 text-sm leading-relaxed mb-3">
+                                        Tell the AI about yourself, your background, recent activities, and achievements. This context will be used to personalize your content, especially for viral posts and frameworks.
+                                    </p>
+                                    
+                                    <div id="contextPanel" style="display: none;">
+                                        <div class="space-y-4">
+                                            <!-- Personal Background -->
+                                            <div>
+                                                <label class="block text-sm font-medium text-purple-900 mb-2">Who You Are & Your Background</label>
+                                                <textarea id="personalBackground" name="personalBackground" rows="3" 
+                                                    class="w-full rounded-lg border border-purple-200 bg-white p-3 text-sm focus:border-purple-400 focus:outline-none resize-none"
+                                                    placeholder="e.g., Senior Marketing Manager at TechCorp with 8 years in B2B SaaS, specialized in growth marketing and team leadership..."></textarea>
+                                            </div>
+                                            
+                                            <!-- Recent Activities -->
+                                            <div>
+                                                <label class="block text-sm font-medium text-purple-900 mb-2">Recent Activities & Achievements</label>
+                                                <textarea id="recentActivities" name="recentActivities" rows="2" 
+                                                    class="w-full rounded-lg border border-purple-200 bg-white p-3 text-sm focus:border-purple-400 focus:outline-none resize-none"
+                                                    placeholder="e.g., Just launched a new product, completed MBA, spoke at industry conference, hit team targets..."></textarea>
+                                            </div>
+                                            
+                                            <!-- Expertise & Interests -->
+                                            <div>
+                                                <label class="block text-sm font-medium text-purple-900 mb-2">Key Expertise & Interests</label>
+                                                <textarea id="expertiseInterests" name="expertiseInterests" rows="2" 
+                                                    class="w-full rounded-lg border border-purple-200 bg-white p-3 text-sm focus:border-purple-400 focus:outline-none resize-none"
+                                                    placeholder="e.g., AI in marketing, remote team management, startup scaling, data-driven decision making..."></textarea>
+                                            </div>
+                                            
+                                            <div class="flex justify-between items-center pt-2">
+                                                <button type="button" id="saveContext" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
+                                                    💾 Save Context
+                                                </button>
+                                                <span id="contextSaveStatus" class="text-sm text-purple-600"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Generate Button -->
                             <div class="flex px-4 py-3 justify-start">
                                 <button type="submit" id="generateBtn" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 bg-[#0b80ee] text-slate-50 text-base font-bold leading-normal tracking-[0.015em]">

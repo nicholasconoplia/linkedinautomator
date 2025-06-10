@@ -828,6 +828,39 @@ app.get('/api/test-linkedin-api', async (req, res) => {
 });
 
 // ====================
+// USER CONTEXT ROUTES
+// ====================
+
+// Save user context
+app.post('/api/user/context', requireAuth, async (req, res) => {
+  try {
+    const { personalBackground, recentActivities, expertiseInterests } = req.body;
+    
+    const context = await UserDB.updateContext(req.user.id, {
+      personalBackground,
+      recentActivities,
+      expertiseInterests
+    });
+    
+    res.json({ success: true, context });
+  } catch (error) {
+    console.error('Error saving user context:', error);
+    res.status(500).json({ error: 'Failed to save context' });
+  }
+});
+
+// Get user context
+app.get('/api/user/context', requireAuth, async (req, res) => {
+  try {
+    const context = await UserDB.getContext(req.user.id);
+    res.json(context || {});
+  } catch (error) {
+    console.error('Error loading user context:', error);
+    res.status(500).json({ error: 'Failed to load context' });
+  }
+});
+
+// ====================
 // USER PREFERENCES ROUTES
 // ====================
 
@@ -3248,13 +3281,13 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
     switch (post_type) {
       case 'viral':
         const mappedFormatId = viralFormatMapping[viral_format] || viral_format;
-        result = await generateViralPost(topic, tone, length, mappedFormatId, engagement_options);
+        result = await generateViralPost(topic, tone, length, mappedFormatId, engagement_options, userId);
         break;
       case 'tweet':
         result = await repurposeTweet(tweet_text || topic, topic, tone, length);
         break;
       case 'manual':
-        result = await generateManualPost(custom_content || topic, tone, length, engagement_options);
+        result = await generateManualPost(custom_content || topic, tone, length, engagement_options, userId);
         break;
       case 'news':
       default:
@@ -3384,7 +3417,7 @@ async function generatePost(topic, tone, length = 'medium', engagementOptions = 
 }
 
 // Generate viral format posts without news dependency
-async function generateViralPost(topic, tone, length, viralFormatId, engagementOptions) {
+async function generateViralPost(topic, tone, length, viralFormatId, engagementOptions, userId = null) {
   try {
     console.log(`🔥 Generating viral post: ${viralFormatId} for topic: ${topic}`);
     
@@ -3402,6 +3435,33 @@ async function generateViralPost(topic, tone, length, viralFormatId, engagementO
 
     // Build enhanced prompt with engagement options
     let prompt = viralFormat.prompt.replace(/\[topic\]/g, topic);
+    
+    // Add user context if available
+    if (userId) {
+      try {
+        const userContext = await UserDB.getContext(userId);
+        if (userContext && (userContext.personalBackground || userContext.recentActivities || userContext.expertiseInterests)) {
+          console.log('👤 Adding user context to viral post generation');
+          prompt += `\n\nPersonal Context to incorporate naturally into the post:`;
+          
+          if (userContext.personalBackground) {
+            prompt += `\nBackground: ${userContext.personalBackground}`;
+          }
+          
+          if (userContext.recentActivities) {
+            prompt += `\nRecent activities/achievements: ${userContext.recentActivities}`;
+          }
+          
+          if (userContext.expertiseInterests) {
+            prompt += `\nExpertise/interests: ${userContext.expertiseInterests}`;
+          }
+          
+          prompt += `\n\nUse this context to make the post more personal and authentic. Draw from these experiences and background to add credibility and relatability to your perspective on ${topic}.`;
+        }
+      } catch (contextError) {
+        console.warn('⚠️ Could not load user context:', contextError.message);
+      }
+    }
     
     // Add engagement hooks if requested
     if (engagementOptions.curiosity_hook) {
@@ -3521,7 +3581,7 @@ Format the response as just the LinkedIn post text, nothing else.`;
 }
 
 // Generate manual post from custom content
-async function generateManualPost(customContent, tone, length, engagementOptions) {
+async function generateManualPost(customContent, tone, length, engagementOptions, userId = null) {
   try {
     console.log(`✍️ Generating manual post from custom content`);
     
@@ -3541,6 +3601,33 @@ Requirements:
 - Make it engaging and professional for LinkedIn audience
 - Use proper formatting with line breaks
 - Focus on providing value to the reader`;
+
+    // Add user context if available
+    if (userId) {
+      try {
+        const userContext = await UserDB.getContext(userId);
+        if (userContext && (userContext.personalBackground || userContext.recentActivities || userContext.expertiseInterests)) {
+          console.log('👤 Adding user context to manual post generation');
+          prompt += `\n\nPersonal Context to naturally weave into the post:`;
+          
+          if (userContext.personalBackground) {
+            prompt += `\nBackground: ${userContext.personalBackground}`;
+          }
+          
+          if (userContext.recentActivities) {
+            prompt += `\nRecent activities/achievements: ${userContext.recentActivities}`;
+          }
+          
+          if (userContext.expertiseInterests) {
+            prompt += `\nExpertise/interests: ${userContext.expertiseInterests}`;
+          }
+          
+          prompt += `\n\nIncorporate this personal context authentically to add credibility and make the post more relatable.`;
+        }
+      } catch (contextError) {
+        console.warn('⚠️ Could not load user context:', contextError.message);
+      }
+    }
 
     // Add engagement enhancements
     if (engagementOptions.curiosity_hook) {

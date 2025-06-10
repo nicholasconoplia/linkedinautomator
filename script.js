@@ -136,6 +136,7 @@ class EmploymentApp {
         this.setupEventListeners();
         this.setupTopicChips();
         this.addFormInteractions();
+        this.setupContextPanel();
     }
 
     setupAutomationPage() {
@@ -2777,6 +2778,92 @@ class EmploymentApp {
                 });
             }
         });
+    }
+
+    setupContextPanel() {
+        console.log('👤 Setting up context panel...');
+        
+        const contextToggle = document.getElementById('contextToggle');
+        const contextPanel = document.getElementById('contextPanel');
+        const toggleText = document.getElementById('toggleText');
+        const saveContextBtn = document.getElementById('saveContext');
+        
+        if (contextToggle && contextPanel) {
+            contextToggle.addEventListener('click', () => {
+                const isHidden = contextPanel.style.display === 'none';
+                if (isHidden) {
+                    contextPanel.style.display = 'block';
+                    toggleText.textContent = 'Hide';
+                    contextToggle.innerHTML = '<span id="toggleText">Hide</span> ▲';
+                } else {
+                    contextPanel.style.display = 'none';
+                    toggleText.textContent = 'Show';
+                    contextToggle.innerHTML = '<span id="toggleText">Show</span> ▼';
+                }
+            });
+        }
+        
+        if (saveContextBtn) {
+            saveContextBtn.addEventListener('click', this.saveUserContext.bind(this));
+        }
+        
+        // Load existing context on page load
+        this.loadUserContext();
+    }
+
+    async saveUserContext() {
+        const personalBackground = document.getElementById('personalBackground')?.value || '';
+        const recentActivities = document.getElementById('recentActivities')?.value || '';
+        const expertiseInterests = document.getElementById('expertiseInterests')?.value || '';
+        
+        try {
+            const response = await fetch('/api/user/context', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    personalBackground,
+                    recentActivities,
+                    expertiseInterests
+                })
+            });
+            
+            if (response.ok) {
+                const statusElement = document.getElementById('contextSaveStatus');
+                statusElement.textContent = '✅ Context saved!';
+                setTimeout(() => {
+                    statusElement.textContent = '';
+                }, 3000);
+            } else {
+                throw new Error('Failed to save context');
+            }
+        } catch (error) {
+            console.error('Error saving context:', error);
+            const statusElement = document.getElementById('contextSaveStatus');
+            statusElement.textContent = '❌ Save failed';
+            statusElement.className = 'text-sm text-red-600';
+        }
+    }
+
+    async loadUserContext() {
+        try {
+            const response = await fetch('/api/user/context', {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const context = await response.json();
+                if (context) {
+                    document.getElementById('personalBackground').value = context.personalBackground || '';
+                    document.getElementById('recentActivities').value = context.recentActivities || '';
+                    document.getElementById('expertiseInterests').value = context.expertiseInterests || '';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading context:', error);
+        }
     }
     
     setupTopicInputs() {

@@ -104,6 +104,22 @@ function initializeDatabase() {
           }
         }
 
+        // Add context columns if they don't exist (for existing databases)
+        try {
+          await client.query(`
+            ALTER TABLE users 
+            ADD COLUMN personal_background TEXT,
+            ADD COLUMN recent_activities TEXT,
+            ADD COLUMN expertise_interests TEXT
+          `);
+          console.log('✅ Added context columns to users table');
+        } catch (error) {
+          // Columns already exist, which is fine
+          if (!error.message.includes('already exists')) {
+            console.log('ℹ️ Context columns already exist in users table');
+          }
+        }
+
         // User preferences table
         await client.query(`
           CREATE TABLE IF NOT EXISTS user_preferences (
@@ -507,6 +523,45 @@ const UserDB = {
         'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
         [userId]
       );
+    } finally {
+      client.release();
+    }
+  },
+
+  // Update user context
+  updateContext: async (userId, context) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        UPDATE users 
+        SET personal_background = $1, 
+            recent_activities = $2, 
+            expertise_interests = $3,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4 
+        RETURNING personal_background, recent_activities, expertise_interests
+      `, [context.personalBackground, context.recentActivities, context.expertiseInterests, userId]);
+      
+      console.log(`✅ Updated context for user ${userId}`);
+      return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user context
+  getContext: async (userId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT personal_background as "personalBackground", 
+               recent_activities as "recentActivities", 
+               expertise_interests as "expertiseInterests"
+        FROM users 
+        WHERE id = $1
+      `, [userId]);
+      
+      return result.rows[0] || null;
     } finally {
       client.release();
     }
