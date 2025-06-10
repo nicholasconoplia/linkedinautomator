@@ -12,22 +12,50 @@
 <body class="bg-gray-50 font-inter">
     
     <!-- Navigation -->
-    <nav class="bg-white shadow-sm border-b">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <a href="/" class="text-xl font-bold text-blue-600">Employment</a>
-                    <span class="ml-3 text-sm text-gray-500">Fake It Till You Make It Mode</span>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <div id="creditsDisplay" class="text-sm text-gray-600">
-                        Credits: <span id="userCredits" class="font-semibold">-</span>
+    <div class="relative flex size-full min-h-screen flex-col bg-slate-50 group/design-root overflow-x-hidden" style='font-family: Inter, "Noto Sans", sans-serif;'>
+        <div class="layout-container flex h-full grow flex-col">
+            <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e7edf4] px-10 py-3">
+                <div class="flex items-center gap-4 text-[#0d151c]">
+                    <div class="size-4">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 42.4379C4 42.4379 14.0962 36.0744 24 41.1692C35.0664 46.8624 44 42.2078 44 42.2078L44 7.01134C44 7.01134 35.068 11.6577 24.0031 5.96913C14.0971 0.876274 4 7.27094 4 7.27094L4 42.4379Z" fill="currentColor"></path>
+                        </svg>
                     </div>
-                    <a href="/generator.html" class="text-blue-600 hover:text-blue-800">← Back to Generator</a>
+                    <h2 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em]">Employment</h2>
                 </div>
-            </div>
-        </div>
-    </nav>
+                
+                <div class="flex flex-1 justify-end gap-8">
+                    <div class="flex items-center gap-9">
+                        <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal">Dashboard</a>
+                        <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal">Content Generator</a>
+                        <a href="/fake-it-mode" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">🎭 Fake It Mode</a>
+                        <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
+                        <a href="/pricing" class="text-[#0d151c] text-sm font-medium leading-normal">Pricing</a>
+                    </div>
+                    
+                    <!-- Credits Display & Auth -->
+                    <div class="flex items-center gap-3">
+                        <div id="creditsDisplay" class="text-sm text-gray-600">
+                            Credits: <span id="userCredits" class="font-semibold">-</span>
+                        </div>
+                        <div id="authSection">
+                            <div id="loginSection">
+                                <a href="/auth/linkedin" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em]">
+                                    <span class="truncate">Connect LinkedIn</span>
+                                </a>
+                            </div>
+                            
+                            <div id="userSection" style="display: none;">
+                                <div class="flex items-center gap-3">
+                                    <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full border border-[#e7edf4]" style="display: none;">
+                                    <span class="text-[#0d151c] text-sm font-medium" id="userName">User</span>
+                                    <button onclick="logout()" class="text-[#49749c] text-sm font-medium hover:text-[#0d151c]">Sign Out</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
 
     <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         
@@ -151,9 +179,16 @@
                 </button>
             </div>
         </div>
+        </div>
     </div>
 
     <script>
+        function logout() {
+            // Clear any stored auth data
+            localStorage.removeItem('authToken');
+            // Redirect to main page
+            window.location.href = '/';
+        }
         let currentUser = null;
         let generatedPostsData = [];
 
@@ -165,16 +200,49 @@
 
         async function checkAuth() {
             try {
-                const response = await fetch('/api/auth/me');
+                const response = await fetch('/api/auth/status');
                 if (response.ok) {
-                    currentUser = await response.json();
+                    const data = await response.json();
+                    if (data.authenticated) {
+                        currentUser = data.user;
+                        showAuthenticatedState();
+                    } else {
+                        // Show login required message instead of redirecting
+                        showLoginRequired();
+                    }
                 } else {
-                    // Redirect to login if not authenticated
-                    window.location.href = '/';
+                    showLoginRequired();
                 }
             } catch (error) {
                 console.error('Auth check failed:', error);
-                window.location.href = '/';
+                showLoginRequired();
+            }
+        }
+
+        function showLoginRequired() {
+            document.querySelector('.max-w-4xl').innerHTML = `
+                <div class="text-center py-12">
+                    <div class="text-6xl mb-4">🔐</div>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
+                    <p class="text-gray-600 mb-6">You need to be logged in to use the Fake It Till You Make It feature.</p>
+                    <a href="/" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        Go to Dashboard & Login
+                    </a>
+                </div>
+                         `;
+        }
+
+        function showAuthenticatedState() {
+            // Show user section, hide login section
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('userSection').style.display = 'block';
+            
+            // Update user info
+            document.getElementById('userName').textContent = currentUser.name || 'User';
+            if (currentUser.profile_picture) {
+                const profilePic = document.getElementById('userProfilePic');
+                profilePic.src = currentUser.profile_picture;
+                profilePic.style.display = 'block';
             }
         }
 
