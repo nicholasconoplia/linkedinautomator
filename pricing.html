@@ -106,6 +106,15 @@
             margin-top: 3rem;
         }
 
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
         /* Credit Purchase Modal Styles */
         .credit-modal {
             display: none;
@@ -268,19 +277,7 @@
                         <span class="font-semibold">Launch Special - Limited Time Pricing</span>
                     </div>
                     
-                    <!-- Debug Info (remove in production) -->
-                    <div class="mt-6">
-                        <button onclick="updatePaymentLinks(); console.log('Manual payment link update triggered');" 
-                                id="debugButton" style="display: none;"
-                                class="bg-red-500 text-white px-4 py-2 rounded text-sm mr-2">
-                            Update Payment Links
-                        </button>
-                        <button onclick="checkAuthStatus(); console.log('Manual auth check triggered');" 
-                                style="display: none;"
-                                class="bg-green-500 text-white px-4 py-2 rounded text-sm">
-                            Check Auth
-                        </button>
-                    </div>
+
                 </div>
             </div>
 
@@ -753,13 +750,9 @@
                 const response = await fetch('/api/auth-status');
                 const data = await response.json();
                 
-                console.log('Auth status response:', data);
-                
                 if (data.authenticated && data.user) {
                     isAuthenticated = true;
                     currentUser = data.user;
-                    
-                    console.log('User authenticated:', currentUser);
                     
                     // Update auth section (if it exists)
                     const authButton = document.getElementById('authButton');
@@ -781,26 +774,9 @@
                         }
                     }
                     
-                    // Show debug buttons for authenticated users
-                    const debugButton = document.getElementById('debugButton');
-                    if (debugButton) {
-                        debugButton.style.display = 'inline-block';
-                    }
-                    
                     // Update payment links with user data
-                    console.log('About to update payment links in 500ms...');
-                    setTimeout(() => {
-                        console.log('Running updatePaymentLinks() now...');
-                        updatePaymentLinks();
-                        
-                        // Also try again after another delay to ensure DOM is ready
-                        setTimeout(() => {
-                            console.log('Second attempt at updating payment links...');
-                            updatePaymentLinks();
-                        }, 1000);
-                    }, 500);
+                    setTimeout(updatePaymentLinks, 100);
                 } else {
-                    console.log('User not authenticated');
                     const authButton = document.getElementById('authButton');
                     if (authButton) {
                         authButton.onclick = () => window.location.href = '/auth/linkedin';
@@ -812,72 +788,20 @@
         }
         
         function updatePaymentLinks() {
-            console.log('🔗 updatePaymentLinks() called');
-            
             if (!currentUser || !currentUser.email || !currentUser.id) {
-                console.log('❌ Cannot update payment links - missing user data:', currentUser);
                 return;
             }
             
-            console.log('✅ User data available:', {
-                id: currentUser.id,
-                email: currentUser.email,
-                name: currentUser.name
-            });
-            
-            // Try multiple selectors to find Stripe links
-            const selectors = [
-                'a[href*="stripe.com"]',
-                'a[href*="buy.stripe.com"]',
-                'a[href*="{{USER_EMAIL}}"]',
-                'a[href*="{{USER_ID}}"]'
-            ];
-            
-            let allStripeLinks = [];
-            
-            selectors.forEach(selector => {
-                const links = document.querySelectorAll(selector);
-                console.log(`🔍 Selector "${selector}" found ${links.length} links`);
-                allStripeLinks.push(...links);
-            });
-            
-            // Remove duplicates
-            const uniqueLinks = [...new Set(allStripeLinks)];
-            console.log(`📋 Total unique Stripe links found: ${uniqueLinks.length}`);
-            
-            if (uniqueLinks.length === 0) {
-                console.log('⚠️ No Stripe links found! Checking all links...');
-                const allLinks = document.querySelectorAll('a');
-                console.log(`🔗 Total links on page: ${allLinks.length}`);
-                allLinks.forEach((link, index) => {
-                    if (link.href && (link.href.includes('stripe') || link.href.includes('{{USER'))) {
-                        console.log(`Link ${index}: ${link.href}`);
-                    }
-                });
-                return;
-            }
-            
-            uniqueLinks.forEach((link, index) => {
+            // Find and update all Stripe payment links
+            document.querySelectorAll('a[href*="stripe.com"]').forEach(link => {
                 let href = link.href;
-                const originalHref = href;
                 
-                console.log(`🔗 Processing link ${index + 1}:`, originalHref);
-                
-                // Replace placeholders
+                // Replace placeholders with actual user data
                 href = href.replace(/\{\{USER_EMAIL\}\}/g, encodeURIComponent(currentUser.email));
                 href = href.replace(/\{\{USER_ID\}\}/g, currentUser.id);
                 
-                const hasPlaceholders = originalHref.includes('{{USER_EMAIL}}') || originalHref.includes('{{USER_ID}}');
-                
-                console.log(`  ➡️ Original: ${originalHref}`);
-                console.log(`  ➡️ Updated:  ${href}`);
-                console.log(`  ➡️ Had placeholders: ${hasPlaceholders}`);
-                console.log(`  ➡️ Changed: ${originalHref !== href}`);
-                
                 link.href = href;
             });
-            
-            console.log('✅ Payment link update completed');
         }
         
         function checkAuthForPurchase(element, planName, credits, price) {
