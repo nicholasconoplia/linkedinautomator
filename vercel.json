@@ -7,7 +7,10 @@
     },
     {
       "src": "*.html",
-      "use": "@vercel/static"
+      "use": "@vercel/static",
+      "config": {
+        "zeroConfig": true
+      }
     },
     {
       "src": "*.css",
@@ -50,7 +53,7 @@
     { "source": "/subscription/(.*)", "destination": "server.js" },
     { "source": "/manage-subscription", "destination": "server.js" },
     { "source": "/saved-posts", "destination": "server.js" },
-    { "source": "/fake-it-mode", "destination": "server.js" },
+    { "source": "/fake-it-mode", "destination": "/fake-it-mode.html" },
     { "source": "/", "destination": "server.js" }
   ],
   "redirects": [],

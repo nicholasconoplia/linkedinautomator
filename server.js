@@ -3880,6 +3880,34 @@ app.get('/saved-posts', (req, res) => {
   }
 });
 
+// Fake It Mode route
+app.get('/fake-it-mode', (req, res) => {
+  console.log('🎭 Fake It Mode route hit');
+  
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; " +
+    "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; " +
+    "img-src 'self' data: https: http:; " +
+    "connect-src 'self' https://api.openai.com https://api.linkedin.com"
+  );
+  
+  const fakeItModePath = path.join(__dirname, 'fake-it-mode.html');
+  
+  if (fs.existsSync(fakeItModePath)) {
+    console.log('✅ Serving fake-it-mode.html');
+    res.sendFile(fakeItModePath, {
+      headers: {
+        'Content-Type': 'text/html'
+      }
+    });
+  } else {
+    console.log('⚠️ fake-it-mode.html not found');
+    res.status(404).send('Fake It Mode page not found');
+  }
+});
+
 // ====================
 // EXISTING GENERATE POST ROUTE (Updated)
 // ====================
