@@ -140,6 +140,45 @@
                 </div>
             </div>
 
+            <!-- Payment History Section -->
+            <div class="mt-8 bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Payment History & Refunds</h2>
+                    <button id="loadPaymentHistoryBtn" 
+                            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                        <span class="btn-text">Load History</span>
+                        <span class="loader hidden">
+                            <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>
+                        </span>
+                    </button>
+                </div>
+                
+                <div id="paymentHistoryLoading" class="hidden text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <p class="mt-2 text-gray-600">Loading payment history...</p>
+                </div>
+                
+                <div id="paymentHistoryContent" class="hidden">
+                    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 class="font-semibold text-blue-800 mb-2">🛡️ Refund Policy</h3>
+                        <p class="text-blue-700 text-sm">
+                            You can request refunds for credit purchases within 7 days if unused. 
+                            Subscription refunds are prorated based on usage. All refunds are processed automatically when eligible.
+                        </p>
+                    </div>
+                    
+                    <div id="paymentHistoryList" class="space-y-4">
+                        <!-- Payment history will be loaded here -->
+                    </div>
+                </div>
+                
+                <div id="noPaymentHistory" class="hidden text-center py-8">
+                    <div class="text-4xl mb-4">💳</div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">No Payment History</h3>
+                    <p class="text-gray-600">You haven't made any purchases yet.</p>
+                </div>
+            </div>
+
             <!-- Cancellation Notice -->
             <div class="mt-8 bg-red-50 border border-red-200 rounded-2xl p-6">
                 <div class="flex items-start">
@@ -324,6 +363,188 @@
                 button.disabled = false;
             }
         });
+
+        // Handle payment history loading
+        document.getElementById('loadPaymentHistoryBtn').addEventListener('click', async function() {
+            const button = this;
+            const btnText = button.querySelector('.btn-text');
+            const loader = button.querySelector('.loader');
+            
+            // Show loading state
+            btnText.textContent = 'Loading...';
+            loader.classList.remove('hidden');
+            button.disabled = true;
+            
+            document.getElementById('paymentHistoryLoading').classList.remove('hidden');
+            
+            try {
+                const response = await fetch('/api/payments/history', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load payment history');
+                }
+                
+                const data = await response.json();
+                displayPaymentHistory(data);
+                
+            } catch (error) {
+                console.error('Error loading payment history:', error);
+                alert('Failed to load payment history: ' + error.message);
+            } finally {
+                // Reset button state
+                btnText.textContent = 'Load History';
+                loader.classList.add('hidden');
+                button.disabled = false;
+                document.getElementById('paymentHistoryLoading').classList.add('hidden');
+            }
+        });
+        
+        function displayPaymentHistory(data) {
+            const historyList = document.getElementById('paymentHistoryList');
+            const stripePayments = data.stripe_history || [];
+            
+            if (stripePayments.length === 0) {
+                document.getElementById('noPaymentHistory').classList.remove('hidden');
+                return;
+            }
+            
+            document.getElementById('paymentHistoryContent').classList.remove('hidden');
+            
+            historyList.innerHTML = stripePayments.map(payment => {
+                const canRefund = payment.status === 'succeeded' && 
+                                !payment.refunded && 
+                                payment.refund_amount === 0 &&
+                                payment.type === 'charge';
+                
+                const paymentDate = new Date(payment.created).toLocaleDateString();
+                const paymentTime = new Date(payment.created).toLocaleTimeString();
+                
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-semibold text-gray-900">
+                                    ${payment.type === 'charge' ? '💳 Payment' : '🔄 Payment Intent'}
+                                </h4>
+                                <p class="text-sm text-gray-600">${payment.description || 'Credit Purchase'}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-lg font-bold text-gray-900">
+                                    $${payment.amount.toFixed(2)} ${payment.currency}
+                                </div>
+                                <div class="text-sm ${getStatusColor(payment.status)} font-medium">
+                                    ${payment.status.toUpperCase()}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-sm text-gray-500 mb-3">
+                            📅 ${paymentDate} at ${paymentTime} | ID: ${payment.id}
+                        </div>
+                        
+                        ${payment.refunded || payment.refund_amount > 0 ? `
+                            <div class="bg-yellow-50 border border-yellow-200 rounded p-2 mb-3">
+                                <span class="text-yellow-800 text-sm font-medium">
+                                    ↩️ Refunded: $${payment.refund_amount.toFixed(2)}
+                                </span>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="flex gap-2">
+                            ${payment.receipt_url ? `
+                                <a href="${payment.receipt_url}" target="_blank" 
+                                   class="text-blue-600 hover:text-blue-700 text-sm underline">
+                                    📄 View Receipt
+                                </a>
+                            ` : ''}
+                            
+                            ${canRefund ? `
+                                <button onclick="requestRefund('${payment.id}', ${payment.amount})" 
+                                        class="text-red-600 hover:text-red-700 text-sm underline ml-auto">
+                                    💰 Request Refund
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function getStatusColor(status) {
+            switch (status) {
+                case 'succeeded': return 'text-green-600';
+                case 'pending': return 'text-yellow-600';
+                case 'failed': return 'text-red-600';
+                default: return 'text-gray-600';
+            }
+        }
+        
+        // Request refund function
+        async function requestRefund(paymentId, amount) {
+            const reason = prompt(
+                'Please provide a reason for the refund:\n\n' +
+                'Valid reasons:\n' +
+                '• duplicate - Accidental duplicate payment\n' +
+                '• credit_unused - Credits purchased but not used\n' +
+                '• subscription_issue - Subscription problem\n' +
+                '• technical_error - Technical issue with purchase\n' +
+                '• other - Other reason\n\n' +
+                'Enter reason:'
+            );
+            
+            if (!reason) return;
+            
+            const description = prompt('Optional: Provide additional details about the refund request:');
+            
+            const confirmation = confirm(
+                `Request refund for payment ${paymentId}?\n\n` +
+                `Amount: $${amount.toFixed(2)}\n` +
+                `Reason: ${reason}\n` +
+                `Description: ${description || 'None'}\n\n` +
+                `This will process automatically if eligible.`
+            );
+            
+            if (!confirmation) return;
+            
+            try {
+                const response = await fetch('/api/payments/request-refund', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        payment_id: paymentId,
+                        reason: reason,
+                        amount: amount,
+                        description: description
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(
+                        `✅ Refund processed successfully!\n\n` +
+                        `Refund ID: ${data.refund_id}\n` +
+                        `Amount: $${data.refund_amount.toFixed(2)}\n` +
+                        `Status: ${data.status}\n\n` +
+                        data.message
+                    );
+                    
+                    // Reload payment history
+                    document.getElementById('loadPaymentHistoryBtn').click();
+                } else {
+                    alert(`❌ Refund failed: ${data.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Refund error:', error);
+                alert('❌ Failed to process refund. Please try again or contact support.');
+            }
+        }
 
         // Handle logout
         document.addEventListener('click', function(e) {

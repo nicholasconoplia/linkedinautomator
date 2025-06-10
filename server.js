@@ -1918,7 +1918,7 @@ app.post('/api/credits/create-checkout', requireAuth, async (req, res) => {
         pack_type: pack_name,
         plan_type: 'credit_pack'
       },
-      success_url: `${req.headers.origin}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${req.headers.origin}/dashboard?payment_success=credit_pack&session_id={CHECKOUT_SESSION_ID}&credits=${credits}&pack_type=${encodeURIComponent(pack_name)}`,
       cancel_url: `${req.headers.origin}/credits?canceled=true`,
     });
     
@@ -2049,7 +2049,7 @@ app.post('/api/subscription/checkout', requireAuth, async (req, res) => {
     const session = await stripeService.createCheckoutSession(
       userId,
       priceId,
-      `${req.headers.origin}/subscription/success`,
+      `${req.headers.origin}/dashboard?payment_success=subscription&session_id={CHECKOUT_SESSION_ID}`,
       `${req.headers.origin}/subscription/cancel`
     );
 
@@ -2059,6 +2059,417 @@ app.post('/api/subscription/checkout', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
 });
+
+// ====================
+// PAYMENT SAFETY & LEGAL COMPLIANCE SYSTEM
+// ====================
+
+// Get user's complete payment history
+app.get('/api/payments/history', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log('📋 Getting payment history for user:', userId);
+    
+    const { Pool } = require('pg');
+    const dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
+    // Get all payment-related transactions
+    const paymentHistory = await dbPool.query(`
+      SELECT 
+        ut.*,
+        us.plan_name,
+        us.status as subscription_status,
+        us.stripe_subscription_id,
+        us.stripe_customer_id
+      FROM usage_tracking ut
+      LEFT JOIN user_subscriptions us ON ut.user_id = us.user_id
+      WHERE ut.user_id = $1 
+      AND (
+        ut.metadata::text LIKE '%purchase%' OR 
+        ut.metadata::text LIKE '%payment%' OR 
+        ut.metadata::text LIKE '%credit_added%' OR
+        ut.metadata::text LIKE '%subscription%' OR
+        ut.action = 'credit_purchase' OR
+        ut.action = 'subscription_created'
+      )
+      ORDER BY ut.created_at DESC
+      LIMIT 50
+    `, [userId]);
+    
+    // Get Stripe payment history if customer exists
+    let stripePayments = [];
+    try {
+      const customer = await stripe.customers.list({
+        email: req.user.email,
+        limit: 1
+      });
+      
+      if (customer.data.length > 0) {
+        const charges = await stripe.charges.list({
+          customer: customer.data[0].id,
+          limit: 50
+        });
+        
+        const paymentIntents = await stripe.paymentIntents.list({
+          customer: customer.data[0].id,
+          limit: 50
+        });
+        
+        stripePayments = [
+          ...charges.data.map(charge => ({
+            id: charge.id,
+            type: 'charge',
+            amount: charge.amount / 100,
+            currency: charge.currency.toUpperCase(),
+            status: charge.status,
+            created: new Date(charge.created * 1000),
+            description: charge.description,
+            receipt_url: charge.receipt_url,
+            refunded: charge.refunded,
+            refund_amount: charge.amount_refunded / 100
+          })),
+          ...paymentIntents.data.map(intent => ({
+            id: intent.id,
+            type: 'payment_intent',
+            amount: intent.amount / 100,
+            currency: intent.currency.toUpperCase(),
+            status: intent.status,
+            created: new Date(intent.created * 1000),
+            description: intent.description
+          }))
+        ].sort((a, b) => b.created - a.created);
+      }
+    } catch (stripeError) {
+      console.error('Error fetching Stripe payment history:', stripeError);
+    }
+    
+    res.json({
+      success: true,
+      database_history: paymentHistory.rows,
+      stripe_history: stripePayments,
+      user_email: req.user.email
+    });
+    
+  } catch (error) {
+    console.error('Error fetching payment history:', error);
+    res.status(500).json({ error: 'Failed to fetch payment history' });
+  }
+});
+
+// Request refund for a specific payment
+app.post('/api/payments/request-refund', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { payment_id, reason, amount, description } = req.body;
+    
+    console.log('💰 Refund request:', { userId, payment_id, reason, amount });
+    
+    if (!payment_id || !reason) {
+      return res.status(400).json({ error: 'Payment ID and reason are required' });
+    }
+    
+    // Validate the payment belongs to the user
+    const customer = await stripe.customers.list({
+      email: req.user.email,
+      limit: 1
+    });
+    
+    if (customer.data.length === 0) {
+      return res.status(404).json({ error: 'No Stripe customer found' });
+    }
+    
+    // Get the payment details
+    let payment = null;
+    try {
+      payment = await stripe.charges.retrieve(payment_id);
+    } catch (error) {
+      try {
+        payment = await stripe.paymentIntents.retrieve(payment_id);
+      } catch (error2) {
+        return res.status(404).json({ error: 'Payment not found' });
+      }
+    }
+    
+    if (payment.customer !== customer.data[0].id) {
+      return res.status(403).json({ error: 'Payment does not belong to your account' });
+    }
+    
+    // Check if payment is refundable
+    if (payment.status !== 'succeeded' && payment.status !== 'paid') {
+      return res.status(400).json({ error: 'Payment is not in a refundable state' });
+    }
+    
+    // Check if already fully refunded
+    if (payment.refunded || (payment.amount_refunded && payment.amount_refunded >= payment.amount)) {
+      return res.status(400).json({ error: 'Payment has already been fully refunded' });
+    }
+    
+    // Determine refund amount
+    let refundAmount = amount ? Math.round(amount * 100) : payment.amount; // Convert to cents
+    const maxRefundable = payment.amount - (payment.amount_refunded || 0);
+    
+    if (refundAmount > maxRefundable) {
+      refundAmount = maxRefundable;
+    }
+    
+    // Create refund
+    const refund = await stripe.refunds.create({
+      charge: payment_id,
+      amount: refundAmount,
+      reason: reason === 'duplicate' ? 'duplicate' : reason === 'fraudulent' ? 'fraudulent' : 'requested_by_customer',
+      metadata: {
+        user_id: userId.toString(),
+        user_email: req.user.email,
+        refund_reason: reason,
+        refund_description: description || '',
+        processed_by: 'automatic_system'
+      }
+    });
+    
+    // Log the refund in our database
+    const { Pool } = require('pg');
+    const dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
+    await dbPool.query(`
+      INSERT INTO usage_tracking (user_id, action, credits_used, metadata) 
+      VALUES ($1, 'refund_processed', 0, $2)
+    `, [userId, JSON.stringify({
+      refund_id: refund.id,
+      original_payment_id: payment_id,
+      refund_amount: refundAmount / 100,
+      reason: reason,
+      description: description,
+      status: refund.status
+    })]);
+    
+    // If this was a credit purchase, deduct the credits
+    if (reason.includes('credit') || description?.includes('credit')) {
+      const creditAmount = Math.floor((refundAmount / 100) * 25); // Estimate credits based on amount
+      try {
+        const CreditDB = require('./database').CreditDB;
+        await CreditDB.deductCredits(userId, creditAmount, `Refund processed - deducted credits for payment ${payment_id}`);
+      } catch (creditError) {
+        console.error('Error deducting credits for refund:', creditError);
+      }
+    }
+    
+    console.log('✅ Refund processed:', refund.id);
+    
+    res.json({
+      success: true,
+      refund_id: refund.id,
+      refund_amount: refundAmount / 100,
+      status: refund.status,
+      message: 'Refund processed successfully. It may take 5-10 business days to appear on your statement.'
+    });
+    
+  } catch (error) {
+    console.error('Error processing refund:', error);
+    res.status(500).json({ 
+      error: 'Failed to process refund',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Handle payment failures and errors
+app.post('/api/payments/handle-failure', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { session_id, error_type, error_message, user_agent } = req.body;
+    
+    console.log('❌ Payment failure reported:', { userId, session_id, error_type });
+    
+    // Log the failure
+    const { Pool } = require('pg');
+    const dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
+    await dbPool.query(`
+      INSERT INTO usage_tracking (user_id, action, credits_used, metadata) 
+      VALUES ($1, 'payment_failure', 0, $2)
+    `, [userId, JSON.stringify({
+      session_id,
+      error_type,
+      error_message,
+      user_agent,
+      timestamp: new Date().toISOString()
+    })]);
+    
+    // Get session details if available
+    let sessionDetails = null;
+    if (session_id) {
+      try {
+        sessionDetails = await stripe.checkout.sessions.retrieve(session_id);
+      } catch (error) {
+        console.error('Could not retrieve failed session:', error);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Payment failure logged',
+      session_details: sessionDetails,
+      support_ticket_id: `PF_${userId}_${Date.now()}`
+    });
+    
+  } catch (error) {
+    console.error('Error handling payment failure:', error);
+    res.status(500).json({ error: 'Failed to log payment failure' });
+  }
+});
+
+// Duplicate payment detection and handling
+app.post('/api/payments/check-duplicate', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { amount, payment_type, time_window_minutes = 5 } = req.body;
+    
+    const { Pool } = require('pg');
+    const dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
+    // Check for recent similar payments
+    const recentPayments = await dbPool.query(`
+      SELECT * FROM usage_tracking 
+      WHERE user_id = $1 
+      AND action LIKE '%purchase%'
+      AND created_at > NOW() - INTERVAL '${time_window_minutes} minutes'
+      AND metadata::text LIKE '%${amount}%'
+      ORDER BY created_at DESC
+    `, [userId]);
+    
+    if (recentPayments.rows.length > 1) {
+      console.log('⚠️ Potential duplicate payment detected:', recentPayments.rows);
+      
+      res.json({
+        is_duplicate: true,
+        recent_payments: recentPayments.rows,
+        message: 'Similar payment detected recently. Please check your payment history before proceeding.'
+      });
+    } else {
+      res.json({
+        is_duplicate: false,
+        message: 'No duplicate payments detected'
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error checking for duplicate payments:', error);
+    res.status(500).json({ error: 'Failed to check for duplicates' });
+  }
+});
+
+// Payment recovery for failed webhook processing
+app.post('/api/payments/recover', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { session_id } = req.body;
+    
+    if (!session_id) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+    
+    console.log('🔧 Attempting payment recovery for session:', session_id);
+    
+    // Get session details
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    
+    if (session.customer_details?.email !== req.user.email) {
+      return res.status(403).json({ error: 'Session does not belong to your account' });
+    }
+    
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment was not successful' });
+    }
+    
+    // Check if already processed
+    const { Pool } = require('pg');
+    const dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
+    const existingRecord = await dbPool.query(`
+      SELECT * FROM usage_tracking 
+      WHERE user_id = $1 
+      AND metadata::text LIKE '%${session_id}%'
+    `, [userId]);
+    
+    if (existingRecord.rows.length > 0) {
+      return res.status(400).json({ error: 'Payment has already been processed' });
+    }
+    
+    // Process the payment manually
+    if (session.mode === 'payment') {
+      // Credit purchase
+      const creditAmount = session.metadata?.credit_amount || 
+                          determineCreditAmount(session.amount_total);
+      const packType = session.metadata?.pack_type || 'Recovery Credit Pack';
+      
+      const CreditDB = require('./database').CreditDB;
+      const newBalance = await CreditDB.addCredits(
+        userId, 
+        creditAmount, 
+        `Manual recovery for session ${session_id}`
+      );
+      
+      res.json({
+        success: true,
+        type: 'credit_recovery',
+        credits_added: creditAmount,
+        new_balance: newBalance,
+        message: `Successfully recovered ${creditAmount} credits`
+      });
+      
+    } else if (session.mode === 'subscription') {
+      // Subscription activation
+      const activateResponse = await fetch('/api/subscription/quick-activate', {
+        method: 'GET',
+        headers: { 'Authorization': req.headers.authorization }
+      });
+      
+      if (activateResponse.ok) {
+        const activateData = await activateResponse.json();
+        res.json({
+          success: true,
+          type: 'subscription_recovery',
+          subscription: activateData.subscription,
+          message: 'Subscription successfully activated'
+        });
+      } else {
+        throw new Error('Failed to activate subscription');
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error recovering payment:', error);
+    res.status(500).json({ error: 'Failed to recover payment' });
+  }
+});
+
+// Utility function for determining credit amounts
+function determineCreditAmountHelper(amountTotal) {
+  const amountInDollars = amountTotal / 100;
+  if (amountInDollars === 0.99) return 25;
+  if (amountInDollars === 2.49) return 75;
+  if (amountInDollars === 5.99) return 200;
+  return Math.floor(amountInDollars * 25); // Default estimation
+}
+
+// ====================
+// END PAYMENT SAFETY SYSTEM
+// ====================
 
 // Create billing portal session
 app.post('/api/subscription/billing-portal', requireAuth, async (req, res) => {

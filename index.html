@@ -282,6 +282,90 @@
         .mb-6 {
             margin-bottom: 24px;
         }
+
+        /* Success Popup Notification */
+        .success-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 20px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+            z-index: 1001;
+            max-width: 400px;
+            min-width: 320px;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        }
+
+        .success-popup.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .success-popup.hide {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        .popup-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .popup-icon {
+            font-size: 24px;
+            line-height: 1;
+            margin-top: 2px;
+        }
+
+        .popup-text h3 {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 0 4px 0;
+            line-height: 1.2;
+        }
+
+        .popup-text p {
+            font-size: 14px;
+            margin: 0;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            opacity: 0.7;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .popup-close:hover {
+            opacity: 1;
+        }
+
+        /* Error Popup */
+        .error-popup {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Subscription Popup */
+        .subscription-popup {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -425,6 +509,318 @@
         </div>
     </div>
 
+    <!-- Success/Error Popup Notification -->
+    <div id="notificationPopup" class="success-popup" style="display: none;">
+        <button class="popup-close" onclick="closePopup()">×</button>
+        <div class="popup-content">
+            <div class="popup-icon" id="popupIcon">🎉</div>
+            <div class="popup-text">
+                <h3 id="popupTitle">Success!</h3>
+                <p id="popupMessage">Operation completed successfully.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Popup notification system
+        function showPopup(type, title, message, duration = 6000) {
+            const popup = document.getElementById('notificationPopup');
+            const icon = document.getElementById('popupIcon');
+            const titleEl = document.getElementById('popupTitle');
+            const messageEl = document.getElementById('popupMessage');
+            
+            // Set popup content
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            
+            // Set popup type and icon
+            popup.className = 'success-popup'; // Reset classes
+            if (type === 'credit') {
+                popup.classList.add('success-popup');
+                icon.textContent = '💳';
+            } else if (type === 'subscription') {
+                popup.classList.add('subscription-popup');
+                icon.textContent = '📋';
+            } else if (type === 'error') {
+                popup.classList.add('error-popup');
+                icon.textContent = '❌';
+            } else {
+                popup.classList.add('success-popup');
+                icon.textContent = '🎉';
+            }
+            
+            // Show popup
+            popup.style.display = 'block';
+            setTimeout(() => popup.classList.add('show'), 10);
+            
+            // Auto-hide after duration
+            setTimeout(() => {
+                closePopup();
+            }, duration);
+        }
+        
+        function closePopup() {
+            const popup = document.getElementById('notificationPopup');
+            popup.classList.remove('show');
+            popup.classList.add('hide');
+            
+            setTimeout(() => {
+                popup.style.display = 'none';
+                popup.classList.remove('hide');
+            }, 300);
+        }
+        
+        // Check URL parameters for success/error messages
+        function checkUrlNotifications() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Auto-process payment before showing notifications
+            if (urlParams.get('payment_success') === 'credit_pack') {
+                processPaymentAndShowPopup('credit_pack', urlParams);
+                return;
+            }
+            
+            if (urlParams.get('payment_success') === 'subscription') {
+                processPaymentAndShowPopup('subscription', urlParams);
+                return;
+            }
+            
+            // Legacy support - Credit purchase success
+            if (urlParams.get('success') === 'credit_purchase') {
+                const creditsAdded = urlParams.get('credits_added') || '25';
+                const packType = urlParams.get('pack_type') || 'Credit Pack';
+                const newBalance = urlParams.get('new_balance');
+                
+                let message = `${creditsAdded} credits have been added to your account!`;
+                if (newBalance) {
+                    message += ` Your new balance is ${newBalance} credits.`;
+                }
+                
+                showPopup('credit', `${packType} Purchase Complete!`, message, 8000);
+                
+                // Clean URL
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+            
+            // Subscription activation success
+            else if (urlParams.get('success') === 'subscription_activated') {
+                const planName = urlParams.get('plan_name') || 'Subscription';
+                const subscriptionId = urlParams.get('subscription_id');
+                
+                let message = `Your ${planName} subscription is now active!`;
+                if (subscriptionId && subscriptionId !== 'unknown') {
+                    message += ` You can now access all premium features.`;
+                }
+                
+                showPopup('subscription', 'Subscription Activated!', message, 8000);
+                
+                // Clean URL
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+            
+            // Credit processing error
+            else if (urlParams.get('error') === 'credit_processing_failed') {
+                const sessionId = urlParams.get('session_id');
+                const credits = urlParams.get('credits') || '25';
+                
+                let message = `We had trouble adding ${credits} credits automatically. Please contact support or try refreshing the page.`;
+                if (sessionId) {
+                    message += ` (Session: ${sessionId.substring(0, 10)}...)`;
+                }
+                
+                showPopup('error', 'Credit Processing Error', message, 10000);
+                
+                // Clean URL
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+            
+            // Subscription processing error
+            else if (urlParams.get('error') === 'subscription_processing_failed') {
+                const planName = urlParams.get('plan_name') || 'Subscription';
+                const sessionId = urlParams.get('session_id');
+                
+                let message = `We had trouble activating your ${planName} subscription. Please check your subscription status or contact support.`;
+                if (sessionId) {
+                    message += ` (Session: ${sessionId.substring(0, 10)}...)`;
+                }
+                
+                showPopup('error', 'Subscription Processing Error', message, 10000);
+                
+                // Clean URL
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+            
+            // General errors
+            else if (urlParams.get('error')) {
+                const error = urlParams.get('error');
+                let title = 'Error';
+                let message = 'An error occurred during processing.';
+                
+                switch (error) {
+                    case 'no_session':
+                        title = 'Session Not Found';
+                        message = 'No payment session was found. If you completed a purchase, please check your account or contact support.';
+                        break;
+                    case 'processing_failed':
+                        title = 'Processing Failed';
+                        message = 'We encountered an error while processing your payment. Please check your account or contact support.';
+                        break;
+                    case 'unknown_payment':
+                        title = 'Unknown Payment Type';
+                        message = 'We couldn\'t determine the type of payment. Please contact support if this was a valid purchase.';
+                        break;
+                }
+                
+                showPopup('error', title, message, 10000);
+                
+                // Clean URL
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        }
+        
+        // Auto-process payment and show popup
+        async function processPaymentAndShowPopup(paymentType, urlParams) {
+            try {
+                console.log('🚀 Auto-processing payment:', paymentType);
+                
+                const sessionId = urlParams.get('session_id');
+                if (!sessionId) {
+                    console.error('❌ No session ID found');
+                    showPopup('error', 'Payment Error', 'No payment session found. Please contact support if you completed a purchase.');
+                    cleanUrl();
+                    return;
+                }
+                
+                if (paymentType === 'credit_pack') {
+                    await processCreditPurchaseAuto(urlParams);
+                } else if (paymentType === 'subscription') {
+                    await processSubscriptionAuto(urlParams);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error processing payment:', error);
+                showPopup('error', 'Processing Error', 'We encountered an error processing your payment. Please refresh the page or contact support.');
+                cleanUrl();
+            }
+        }
+        
+        // Process credit purchase automatically
+        async function processCreditPurchaseAuto(urlParams) {
+            try {
+                const sessionId = urlParams.get('session_id');
+                const credits = parseInt(urlParams.get('credits')) || 25;
+                const packType = urlParams.get('pack_type') || 'Credit Pack';
+                
+                console.log(`💳 Auto-processing credit purchase: ${credits} credits`);
+                
+                // Add credits directly
+                const response = await fetch('/api/credits/manual-add', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        credits: credits,
+                        reason: `${packType} purchase - Auto-processed from Session: ${sessionId}`,
+                        sessionId: sessionId
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to add credits');
+                }
+                
+                const creditData = await response.json();
+                console.log('✅ Credits added successfully:', creditData);
+                
+                // Show success popup
+                let message = `${credits} credits have been added to your account!`;
+                if (creditData.new_balance) {
+                    message += ` Your new balance is ${creditData.new_balance} credits.`;
+                }
+                
+                showPopup('credit', `${packType} Purchase Complete!`, message, 8000);
+                
+                // Clean URL
+                cleanUrl();
+                
+            } catch (error) {
+                console.error('❌ Error processing credit purchase:', error);
+                
+                // Show error popup with fallback options
+                const credits = parseInt(urlParams.get('credits')) || 25;
+                const sessionId = urlParams.get('session_id');
+                
+                let message = `We had trouble adding ${credits} credits automatically. Please refresh the page or contact support.`;
+                if (sessionId) {
+                    message += ` (Session: ${sessionId.substring(0, 10)}...)`;
+                }
+                
+                showPopup('error', 'Credit Processing Error', message, 10000);
+                cleanUrl();
+            }
+        }
+        
+        // Process subscription automatically
+        async function processSubscriptionAuto(urlParams) {
+            try {
+                const sessionId = urlParams.get('session_id');
+                console.log('📋 Auto-processing subscription activation');
+                
+                // Try to activate subscription
+                const activateResponse = await fetch('/api/subscription/quick-activate', {
+                    credentials: 'include'
+                });
+                
+                if (activateResponse.ok) {
+                    const activateData = await activateResponse.json();
+                    console.log('✅ Subscription activated:', activateData);
+                    
+                    const planName = 'Subscription';
+                    let message = `Your ${planName} subscription is now active! You can now access all premium features.`;
+                    
+                    showPopup('subscription', 'Subscription Activated!', message, 8000);
+                } else {
+                    throw new Error('Failed to activate subscription');
+                }
+                
+                // Clean URL
+                cleanUrl();
+                
+            } catch (error) {
+                console.error('❌ Error processing subscription:', error);
+                
+                const sessionId = urlParams.get('session_id');
+                let message = `We had trouble activating your subscription automatically. Please check your subscription status or contact support.`;
+                if (sessionId) {
+                    message += ` (Session: ${sessionId.substring(0, 10)}...)`;
+                }
+                
+                showPopup('error', 'Subscription Processing Error', message, 10000);
+                cleanUrl();
+            }
+        }
+        
+        // Clean URL helper function
+        function cleanUrl() {
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+        
+        // Initialize notifications when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for URL notifications
+            checkUrlNotifications();
+        });
+    </script>
+    
     <script src="script.js"></script>
 </body>
 </html> 
