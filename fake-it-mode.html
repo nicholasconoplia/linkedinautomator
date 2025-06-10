@@ -290,18 +290,45 @@
                     })
                 });
 
-                const data = await response.json();
+                let data;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    throw new Error('Server returned non-JSON response');
+                }
 
-                if (data.success) {
+                if (response.ok && data.success) {
                     generatedPostsData = data.posts;
                     displayResults(data);
                     await loadUserCredits(); // Refresh credits
                 } else {
-                    showError(data.error);
+                    let errorMessage = data.error || 'Failed to generate posts';
+                    
+                    // Handle specific status codes
+                    switch (response.status) {
+                        case 402:
+                            errorMessage = `Insufficient credits. ${data.creditsNeeded} credits needed, you have ${data.currentCredits}.`;
+                            break;
+                        case 404:
+                            errorMessage = data.error || 'No industry news found. Try a different industry.';
+                            break;
+                        case 429:
+                            errorMessage = 'Too many requests. Please wait a few minutes and try again.';
+                            break;
+                        case 504:
+                            errorMessage = 'The request took too long. Try a more specific industry or try again.';
+                            break;
+                    }
+                    
+                    showError(errorMessage);
                 }
             } catch (error) {
                 console.error('Generation failed:', error);
-                showError('Failed to generate posts. Please try again.');
+                const errorMessage = error.message === 'Server returned non-JSON response' 
+                    ? 'The server is experiencing issues. Please try again in a few minutes.'
+                    : 'Failed to generate posts. Please try again.';
+                showError(errorMessage);
             } finally {
                 document.getElementById('generateBtn').disabled = false;
                 document.getElementById('generateBtn').textContent = '🎭 Generate 5 Industry Posts (5 Credits)';

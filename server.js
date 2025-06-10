@@ -4972,6 +4972,12 @@ Requirements:
 
 // Add new endpoint for "Fake it till you make it" mode
 app.post('/api/fake-it-mode', requireAuth, async (req, res) => {
+  // Set a timeout for the entire operation
+  const TIMEOUT = 45000; // 45 seconds to allow for Vercel's 60s limit
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('Operation timed out')), TIMEOUT)
+  );
+
   try {
     const { industry, tone = 'student-professional' } = req.body;
     
@@ -4999,72 +5005,99 @@ app.post('/api/fake-it-mode', requireAuth, async (req, res) => {
     const searchTerms = await generateIndustrySearchTerms(industry);
     console.log(`🔍 Generated search terms:`, searchTerms);
 
-    // Fetch 5 different news articles from different sources
-    const newsArticles = await fetchDiverseIndustryNews(industry, searchTerms, 5);
-    
-    if (newsArticles.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'No recent industry news found. Please try a different industry or try again later.'
-      });
-    }
-
-    console.log(`📰 Found ${newsArticles.length} diverse news articles`);
-
-    // Generate posts for each article with student-friendly approach
-    const generatedPosts = [];
-    const usedCredits = Math.min(newsArticles.length, 5);
-
-    for (let i = 0; i < usedCredits; i++) {
-      const article = newsArticles[i];
-      try {
-        const post = await generateStudentIndustryPost(article, industry, tone);
-        generatedPosts.push({
-          id: `fake-${Date.now()}-${i}`,
-          post: post,
-          article: {
-            title: article.title,
-            url: article.url,
-            source: article.source?.name || 'Unknown',
-            publishedAt: article.publishedAt || article.pubDate
-          },
-          metadata: {
-            industry: industry,
-            tone: tone,
-            generated_at: new Date().toISOString()
-          }
-        });
-      } catch (error) {
-        console.error(`❌ Error generating post ${i + 1}:`, error);
-        // Continue with other posts even if one fails
+    // Race against timeout for the main operation
+    const operationPromise = (async () => {
+      // Fetch 5 different news articles from different sources
+      const newsArticles = await fetchDiverseIndustryNews(industry, searchTerms, 5);
+      
+      if (newsArticles.length === 0) {
+        throw new Error('No recent industry news found. Please try a different industry or try again later.');
       }
-    }
 
-    if (generatedPosts.length === 0) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to generate any posts. Please try again.'
-      });
-    }
+      console.log(`📰 Found ${newsArticles.length} diverse news articles`);
 
-    // Deduct credits using CreditDB
-    const newBalance = await CreditDB.deductCredits(req.user.id, usedCredits, 'Fake It Till You Make It mode');
-    console.log(`💳 Deducted ${usedCredits} credits for Fake It Till You Make It mode`);
+      // Generate posts for each article with student-friendly approach
+      const generatedPosts = [];
+      const usedCredits = Math.min(newsArticles.length, 5);
+      const postPromises = [];
 
-    res.json({
-      success: true,
-      posts: generatedPosts,
-      creditsUsed: usedCredits,
-      remainingCredits: newBalance,
-      message: `Generated ${generatedPosts.length} industry-aware posts!`
-    });
+      // Start all post generations in parallel
+      for (let i = 0; i < usedCredits; i++) {
+        const article = newsArticles[i];
+        postPromises.push(
+          generateStudentIndustryPost(article, industry, tone)
+            .then(post => ({
+              id: `fake-${Date.now()}-${i}`,
+              post,
+              article: {
+                title: article.title,
+                url: article.url,
+                source: article.source?.name || 'Unknown',
+                publishedAt: article.publishedAt || article.pubDate
+              },
+              metadata: {
+                industry,
+                tone,
+                generated_at: new Date().toISOString()
+              }
+            }))
+            .catch(error => {
+              console.error(`❌ Error generating post ${i + 1}:`, error);
+              return null;
+            })
+        );
+      }
+
+      // Wait for all posts to be generated
+      const results = await Promise.all(postPromises);
+      generatedPosts.push(...results.filter(post => post !== null));
+
+      if (generatedPosts.length === 0) {
+        throw new Error('Failed to generate any posts. Please try again.');
+      }
+
+      // Deduct credits using CreditDB
+      const newBalance = await CreditDB.deductCredits(req.user.id, usedCredits, 'Fake It Till You Make It mode');
+      console.log(`💳 Deducted ${usedCredits} credits for Fake It Till You Make It mode`);
+
+      return {
+        success: true,
+        posts: generatedPosts,
+        creditsUsed: usedCredits,
+        remainingCredits: newBalance,
+        message: `Generated ${generatedPosts.length} industry-aware posts!`
+      };
+    })();
+
+    // Race between the operation and the timeout
+    const result = await Promise.race([operationPromise, timeoutPromise]);
+    res.json(result);
 
   } catch (error) {
     console.error('❌ Fake It Till You Make It mode error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate industry posts'
-    });
+    
+    // Handle different types of errors
+    if (error.message === 'Operation timed out') {
+      res.status(504).json({
+        success: false,
+        error: 'The operation took too long to complete. Please try again with a more specific industry.'
+      });
+    } else if (error.message.includes('No recent industry news found')) {
+      res.status(404).json({
+        success: false,
+        error: error.message
+      });
+    } else if (error.response?.status === 429) {
+      res.status(429).json({
+        success: false,
+        error: 'Too many requests. Please try again in a few minutes.'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate industry posts. Please try again.'
+      });
+    }
   }
 });
 
@@ -5081,32 +5114,14 @@ app.get('/api/user/credits', requireAuth, async (req, res) => {
 
 // Helper function to generate industry-specific search terms
 async function generateIndustrySearchTerms(industry) {
-  const prompt = `Generate 5 specific, current search terms for finding recent news articles about the "${industry}" industry. 
-  
-Focus on:
-- Recent developments and trends
-- Company announcements and partnerships
-- New technologies or innovations
-- Market changes and opportunities
-- Industry challenges and solutions
-
-Format as a simple comma-separated list of search terms.
-Example: "artificial intelligence startups, AI funding rounds, machine learning enterprise, AI healthcare applications, AI regulation updates"`;
-
-  try {
-    const response = await callOpenAI(prompt, 'research_helper');
-    return response.split(',').map(term => term.trim()).filter(term => term.length > 0);
-  } catch (error) {
-    console.error('❌ Error generating search terms:', error);
-    // Fallback search terms based on industry
-    return [
-      `${industry} industry news`,
-      `${industry} trends 2024`,
-      `${industry} companies updates`,
-      `${industry} technology innovation`,
-      `${industry} market analysis`
-    ];
-  }
+  // Use predefined search patterns instead of AI generation to avoid timeouts
+  return [
+    `${industry} latest news`,
+    `${industry} industry trends`,
+    `${industry} company announcements`,
+    `${industry} innovation`,
+    `${industry} market updates`
+  ].map(term => encodeURIComponent(term));
 }
 
 // Helper function to fetch diverse news from different sources
