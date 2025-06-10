@@ -4489,10 +4489,10 @@ app.post('/api/automation/process-queue', requireAuth, async (req, res) => {
             scheduled_for: queueItem.scheduled_for
           });
 
-          // Update queue item status to processed
+          // Update queue item status to ready (processed and ready for posting)
           await pool.query(
             'UPDATE automation_queue SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-            ['processed', queueItem.id]
+            ['ready', queueItem.id]
           );
 
           // If the scheduled time is now or in the past, post immediately
@@ -4748,7 +4748,7 @@ async function processUserQueue(userId) {
 
         await pool.query(
           'UPDATE automation_queue SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-          ['processed', queueItem.id]
+          ['ready', queueItem.id]
         );
 
         const scheduleTime = new Date(queueItem.scheduled_for);
