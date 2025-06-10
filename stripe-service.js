@@ -380,6 +380,20 @@ class StripeService {
       
       console.log(`✅ Credit purchase completed for user ${userId}: +${creditAmount} credits, new balance: ${newBalance}`);
       
+      // Sync the credit balance to the users table for consistency
+      try {
+        const { Pool } = require('pg');
+        const dbPool = new Pool({
+          connectionString: process.env.DATABASE_URL,
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        });
+        
+        await dbPool.query('UPDATE users SET credits = $1 WHERE id = $2', [newBalance, userId]);
+        console.log(`✅ User table credit balance synced: ${newBalance} credits`);
+      } catch (syncError) {
+        console.error('⚠️ Failed to sync credit balance to users table:', syncError);
+      }
+      
     } catch (error) {
       console.error('❌ Error handling credit purchase:', error);
     }
