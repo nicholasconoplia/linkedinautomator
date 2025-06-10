@@ -64,6 +64,7 @@ class StripeService {
           },
         ],
         mode: 'subscription',
+        allow_promotion_codes: true,  // Enable promotional codes
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {

@@ -1911,6 +1911,7 @@ app.post('/api/credits/create-checkout', requireAuth, async (req, res) => {
         },
       ],
       customer_email: req.user.email,
+      allow_promotion_codes: true,  // Enable promotional codes
       metadata: {
         user_id: userId.toString(),
         credit_amount: credits.toString(),
