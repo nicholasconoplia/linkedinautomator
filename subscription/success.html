@@ -325,6 +325,14 @@
             return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
         }
 
+        // Display credit pack purchase success
+        function displayCreditPurchaseSuccess(creditAmount) {
+            document.getElementById('successTitle').textContent = '🎉 Credits Purchased!';
+            document.getElementById('successMessage').textContent = `You've successfully purchased ${creditAmount} credits. You can now start generating AI-powered LinkedIn posts!`;
+            
+            displaySubscriptionDetails({ credits: creditAmount });
+        }
+
         // Display subscription or credit details
         function displaySubscriptionDetails(data) {
             const detailsContainer = document.getElementById('subscriptionDetails');
@@ -372,8 +380,8 @@
                         <span class="detail-value">${nextBilling}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Posts Remaining:</span>
-                        <span class="detail-value">${subscription.posts_limit === -1 ? 'Unlimited' : subscription.posts_limit + ' this month'}</span>
+                        <span class="detail-label">Credits Available:</span>
+                        <span class="detail-value">${data.usageLimit?.postsRemaining || 0} credits</span>
                     </div>
                 `;
             }
@@ -506,6 +514,20 @@
         async function checkForRecentSubscription() {
             try {
                 console.log('🔧 Checking for recent subscription...');
+                
+                // First check if this was a credit pack purchase
+                const urlParams = new URLSearchParams(window.location.search);
+                const purchaseType = urlParams.get('purchase_type');
+                const creditAmount = urlParams.get('credits');
+                
+                if (purchaseType === 'credit_pack' && creditAmount) {
+                    console.log('🔧 Detected credit pack purchase');
+                    displayCreditPurchaseSuccess(creditAmount);
+                    document.getElementById('loadingSection').style.display = 'none';
+                    document.getElementById('successSection').style.display = 'block';
+                    return;
+                }
+                
                 const response = await fetch('/api/subscription/status', {
                     credentials: 'include'
                 });
