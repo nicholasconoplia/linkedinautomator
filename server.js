@@ -1010,6 +1010,42 @@ app.get('/api/credits/balance', requireAuth, async (req, res) => {
   }
 });
 
+// Add credits to user account (manual addition)
+app.post('/api/credits/add', requireAuth, async (req, res) => {
+  try {
+    const { credits, description } = req.body;
+    
+    if (!credits || credits <= 0) {
+      return res.status(400).json({ error: 'Valid credit amount is required' });
+    }
+
+    // For security, limit manual additions to reasonable amounts
+    if (credits > 500) {
+      return res.status(400).json({ error: 'Credit amount too large' });
+    }
+
+    const newBalance = await CreditDB.addCredits(
+      req.user.id, 
+      credits, 
+      description || 'Manual credit addition'
+    );
+    
+    res.json({
+      success: true,
+      message: `Added ${credits} credits to your account`,
+      creditsAdded: credits,
+      newBalance: newBalance
+    });
+    
+  } catch (error) {
+    console.error('❌ Error adding credits:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Get subscription plans
 app.get('/api/subscription/plans', async (req, res) => {
   try {

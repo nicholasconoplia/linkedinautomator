@@ -2884,6 +2884,12 @@ class EmploymentApp {
         } catch (error) {
             console.error('❌ Generation failed:', error);
             
+            // Check if it's a credit error
+            if (error.message.includes('Insufficient credits') || error.message.includes('credits')) {
+                // Credit modal already shown by the individual functions
+                return;
+            }
+            
             // Check if it's a subscription error
             if (error.message.includes('subscription') || error.message.includes('limit')) {
                 await this.showSubscriptionModal();
@@ -4488,6 +4494,12 @@ class EmploymentApp {
                 } catch (parseError) {
                     console.warn('Failed to parse error response:', parseError);
                     errorData = { error: 'Server error occurred' };
+                }
+                
+                // Check if it's a credit error
+                if (response.status === 403 && errorData.needsCredits) {
+                    await this.showCreditPurchaseModal(errorData.creditsRemaining || 0);
+                    throw new Error(errorData.error || 'Insufficient credits');
                 }
                 
                 // Check if it's a subscription limit error
