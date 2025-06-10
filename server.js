@@ -1518,13 +1518,18 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
     const userId = req.user.id;
     const activateIncomplete = req.query.activate === 'true';
     
+    // Get user's credit balance
+    const creditBalance = await CreditDB.getCredits(userId);
+    console.log('💳 User credit balance:', creditBalance);
+    
     // IMMEDIATE DEPLOYMENT TEST
     if (req.query.test === 'deployment') {
       return res.json({
         deployment_test: true,
         timestamp: new Date().toISOString(),
         message: 'New deployment is working!',
-        user_id: userId
+        user_id: userId,
+        credits: creditBalance
       });
     }
     
@@ -1624,10 +1629,18 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
 
     const usageLimit = await UsageDB.checkUsageLimit(userId);
     
+    // If user has credits, they should have access regardless of subscription
+    if (creditBalance > 0) {
+      usageLimit.hasAccess = true;
+      usageLimit.postsRemaining = Math.max(usageLimit.postsRemaining || 0, creditBalance);
+      usageLimit.credits = creditBalance;
+    }
+    
     res.json({
       subscription,
       usage,
-      usageLimit
+      usageLimit,
+      credits: creditBalance
     });
   } catch (error) {
     console.error('❌ Error fetching subscription status:', error);

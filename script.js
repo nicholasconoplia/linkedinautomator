@@ -3050,7 +3050,7 @@ class EmploymentApp {
         try {
             console.log('🔍 Checking subscription limit...');
             const response = await fetch('/api/subscription/status', {
-                credentials: 'include', // Include cookies for authentication
+                credentials: 'include',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
@@ -3065,7 +3065,6 @@ class EmploymentApp {
                 // If it's just a 401, user might need to re-login
                 if (response.status === 401) {
                     console.log('🔄 Authentication required - user needs to login');
-                    // Don't show modal for auth issues, let them continue to login
                     return true;
                 }
                 
@@ -3096,18 +3095,17 @@ class EmploymentApp {
             
             console.log('Subscription status:', data);
             
-            // Check if user has access
-            if (!data.usageLimit || !data.usageLimit.hasAccess) {
+            // Check if user has access through either subscription or credits
+            if ((!data.usageLimit || !data.usageLimit.hasAccess) && (!data.credits || data.credits <= 0)) {
                 console.log('No access - showing subscription modal');
                 await this.showSubscriptionModal(data);
                 return false;
             }
 
-            console.log('Access granted - posts remaining:', data.usageLimit.postsRemaining);
+            console.log('Access granted - posts remaining:', data.usageLimit.postsRemaining, 'credits:', data.credits);
             return true;
         } catch (error) {
             console.error('Error checking subscription:', error);
-            // Show modal on error to be safe
             await this.showSubscriptionModal();
             return false;
         }
@@ -3163,7 +3161,16 @@ class EmploymentApp {
             const { postsUsed, postsLimit, reason } = usageData.usageLimit;
             const usageCard = usageInfo.querySelector('.usage-card');
             
-            if (postsLimit > 0) {
+            // Show different message if user has credits
+            if (usageData.credits > 0) {
+                usageCard.innerHTML = `
+                    <div class="usage-icon">💳</div>
+                    <div class="usage-text">
+                        <h3>Credits Available: ${usageData.credits}</h3>
+                        <p>You have credits available! Continue using your credits or upgrade to a subscription for better value.</p>
+                    </div>
+                `;
+            } else if (postsLimit > 0) {
                 usageCard.innerHTML = `
                     <div class="usage-icon">📊</div>
                     <div class="usage-text">
