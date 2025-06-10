@@ -2118,8 +2118,8 @@ app.get('/api/debug/user-status', requireAuth, async (req, res) => {
     // Get subscription data
     const subscription = await SubscriptionDB.getUserSubscription(userId);
     
-    // Get credit balance
-    const credits = await CreditDB.getCredits(userId);
+    // Get credit balance from CreditDB (this is the source of truth)
+    const creditBalance = await CreditDB.getCredits(userId);
     
     // Get recent usage using the proper database connection
     const { Pool } = require('pg');
@@ -2135,6 +2135,15 @@ app.get('/api/debug/user-status', requireAuth, async (req, res) => {
       LIMIT 10
     `, [userId]);
     
+    // Check for recent credit additions
+    const recentCredits = await dbPool.query(`
+      SELECT * FROM usage_tracking 
+      WHERE user_id = $1 
+      AND metadata::text LIKE '%credit_added%'
+      ORDER BY created_at DESC 
+      LIMIT 5
+    `, [userId]);
+    
     res.json({
       user: {
         id: user.id,
@@ -2143,8 +2152,10 @@ app.get('/api/debug/user-status', requireAuth, async (req, res) => {
         credits: user.credits
       },
       subscription,
-      creditBalance: credits,
-      recentUsage: recentUsage.rows
+      creditBalance: creditBalance,  // This should be the correct balance
+      userTableCredits: user.credits, // This might be outdated
+      recentUsage: recentUsage.rows,
+      recentCreditAdditions: recentCredits.rows
     });
   } catch (error) {
     console.error('Debug endpoint error:', error);
