@@ -1027,7 +1027,7 @@ app.post('/api/credits/add', requireAuth, async (req, res) => {
     const newBalance = await CreditDB.addCredits(
       req.user.id, 
       credits, 
-      description || 'Manual credit addition'
+      description || 'Manual addition'
     );
     
     res.json({
