@@ -389,26 +389,21 @@ function initializeDatabase() {
 
         // Saved posts table
         await client.query(`
-          CREATE TABLE IF NOT EXISTS saved_posts (
+          DROP TABLE IF EXISTS saved_posts CASCADE;
+          CREATE TABLE saved_posts (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
             title TEXT,
             content TEXT NOT NULL,
             source_url TEXT,
-            image_url TEXT,
             industry TEXT,
             tone TEXT,
             metadata JSONB DEFAULT '{}',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
-          )
-        `);
-
-        // Create index for saved_posts
-        await client.query(`
-          CREATE INDEX IF NOT EXISTS idx_saved_posts_user 
-          ON saved_posts (user_id)
+          );
+          CREATE INDEX IF NOT EXISTS idx_saved_posts_user ON saved_posts (user_id);
         `);
 
         // Insert default subscription plans
@@ -1296,7 +1291,6 @@ const SavedPostsDB = {
         postData.title || null,
         postData.content,
         postData.source_url || null,
-        null, // image_url is not provided in the request
         postData.industry || null,
         postData.tone || null,
         postData.metadata || {}
@@ -1306,8 +1300,8 @@ const SavedPostsDB = {
       
       const result = await client.query(`
         INSERT INTO saved_posts 
-        (user_id, title, content, source_url, image_url, industry, tone, metadata)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        (user_id, title, content, source_url, industry, tone, metadata)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `, params);
       
