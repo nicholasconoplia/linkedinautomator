@@ -2,9 +2,9 @@ require('dotenv').config();
 const { initializeDatabase, SubscriptionDB } = require('./database');
 
 const NEW_PRICE_IDS = {
-  'Starter': 'price_1RXelQKkxlEtPdqxvLmom609', // Current price ID being used
-  'Professional': 'price_1RXeWkQNESKipGbatzlHO7ix',
-  'Business': 'price_1RXeWlQNESKipGbauhCh7oCy',
+  'Starter': 'price_1RXyydKkxlEtPdqxDr6cuYqJ', // Active price ID
+  'Professional': 'price_1RXelRKkxlEtPdqxrGxYu3Bp', // Active price ID  
+  'Business': 'price_1RXelRKkxlEtPdqxveicYc5e', // Active price ID
   'Enterprise': 'price_1RXeWmQNESKipGba2g6IpbAF'
 };
 
