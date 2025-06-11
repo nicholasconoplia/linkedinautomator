@@ -285,13 +285,13 @@
             <!-- Hero Section -->
             <div class="hero-gradient text-white py-16">
                 <div class="max-w-6xl mx-auto text-center px-6">
-                    <h1 class="text-5xl font-bold mb-6">Choose Your Plan</h1>
+                    <h1 class="text-5xl font-bold mb-6">Buy Credits</h1>
                     <p class="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-                        Select the perfect plan for your LinkedIn content needs
+                        Purchase credits for your LinkedIn content generation - no subscriptions, no commitments
                     </p>
                     <div class="inline-flex items-center gap-2 bg-blue-600/20 border border-blue-400/30 rounded-full px-6 py-3">
-                        <span class="text-2xl">🚀</span>
-                        <span class="font-semibold">Launch Special - Limited Time Pricing</span>
+                        <span class="text-2xl">💳</span>
+                        <span class="font-semibold">Simple Credit System - Pay Once, Use Anytime</span>
                     </div>
                     
 
@@ -299,13 +299,13 @@
             </div>
 
             <!-- Tab Container -->
-            <div class="tab-container">
-                <button class="tab-button active" onclick="switchTab('subscriptions')">Monthly Plans</button>
-                <button class="tab-button" onclick="switchTab('credits')">Buy Credits</button>
+            <div class="tab-container" style="display: none;">
+                <button class="tab-button" onclick="switchTab('subscriptions')">Monthly Plans</button>
+                <button class="tab-button active" onclick="switchTab('credits')">Buy Credits</button>
             </div>
 
             <!-- Subscription Plans Section -->
-            <div id="subscriptions" class="pricing-section active">
+            <div id="subscriptions" class="pricing-section" style="display: none;">
                 <div class="pricing-grid">
                     <!-- Starter Plan -->
                     <div class="pricing-card rounded-2xl p-8 text-center">
@@ -449,7 +449,7 @@
             </div>
 
             <!-- One-time Credit Purchase Section -->
-            <div id="credits" class="pricing-section">
+            <div id="credits" class="pricing-section active">
                 <div class="text-center mb-8">
                     <h2 class="text-3xl font-bold mb-4">Buy Credits Once</h2>
                     <p class="text-gray-600">Perfect for occasional users or to top up your account</p>
