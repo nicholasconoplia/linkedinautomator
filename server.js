@@ -2032,9 +2032,9 @@ app.get('/api/webhooks/test', async (req, res) => {
 
 // Credit pack price IDs
 const CREDIT_PACK_PRICES = {
-  25: 'price_1RYKaLKkxlEtPdqxLAKLndhB',    // $0.99 for 25 credits (Small pack)
-  75: 'price_1RYKajKkxlEtPdqxaSbA8TSi',    // $2.49 for 75 credits (Medium pack)  
-  200: 'price_1RYKbZKkxlEtPdqxjBt0e4xK'   // $5.99 for 200 credits (Large pack)
+  25: 'price_1RYiOEKkxlEtPdqxhmp7IvfF',    // $0.49 for 25 credits (Small pack)
+  75: 'price_1RYiQaKkxlEtPdqxU8rQW1oy',    // $1.49 for 75 credits (Medium pack)  
+  200: 'price_1RYiRlKkxlEtPdqxj6dZgPfB'   // $2.49 for 200 credits (Large pack)
 };
 
 // Create checkout session for credit purchases
@@ -2536,9 +2536,9 @@ app.post('/api/payments/recover', requireAuth, async (req, res) => {
 // Utility function for determining credit amounts
 function determineCreditAmountHelper(amountTotal) {
   const amountInDollars = amountTotal / 100;
-  if (amountInDollars === 0.99) return 25;
-  if (amountInDollars === 2.49) return 75;
-  if (amountInDollars === 5.99) return 200;
+  if (amountInDollars === 0.49) return 25;
+  if (amountInDollars === 1.49) return 75;
+  if (amountInDollars === 2.49) return 200;
   return Math.floor(amountInDollars * 25); // Default estimation
 }
 

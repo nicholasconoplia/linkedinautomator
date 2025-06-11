@@ -223,18 +223,18 @@
         // Determine credit amount from payment total
         function determineCreditAmount(amountTotal) {
             const amountInDollars = amountTotal / 100;
-            if (amountInDollars === 0.99) return 25;
-            if (amountInDollars === 2.49) return 75;
-            if (amountInDollars === 5.99) return 200;
+            if (amountInDollars === 0.49) return 25;
+            if (amountInDollars === 1.49) return 75;
+            if (amountInDollars === 2.49) return 200;
             return Math.floor(amountInDollars * 25); // Default estimation
         }
         
         // Determine pack type from payment total
         function determinePackType(amountTotal) {
             const amountInDollars = amountTotal / 100;
-            if (amountInDollars === 0.99) return 'Small Credit Pack';
-            if (amountInDollars === 2.49) return 'Medium Credit Pack';
-            if (amountInDollars === 5.99) return 'Large Credit Pack';
+            if (amountInDollars === 0.49) return 'Small Credit Pack';
+            if (amountInDollars === 1.49) return 'Medium Credit Pack';
+            if (amountInDollars === 2.49) return 'Large Credit Pack';
             return 'Credit Pack';
         }
         

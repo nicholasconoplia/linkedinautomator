@@ -315,13 +315,13 @@ class StripeService {
         console.log('💳 Payment amount:', amountInDollars);
         
         // Map common payment amounts to credit amounts based on our pricing
-        if (amountInDollars === 0.99) {
+        if (amountInDollars === 0.49) {
           creditAmount = 25;
           planName = 'Small Credit Pack';
-        } else if (amountInDollars === 2.49) {
+        } else if (amountInDollars === 1.49) {
           creditAmount = 75;
           planName = 'Medium Credit Pack';
-        } else if (amountInDollars === 5.99) {
+        } else if (amountInDollars === 2.49) {
           creditAmount = 200;
           planName = 'Large Credit Pack';
         } else {
