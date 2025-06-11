@@ -447,7 +447,7 @@ class StripeService {
     }
   }
 
-  // Handle successful payment
+  // Handle successful payment (EXACTLY like credit purchases that work!)
   async handlePaymentSucceeded(invoice) {
     try {
       console.log('💰 Payment succeeded:', invoice.id);
@@ -458,53 +458,63 @@ class StripeService {
         status: invoice.status
       });
       
-      // If this is a subscription payment, allocate monthly credits
+      // If this is a subscription payment, allocate monthly credits using EXACT same logic as credit purchases
       if (invoice.subscription) {
         const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
-        console.log('📋 Subscription details:', {
-          id: subscription.id,
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        
+        console.log('📋 Processing subscription payment for customer:', customer.email);
+        
+        // Create a fake session object with the same structure as credit purchases
+        const fakeSession = {
+          id: `subscription_payment_${invoice.id}`,
           customer: subscription.customer,
-          status: subscription.status,
-          current_period_start: subscription.current_period_start,
-          current_period_end: subscription.current_period_end
-        });
+          customer_details: {
+            email: customer.email
+          },
+          metadata: customer.metadata || {},
+          amount_total: invoice.amount_paid
+        };
         
-        // Try multiple methods to find the user (same as credit purchases)
-        let userId = null;
-        let planName = null;
+        // Use EXACTLY the same user-finding logic as credit purchases
+        let userId = fakeSession.metadata?.user_id ? parseInt(fakeSession.metadata.user_id) : null;
         
-        // Method 1: Try to find user by existing subscription record
-        const userSub = await SubscriptionDB.getUserSubscriptionByCustomer(subscription.customer);
-        if (userSub) {
-          userId = userSub.user_id;
-          planName = userSub.plan_name;
-          console.log('✅ Found user via subscription record:', userId, planName);
+        // For Payment Links, try to find user by customer email (EXACT same logic)
+        if (!userId && fakeSession.customer_details?.email) {
+          console.log('🔧 Finding user by email for subscription payment:', fakeSession.customer_details.email);
+          
+          const UserDB = require('./database').UserDB;
+          const user = await UserDB.getUserByEmail(fakeSession.customer_details.email);
+          if (user) {
+            userId = user.id;
+            console.log('✅ Found user by email for subscription payment:', userId);
+          }
         }
         
-        // Method 2: If no subscription record, try to find user by Stripe customer email
+        // If still no user found, try by existing stripe customer ID (EXACT same logic)
+        if (!userId && fakeSession.customer) {
+          console.log('🔧 Trying to find user by Stripe customer ID for subscription payment:', fakeSession.customer);
+          const SubscriptionDB = require('./database').SubscriptionDB;
+          const existingSubscription = await SubscriptionDB.getUserSubscriptionByCustomer(fakeSession.customer);
+          if (existingSubscription) {
+            userId = existingSubscription.user_id;
+            console.log('✅ Found user by existing customer record for subscription payment:', userId);
+          }
+        }
+        
         if (!userId) {
-          console.log('🔧 No subscription record found, trying to find user by customer email...');
-          const customer = await stripe.customers.retrieve(subscription.customer);
-          console.log('👤 Customer details:', { email: customer.email, metadata: customer.metadata });
-          
-          if (customer.email) {
-            const UserDB = require('./database').UserDB;
-            const user = await UserDB.getUserByEmail(customer.email);
-            if (user) {
-              userId = user.id;
-              console.log('✅ Found user by email:', userId);
-            }
-          }
-          
-          // Also check customer metadata for user_id
-          if (!userId && customer.metadata?.user_id) {
-            userId = parseInt(customer.metadata.user_id);
-            console.log('✅ Found user via customer metadata:', userId);
-          }
+          console.error('❌ Could not determine user ID for subscription payment:', fakeSession.id);
+          console.error('❌ Session details:', {
+            customer_email: fakeSession.customer_details?.email,
+            customer_id: fakeSession.customer,
+            metadata: fakeSession.metadata
+          });
+          return;
         }
         
-        // Method 3: Get plan name from subscription price if we don't have it
-        if (!planName && subscription.items?.data?.[0]?.price?.id) {
+        // Get plan name from subscription price
+        let planName = null;
+        if (subscription.items?.data?.[0]?.price?.id) {
           const priceId = subscription.items.data[0].price.id;
           const plans = await SubscriptionDB.getPlans();
           const plan = plans.find(p => p.stripe_price_id === priceId);
@@ -514,50 +524,37 @@ class StripeService {
           }
         }
         
-        if (!userId) {
-          console.error('❌ Could not determine user ID for subscription payment:', {
-            subscription_id: subscription.id,
-            customer_id: subscription.customer,
-            invoice_id: invoice.id
-          });
-          return;
-        }
-        
         if (!planName) {
-          console.error('❌ Could not determine plan name for subscription payment:', {
-            subscription_id: subscription.id,
-            user_id: userId
-          });
+          console.error('❌ Could not determine plan name for subscription payment');
           return;
         }
         
-        // Get the subscription plan credits and add them
-        const planCredits = this.getPlanCredits(planName);
-        if (planCredits > 0) {
-          const { CreditDB } = require('./database');
-          const newBalance = await CreditDB.addCredits(
-            userId, 
-            planCredits, 
-            `Monthly subscription credits - ${planName} plan`
-          );
+        // Get credit amount for plan (like determining credit amount in purchases)
+        const creditAmount = this.getPlanCredits(planName);
+        
+        if (!creditAmount || creditAmount <= 0) {
+          console.error('❌ Invalid credit amount for subscription plan:', creditAmount);
+          return;
+        }
+        
+        // Add credits to user account (EXACT same logic as credit purchases)
+        const CreditDB = require('./database').CreditDB;
+        const newBalance = await CreditDB.addCredits(userId, creditAmount, `${planName} subscription payment via Stripe`);
+        
+        console.log(`✅ Subscription payment completed for user ${userId}: +${creditAmount} credits, new balance: ${newBalance}`);
+        
+        // Sync the credit balance to the users table for consistency (EXACT same logic)
+        try {
+          const { Pool } = require('pg');
+          const dbPool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+          });
           
-          console.log(`✅ Added ${planCredits} subscription credits to user ${userId} for ${planName} plan, new balance: ${newBalance}`);
-          
-          // Sync the credit balance to the users table for consistency (same as credit purchases)
-          try {
-            const { Pool } = require('pg');
-            const dbPool = new Pool({
-              connectionString: process.env.DATABASE_URL,
-              ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-            });
-            
-            await dbPool.query('UPDATE users SET credits = $1 WHERE id = $2', [newBalance, userId]);
-            console.log(`✅ User table credit balance synced: ${newBalance} credits`);
-          } catch (syncError) {
-            console.error('⚠️ Failed to sync credit balance to users table:', syncError);
-          }
-        } else {
-          console.log(`ℹ️ No credits configured for plan: ${planName}`);
+          await dbPool.query('UPDATE users SET credits = $1 WHERE id = $2', [newBalance, userId]);
+          console.log(`✅ User table credit balance synced: ${newBalance} credits`);
+        } catch (syncError) {
+          console.error('⚠️ Failed to sync credit balance to users table:', syncError);
         }
       }
     } catch (error) {
