@@ -793,6 +793,9 @@
                         }
                     }
                     
+                    // Check subscription status
+                    await checkSubscriptionStatus();
+                    
                     // Update payment links with user data
                     setTimeout(updatePaymentLinks, 100);
                 } else {
@@ -823,10 +826,111 @@
             });
         }
         
+        let currentSubscription = null;
+
+        async function checkSubscriptionStatus() {
+            if (!isAuthenticated) return;
+            
+            try {
+                const response = await fetch('/api/subscription/status');
+                const data = await response.json();
+                
+                if (data.hasActiveSubscription) {
+                    currentSubscription = data.subscription;
+                    updateSubscriptionButtons();
+                }
+            } catch (error) {
+                console.error('Error checking subscription status:', error);
+            }
+        }
+
+        function updateSubscriptionButtons() {
+            if (!currentSubscription) return;
+            
+            const currentPlan = currentSubscription.planName.toLowerCase();
+            
+            // Update all subscription buttons based on current plan
+            const plans = ['starter', 'professional', 'business'];
+            
+            plans.forEach(planName => {
+                const button = document.querySelector(`[onclick*="startSubscription('${planName}')"]`);
+                if (!button) return;
+                
+                if (planName === currentPlan) {
+                    // Current plan - show as active
+                    button.textContent = '✅ Current Plan';
+                    button.style.backgroundColor = '#10B981';
+                    button.style.cursor = 'default';
+                    button.onclick = null;
+                } else {
+                    // Other plans - show upgrade/downgrade
+                    const isUpgrade = plans.indexOf(planName) > plans.indexOf(currentPlan);
+                    button.textContent = isUpgrade ? `⬆️ Upgrade to ${capitalize(planName)}` : `⬇️ Downgrade to ${capitalize(planName)}`;
+                    button.onclick = () => changeSubscription(planName);
+                }
+            });
+            
+            // Show subscription management info
+            showSubscriptionInfo();
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function showSubscriptionInfo() {
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-center';
+            infoDiv.innerHTML = `
+                <div class="text-blue-800 font-semibold">
+                    🎉 You're subscribed to the ${capitalize(currentSubscription.planName)} plan!
+                </div>
+                <div class="text-blue-600 text-sm mt-1">
+                    You get monthly credits automatically. Next billing: ${new Date(currentSubscription.currentPeriodEnd).toLocaleDateString()}
+                </div>
+                <div class="mt-3">
+                    <a href="/manage-subscription" class="text-blue-600 hover:text-blue-800 font-medium">
+                        Manage Subscription →
+                    </a>
+                </div>
+            `;
+            
+            // Insert after hero section if not already present
+            const heroSection = document.querySelector('.hero-gradient');
+            const existingInfo = document.querySelector('.subscription-info');
+            if (heroSection && !existingInfo) {
+                infoDiv.classList.add('subscription-info');
+                heroSection.parentNode.insertBefore(infoDiv, heroSection.nextSibling);
+            }
+        }
+
+        async function changeSubscription(newPlanName) {
+            if (!currentSubscription) {
+                return startSubscription(newPlanName);
+            }
+            
+            const confirmMessage = `Change your subscription from ${capitalize(currentSubscription.planName)} to ${capitalize(newPlanName)}?\n\nThis will prorate your billing and update your monthly credits.`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // For now, redirect to manage subscription page for plan changes
+            // In the future, you could implement direct plan changes via Stripe API
+            alert('Please use the "Manage Subscription" link to change your plan, or contact support for assistance.');
+            window.location.href = '/manage-subscription';
+        }
+
         async function startSubscription(planName) {
             if (!isAuthenticated) {
                 alert('Please sign in with LinkedIn first to purchase a subscription.');
                 window.location.href = '/auth/linkedin';
+                return;
+            }
+            
+            // Check if user already has active subscription
+            if (currentSubscription) {
+                changeSubscription(planName);
                 return;
             }
             

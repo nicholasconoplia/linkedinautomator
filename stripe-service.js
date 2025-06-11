@@ -260,29 +260,22 @@ class StripeService {
 
         console.log('✅ Subscription updated in database for user:', userId);
         
-        // Add monthly credits for new subscription
+        // Add initial credits for new subscription
         try {
           const CreditDB = require('./database').CreditDB;
-          let creditsToAdd = plan.posts_limit || 30; // Default to 30 if not specified
+          const creditsToAdd = this.getPlanCredits(plan.name);
           
-          // Map subscription plans to credit amounts
-          if (plan.name && plan.name.toLowerCase().includes('starter')) {
-            creditsToAdd = 30;
-          } else if (plan.name && plan.name.toLowerCase().includes('professional')) {
-            creditsToAdd = 100;
-          } else if (plan.name && plan.name.toLowerCase().includes('business')) {
-            creditsToAdd = 300;
+          if (creditsToAdd > 0) {
+            await CreditDB.addCredits(
+              userId, 
+              creditsToAdd, 
+              `Initial credits for ${plan.name} subscription`
+            );
+            
+            console.log(`✅ Added ${creditsToAdd} initial credits for ${plan.name} subscription`);
           }
-          
-          await CreditDB.addCredits(
-            userId, 
-            creditsToAdd, 
-            `Monthly credits for ${plan.name} subscription`
-          );
-          
-          console.log(`✅ Added ${creditsToAdd} monthly credits for ${plan.name} subscription`);
         } catch (creditError) {
-          console.error('⚠️ Failed to add monthly credits:', creditError);
+          console.error('⚠️ Failed to add initial credits:', creditError);
           // Don't fail the entire process if credit addition fails
         }
         
@@ -458,7 +451,26 @@ class StripeService {
   async handlePaymentSucceeded(invoice) {
     try {
       console.log('💰 Payment succeeded:', invoice.id);
-      // Could add logic for usage-based billing, credits, etc.
+      
+      // If this is a subscription payment, allocate monthly credits
+      if (invoice.subscription) {
+        const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+        const userSub = await SubscriptionDB.getUserSubscriptionByCustomer(subscription.customer);
+        
+        if (userSub) {
+          // Get the subscription plan credits
+          const planCredits = this.getPlanCredits(userSub.plan_name);
+          if (planCredits > 0) {
+            const { CreditDB } = require('./database');
+            await CreditDB.addCredits(
+              userSub.user_id, 
+              planCredits, 
+              `Monthly subscription credits - ${userSub.plan_name} plan`
+            );
+            console.log(`✅ Added ${planCredits} credits to user ${userSub.user_id} for ${userSub.plan_name} subscription`);
+          }
+        }
+      }
     } catch (error) {
       console.error('❌ Error handling payment success:', error);
     }
@@ -530,6 +542,17 @@ class StripeService {
     } catch (error) {
       console.error('❌ Error handling PaymentIntent failure:', error);
     }
+  }
+
+  // Get credits for subscription plan
+  getPlanCredits(planName) {
+    const creditMap = {
+      'Starter': 30,
+      'Professional': 100,
+      'Business': 250,
+      'Enterprise': 500
+    };
+    return creditMap[planName] || 0;
   }
 
   // Get pricing information
