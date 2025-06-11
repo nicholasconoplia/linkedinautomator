@@ -549,7 +549,7 @@ class StripeService {
     const creditMap = {
       'Starter': 30,
       'Professional': 100,
-      'Business': 250,
+      'Business': 300,
       'Enterprise': 500
     };
     return creditMap[planName] || 0;
