@@ -6167,7 +6167,12 @@ app.post('/api/automation/generate-queue', requireAuth, async (req, res) => {
 app.get('/api/automation/queue', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { limit = 50, offset = 0 } = req.query;
+    const { limit = 50, offset = 0, showPosted = 'false' } = req.query;
+
+    // Build WHERE clause based on showPosted filter
+    const statusFilter = showPosted === 'true' 
+      ? '' // Show all statuses
+      : "AND status != 'posted' AND scheduled_for > NOW()"; // Only show upcoming posts
 
     // Get both automation queue items and scheduled posts
     const result = await pool.query(`
@@ -6184,7 +6189,7 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
         NULL as post_content,
         'automation' as source
       FROM automation_queue 
-      WHERE user_id = $1
+      WHERE user_id = $1 ${statusFilter}
       
       UNION ALL
       
@@ -6201,7 +6206,7 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
         post_content,
         'manual' as source
       FROM scheduled_posts 
-      WHERE user_id = $1
+      WHERE user_id = $1 ${statusFilter.replace("status != 'posted'", "status != 'posted'")}
       
       ORDER BY scheduled_for ASC 
       LIMIT $2 OFFSET $3
@@ -6209,16 +6214,17 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
 
     const countResult = await pool.query(`
       SELECT COUNT(*) as total FROM (
-        SELECT id FROM automation_queue WHERE user_id = $1
+        SELECT id FROM automation_queue WHERE user_id = $1 ${statusFilter}
         UNION ALL
-        SELECT id FROM scheduled_posts WHERE user_id = $1
+        SELECT id FROM scheduled_posts WHERE user_id = $1 ${statusFilter.replace("status != 'posted'", "status != 'posted'")}
       ) combined
     `, [userId]);
 
     res.json({
       queue: result.rows,
       total: parseInt(countResult.rows[0].total),
-      hasMore: (parseInt(offset) + result.rows.length) < parseInt(countResult.rows[0].total)
+      hasMore: (parseInt(offset) + result.rows.length) < parseInt(countResult.rows[0].total),
+      showPosted: showPosted === 'true'
     });
   } catch (error) {
     console.error('❌ Error fetching automation queue:', error);
@@ -6739,27 +6745,39 @@ app.get('/api/automation/analytics', requireAuth, async (req, res) => {
       startDate.setDate(startDate.getDate() - 30);
     }
 
-    // Posts this period
+    // Posts this period (from both tables)
     const postsResult = await pool.query(`
-      SELECT COUNT(*) as count 
-      FROM automation_queue 
-      WHERE user_id = $1 AND status = 'posted' AND posted_at >= $2
+      SELECT COUNT(*) as count FROM (
+        SELECT posted_at FROM automation_queue 
+        WHERE user_id = $1 AND status = 'posted' AND posted_at >= $2
+        UNION ALL
+        SELECT posted_at FROM scheduled_posts 
+        WHERE user_id = $1 AND status = 'posted' AND posted_at >= $2
+      ) combined
     `, [userId, startDate]);
 
-    // Next scheduled post
+    // Next scheduled post (from both tables, excluding posted ones)
     const nextPostResult = await pool.query(`
-      SELECT scheduled_for 
-      FROM automation_queue 
-      WHERE user_id = $1 AND status IN ('pending', 'ready') 
+      SELECT scheduled_for FROM (
+        SELECT scheduled_for FROM automation_queue 
+        WHERE user_id = $1 AND status IN ('pending', 'ready') AND scheduled_for > NOW()
+        UNION ALL
+        SELECT scheduled_for FROM scheduled_posts 
+        WHERE user_id = $1 AND status = 'pending' AND scheduled_for > NOW()
+      ) combined
       ORDER BY scheduled_for ASC 
       LIMIT 1
     `, [userId]);
 
-    // Queue length
+    // Queue length (from both tables, excluding posted ones)
     const queueResult = await pool.query(`
-      SELECT COUNT(*) as count 
-      FROM automation_queue 
-      WHERE user_id = $1 AND status IN ('pending', 'ready')
+      SELECT COUNT(*) as count FROM (
+        SELECT id FROM automation_queue 
+        WHERE user_id = $1 AND status IN ('pending', 'ready') AND scheduled_for > NOW()
+        UNION ALL
+        SELECT id FROM scheduled_posts 
+        WHERE user_id = $1 AND status = 'pending' AND scheduled_for > NOW()
+      ) combined
     `, [userId]);
 
     res.json({
