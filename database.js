@@ -237,7 +237,7 @@ function initializeDatabase() {
           CREATE TABLE IF NOT EXISTS usage_tracking (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL,
-            action_type TEXT NOT NULL CHECK (action_type IN ('post_generation', 'post_publish', 'image_fetch', 'credit_added', 'credit_deducted')),
+            action_type TEXT NOT NULL CHECK (action_type IN ('post_generation', 'post_publish', 'image_fetch', 'credit_added', 'credit_deducted', 'manual_post_generation')),
             cost DECIMAL(10,6) DEFAULT 0,
             tokens_used INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
