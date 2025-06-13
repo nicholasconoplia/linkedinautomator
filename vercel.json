@@ -55,6 +55,7 @@
     { "source": "/subscription/(.*)", "destination": "server.js" },
     { "source": "/manage-subscription", "destination": "server.js" },
     { "source": "/saved-posts", "destination": "server.js" },
+    { "source": "/manual-post", "destination": "server.js" },
     { "source": "/fake-it-mode", "destination": "/fake-it-mode.html" },
     { "source": "/", "destination": "server.js" }
   ],
