@@ -1229,11 +1229,28 @@ app.get('/api/scheduled-posts', requireAuth, async (req, res) => {
   }
 });
 
-// Schedule a post manually
+// Schedule a post manually (generates new content)
 app.post('/api/schedule-post', requireAuth, rateLimitMiddleware, async (req, res) => {
   try {
-    const { topic, tone, scheduled_for } = req.body;
+    const { topic, tone, scheduled_for, content, scheduledFor, source } = req.body;
     
+    // Handle pre-generated content (from manual post feature)
+    if (content && (scheduledFor || scheduled_for)) {
+      const finalScheduledFor = scheduledFor || scheduled_for;
+      
+      const post = await PostsDB.createScheduledPost(req.user.id, {
+        topic: source === 'manual' ? 'Manual Post' : topic,
+        tone: 'professional',
+        post_content: content,
+        image_url: null,
+        article_url: null,
+        scheduled_for: finalScheduledFor
+      });
+
+      return res.json({ success: true, postId: post.id });
+    }
+    
+    // Handle traditional scheduling (generates new content)
     if (!topic || !tone || !scheduled_for) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
