@@ -243,14 +243,23 @@
             }
         });
 
-        function showImprovedContent(content) {
-            improvedContentArea.innerHTML = `
-                <textarea readonly class="w-full h-full border-none bg-transparent resize-none focus:outline-none improved-content">${content}</textarea>
-            `;
-            improvedCount.textContent = content.length;
-            improvedCharCount.classList.remove('hidden');
-            updateButtonStates();
-        }
+                 function showImprovedContent(content) {
+             improvedContentArea.innerHTML = `
+                 <textarea id="improvedTextarea" class="w-full h-full border-none bg-transparent resize-none focus:outline-none improved-content focus:ring-2 focus:ring-blue-500 rounded-lg p-2">${content}</textarea>
+             `;
+             
+             // Add event listener for editing
+             const improvedTextarea = document.getElementById('improvedTextarea');
+             improvedTextarea.addEventListener('input', function() {
+                 improvedContent = this.value;
+                 improvedCount.textContent = this.value.length;
+                 updateButtonStates();
+             });
+             
+             improvedCount.textContent = content.length;
+             improvedCharCount.classList.remove('hidden');
+             updateButtonStates();
+         }
 
         function updateButtonStates() {
             const hasOriginal = originalTextarea.value.trim().length > 0;

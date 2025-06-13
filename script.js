@@ -598,11 +598,15 @@ class EmploymentApp {
                 
                 dayElement.innerHTML = `
                     <div class="text-sm font-medium mb-1">${currentDate.getDate()}</div>
-                    ${posts.map(post => `
-                        <div class="text-xs bg-[#0b80ee] text-white rounded px-2 py-1 mb-1 truncate" title="${post.topic}">
-                            📝 ${post.topic.substring(0, 15)}...
-                        </div>
-                    `).join('')}
+                    ${posts.map(post => {
+                        const bgColor = post.source === 'manual' ? 'bg-[#10b981]' : 'bg-[#0b80ee]';
+                        const icon = post.source === 'manual' ? '✏️' : '📝';
+                        return `
+                            <div class="text-xs ${bgColor} text-white rounded px-2 py-1 mb-1 truncate" title="${post.topic} (${post.source === 'manual' ? 'Manual' : 'Auto'})">
+                                ${icon} ${post.topic.substring(0, 12)}...
+                            </div>
+                        `;
+                    }).join('')}
                 `;
                 
                 calendarGrid.appendChild(dayElement);
@@ -631,13 +635,24 @@ class EmploymentApp {
                 'pending': 'bg-[#fbbf24] text-white',
                 'ready': 'bg-[#10b981] text-white',
                 'posted': 'bg-[#6b7280] text-white',
-                'failed': 'bg-[#ef4444] text-white'
+                'failed': 'bg-[#ef4444] text-white',
+                'scheduled': 'bg-[#3b82f6] text-white'
             }[post.status] || 'bg-[#6b7280] text-white';
+
+            // Show different content based on source
+            const contentPreview = post.source === 'manual' && post.post_content 
+                ? post.post_content.substring(0, 50) + '...'
+                : `${post.topic} - ${post.content_type} post`;
+
+            // Add source indicator
+            const sourceIcon = post.source === 'manual' ? '✏️' : '🤖';
+            const sourceLabel = post.source === 'manual' ? 'Manual' : 'Auto';
 
             return `
                 <tr class="border-b border-[#e7edf4]">
                     <td class="px-4 py-3">
-                        <div class="max-w-[200px] truncate text-sm">${post.content || `${post.topic} - ${post.content_type} post`}</div>
+                        <div class="max-w-[200px] truncate text-sm">${contentPreview}</div>
+                        <div class="text-xs text-gray-500 mt-1">${sourceIcon} ${sourceLabel}</div>
                     </td>
                     <td class="px-4 py-3 text-sm">${post.topic}</td>
                     <td class="px-4 py-3 text-sm">${scheduledDate.toLocaleString()}</td>
@@ -1127,13 +1142,17 @@ class EmploymentApp {
     }
 
     showEditQueueModal(queueItem) {
+        const isManual = queueItem.source === 'manual';
         const modal = document.createElement('div');
         modal.id = 'editQueueModal';
         modal.innerHTML = `
             <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold text-[#0d151c]">Edit Scheduled Post</h3>
+                        <h3 class="text-xl font-bold text-[#0d151c]">
+                            Edit ${isManual ? 'Manual' : 'Automated'} Post
+                            ${isManual ? '✏️' : '🤖'}
+                        </h3>
                         <button onclick="closeEditQueueModal()" class="text-[#6b7280] hover:text-[#0d151c]">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1142,6 +1161,7 @@ class EmploymentApp {
                     </div>
                     
                     <form id="editQueueForm">
+                        <input type="hidden" id="editSource" value="${queueItem.source || 'automation'}">
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-[#0d151c] mb-1">Topic</label>
@@ -1149,14 +1169,27 @@ class EmploymentApp {
                                        class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee]">
                             </div>
                             
+                            ${isManual ? `
+                            <div>
+                                <label class="block text-sm font-medium text-[#0d151c] mb-1">Post Content</label>
+                                <textarea id="editPostContent" rows="8" 
+                                          class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee] resize-none"
+                                          placeholder="Edit your post content...">${queueItem.post_content || ''}</textarea>
+                                <div class="text-sm text-gray-500 mt-1">
+                                    <span id="contentCharCount">${(queueItem.post_content || '').length}</span> characters
+                                </div>
+                            </div>
+                            ` : `
                             <div>
                                 <label class="block text-sm font-medium text-[#0d151c] mb-1">Content Type</label>
                                 <select id="editContentType" class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee]">
                                     <option value="standard" ${queueItem.content_type === 'standard' ? 'selected' : ''}>Standard Post</option>
                                     <option value="viral" ${queueItem.content_type === 'viral' ? 'selected' : ''}>Viral Post</option>
                                     <option value="news" ${queueItem.content_type === 'news' ? 'selected' : ''}>News-based</option>
+                                    <option value="manual" ${queueItem.content_type === 'manual' ? 'selected' : ''}>Manual</option>
                                 </select>
                             </div>
+                            `}
                             
                             <div>
                                 <label class="block text-sm font-medium text-[#0d151c] mb-1">Tone</label>
@@ -1180,6 +1213,7 @@ class EmploymentApp {
                                 <select id="editStatus" class="w-full px-3 py-2 border border-[#e7edf4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0b80ee]">
                                     <option value="pending" ${queueItem.status === 'pending' ? 'selected' : ''}>Pending</option>
                                     <option value="ready" ${queueItem.status === 'ready' ? 'selected' : ''}>Ready</option>
+                                    <option value="scheduled" ${queueItem.status === 'scheduled' ? 'selected' : ''}>Scheduled</option>
                                     <option value="paused" ${queueItem.status === 'paused' ? 'selected' : ''}>Paused</option>
                                 </select>
                             </div>
@@ -1201,6 +1235,16 @@ class EmploymentApp {
         document.body.appendChild(modal);
         document.body.style.overflow = 'hidden';
 
+        // Add character counter for manual posts
+        if (isManual) {
+            const contentTextarea = document.getElementById('editPostContent');
+            const charCountSpan = document.getElementById('contentCharCount');
+            
+            contentTextarea.addEventListener('input', function() {
+                charCountSpan.textContent = this.value.length;
+            });
+        }
+
         // Handle form submission
         const form = document.getElementById('editQueueForm');
         form.addEventListener('submit', async (e) => {
@@ -1212,22 +1256,42 @@ class EmploymentApp {
     async saveQueueItemChanges(id) {
         try {
             const topic = document.getElementById('editTopic').value;
-            const contentType = document.getElementById('editContentType').value;
             const tone = document.getElementById('editTone').value;
             const scheduledTime = document.getElementById('editScheduledTime').value;
             const status = document.getElementById('editStatus').value;
+            const source = document.getElementById('editSource').value;
+            
+            // Get content type and post content based on source
+            let contentType = null;
+            let postContent = null;
+            
+            if (source === 'manual') {
+                postContent = document.getElementById('editPostContent').value;
+                contentType = 'manual';
+            } else {
+                contentType = document.getElementById('editContentType').value;
+            }
+
+            const requestBody = {
+                topic,
+                tone,
+                scheduled_for: new Date(scheduledTime).toISOString(),
+                status,
+                source
+            };
+
+            // Add appropriate fields based on source
+            if (source === 'manual') {
+                requestBody.post_content = postContent;
+            } else {
+                requestBody.content_type = contentType;
+            }
 
             const response = await fetch(`/api/automation/queue/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({
-                    topic,
-                    content_type: contentType,
-                    tone,
-                    scheduled_for: new Date(scheduledTime).toISOString(),
-                    status
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (response.ok) {

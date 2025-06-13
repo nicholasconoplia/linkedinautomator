@@ -6163,23 +6163,57 @@ app.post('/api/automation/generate-queue', requireAuth, async (req, res) => {
   }
 });
 
-// Get automation queue
+// Get automation queue (includes both automation_queue and scheduled_posts)
 app.get('/api/automation/queue', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { limit = 50, offset = 0 } = req.query;
 
+    // Get both automation queue items and scheduled posts
     const result = await pool.query(`
-      SELECT * FROM automation_queue 
-      WHERE user_id = $1 
+      SELECT 
+        id,
+        user_id,
+        topic,
+        tone,
+        scheduled_for,
+        status,
+        content_type,
+        created_at,
+        updated_at,
+        NULL as post_content,
+        'automation' as source
+      FROM automation_queue 
+      WHERE user_id = $1
+      
+      UNION ALL
+      
+      SELECT 
+        id,
+        user_id,
+        topic,
+        tone,
+        scheduled_for,
+        status,
+        'manual' as content_type,
+        created_at,
+        updated_at,
+        post_content,
+        'manual' as source
+      FROM scheduled_posts 
+      WHERE user_id = $1
+      
       ORDER BY scheduled_for ASC 
       LIMIT $2 OFFSET $3
     `, [userId, limit, offset]);
 
-    const countResult = await pool.query(
-      'SELECT COUNT(*) as total FROM automation_queue WHERE user_id = $1',
-      [userId]
-    );
+    const countResult = await pool.query(`
+      SELECT COUNT(*) as total FROM (
+        SELECT id FROM automation_queue WHERE user_id = $1
+        UNION ALL
+        SELECT id FROM scheduled_posts WHERE user_id = $1
+      ) combined
+    `, [userId]);
 
     res.json({
       queue: result.rows,
@@ -6192,16 +6226,25 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
   }
 });
 
-// Get single queue item
+// Get single queue item (checks both automation_queue and scheduled_posts)
 app.get('/api/automation/queue/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const queueId = req.params.id;
 
-    const result = await pool.query(`
-      SELECT * FROM automation_queue 
+    // First check automation_queue
+    let result = await pool.query(`
+      SELECT *, 'automation' as source FROM automation_queue 
       WHERE id = $1 AND user_id = $2
     `, [queueId, userId]);
+
+    // If not found, check scheduled_posts
+    if (result.rows.length === 0) {
+      result = await pool.query(`
+        SELECT *, 'manual' as source FROM scheduled_posts 
+        WHERE id = $1 AND user_id = $2
+      `, [queueId, userId]);
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Queue item not found' });
@@ -6214,25 +6257,38 @@ app.get('/api/automation/queue/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Update queue item
+// Update queue item (handles both automation_queue and scheduled_posts)
 app.put('/api/automation/queue/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const queueId = req.params.id;
-    const { topic, tone, scheduled_for, status, content_type } = req.body;
+    const { topic, tone, scheduled_for, status, content_type, post_content, source } = req.body;
 
-    const result = await pool.query(`
-      UPDATE automation_queue 
-      SET topic = $1, tone = $2, scheduled_for = $3, status = $4, content_type = $5, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $6 AND user_id = $7
-      RETURNING *
-    `, [topic, tone, scheduled_for, status, content_type, queueId, userId]);
+    let result;
+
+    if (source === 'manual') {
+      // Update scheduled_posts table for manual posts
+      result = await pool.query(`
+        UPDATE scheduled_posts 
+        SET topic = $1, tone = $2, scheduled_for = $3, status = $4, post_content = $5, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6 AND user_id = $7
+        RETURNING *
+      `, [topic, tone, scheduled_for, status, post_content, queueId, userId]);
+    } else {
+      // Update automation_queue table for automated posts
+      result = await pool.query(`
+        UPDATE automation_queue 
+        SET topic = $1, tone = $2, scheduled_for = $3, status = $4, content_type = $5, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6 AND user_id = $7
+        RETURNING *
+      `, [topic, tone, scheduled_for, status, content_type, queueId, userId]);
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Queue item not found' });
     }
 
-    console.log(`✏️ Updated queue item ${queueId} for user ${userId}`);
+    console.log(`✏️ Updated ${source || 'automation'} queue item ${queueId} for user ${userId}`);
     res.json({ success: true, item: result.rows[0] });
   } catch (error) {
     console.error('❌ Error updating queue item:', error);
@@ -6240,16 +6296,25 @@ app.put('/api/automation/queue/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Delete queue item
+// Delete queue item (handles both automation_queue and scheduled_posts)
 app.delete('/api/automation/queue/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const queueId = req.params.id;
 
-    const result = await pool.query(
+    // Try deleting from automation_queue first
+    let result = await pool.query(
       'DELETE FROM automation_queue WHERE id = $1 AND user_id = $2 RETURNING *',
       [queueId, userId]
     );
+
+    // If not found, try deleting from scheduled_posts
+    if (result.rows.length === 0) {
+      result = await pool.query(
+        'DELETE FROM scheduled_posts WHERE id = $1 AND user_id = $2 RETURNING *',
+        [queueId, userId]
+      );
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Queue item not found' });
