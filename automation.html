@@ -332,6 +332,7 @@
                         <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal">Content Generator</a>
                         <a href="/fake-it-mode" class="text-[#0d151c] text-sm font-medium leading-normal">🎭 Fake It Mode</a>
                         <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">Automation</a>
+                        <a href="/manual-post" class="text-[#0d151c] text-sm font-medium leading-normal">✏️ Manual Post</a>
                         <a href="/saved-posts" class="text-[#0d151c] text-sm font-medium leading-normal">💾 Saved Posts</a>
                         <a href="/pricing" class="text-[#0d151c] text-sm font-medium leading-normal">Pricing</a>
                     </div>
@@ -380,6 +381,8 @@
                                         <div>
                                             <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Posting Frequency</label>
                                             <select id="postFrequency" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                                <option value="multiple_daily">🚀 Multiple Daily (2-5 posts/day)</option>
+                                                <option value="twice_daily">⚡ Twice Daily (2 posts/day)</option>
                                                 <option value="daily">📅 Daily (1 post/day)</option>
                                                 <option value="weekly" selected>📆 Weekly (3 posts/week)</option>
                                                 <option value="biweekly">🗓️ Bi-weekly (2 posts/week)</option>
@@ -390,6 +393,10 @@
                                         <div>
                                             <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Posting Times</label>
                                             <select id="postTimes" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                                <option value="spread_throughout">🌅☀️🌆 Spread Throughout Day (9AM, 1PM, 5PM, 8PM)</option>
+                                                <option value="business_hours">💼 Business Hours (9AM, 12PM, 3PM, 6PM)</option>
+                                                <option value="morning_afternoon">🌅☀️ Morning & Afternoon (9AM, 2PM)</option>
+                                                <option value="afternoon_evening">☀️🌆 Afternoon & Evening (1PM, 6PM)</option>
                                                 <option value="morning">🌅 Morning (9:00 AM)</option>
                                                 <option value="afternoon" selected>☀️ Afternoon (1:00 PM)</option>
                                                 <option value="evening">🌆 Evening (5:00 PM)</option>

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; img-src 'self' data: https: http:; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com; font-src 'self' https://fonts.gstatic.com;">
+    <title>Manual Post Creator - Employment</title>
+    
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+      rel="stylesheet"
+      as="style"
+      onload="this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    />
+    
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <meta name="description" content="Create custom LinkedIn posts with AI-powered agents">
+    <meta name="keywords" content="LinkedIn posting, AI content creation, manual posting">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+    
+    <style>
+        .chat-container {
+            max-height: 70vh;
+            overflow-y: auto;
+            background: linear-gradient(to bottom, #f8fafc, #ffffff);
+        }
+
+        .message {
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .ai-message {
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .user-bubble {
+            background: #0b80ee;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-bubble {
+            background: #f1f5f9;
+            color: #0d151c;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .agent-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.1);
+        }
+
+        .agent-card.selected {
+            border-color: #0b80ee;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6b7280;
+            animation: bounce 1.4s ease-in-out infinite both;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .post-preview {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0;
+            box-shadow: 0 2px 10px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .schedule-options {
+            display: none;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .schedule-options.show {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="border-b border-gray-200 bg-white px-10 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-lg font-bold text-gray-900">Employment</h2>
+                </div>
+                <nav class="flex items-center gap-8">
+                    <a href="/" class="text-sm font-medium text-gray-700 hover:text-gray-900">Dashboard</a>
+                    <a href="/generator" class="text-sm font-medium text-gray-700 hover:text-gray-900">Content Generator</a>
+                    <a href="/fake-it-mode" class="text-sm font-medium text-gray-700 hover:text-gray-900">🎭 Fake It Mode</a>
+                    <a href="/automation" class="text-sm font-medium text-gray-700 hover:text-gray-900">Automation</a>
+                    <a href="/manual-post" class="text-sm font-bold text-gray-900 border-b-2 border-blue-600">✏️ Manual Post</a>
+                    <a href="/saved-posts" class="text-sm font-medium text-gray-700 hover:text-gray-900">💾 Saved Posts</a>
+                    <a href="/pricing" class="text-sm font-medium text-gray-700 hover:text-gray-900">Pricing</a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 px-10 py-5">
+            <div class="max-w-6xl mx-auto">
+                <div class="mb-6">
+                    <h1 class="text-3xl font-bold text-gray-900">✏️ Manual Post Creator</h1>
+                    <p class="text-gray-600 mt-1">Create custom LinkedIn posts with AI-powered agents</p>
+                </div>
+
+                <div class="flex gap-6">
+                    <!-- Agent Selection Sidebar -->
+                    <div class="w-80 flex-shrink-0">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Choose Your AI Agent</h3>
+                        <div class="space-y-3" id="agentSelection">
+                            <!-- Agents will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Chat Interface -->
+                    <div class="flex-1">
+                        <!-- Selected Agent Info -->
+                        <div id="selectedAgentInfo" class="bg-white border border-gray-200 rounded-xl p-4 mb-4 hidden">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl" id="agentIcon">🤖</span>
+                                <div>
+                                    <h4 class="font-bold text-gray-900" id="agentName">AI Agent</h4>
+                                    <p class="text-sm text-gray-600" id="agentDescription">Select an agent to get started</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Messages -->
+                        <div class="chat-container bg-white border border-gray-200 rounded-xl p-6 mb-4" id="chatMessages">
+                            <div class="text-center text-gray-500 py-8">
+                                <div class="text-4xl mb-2">💬</div>
+                                <p>Select an AI agent and start creating your LinkedIn post!</p>
+                            </div>
+                        </div>
+
+                        <!-- Input Area -->
+                        <div class="bg-white border border-gray-200 rounded-xl p-4">
+                            <div class="flex gap-3">
+                                <textarea 
+                                    id="messageInput" 
+                                    placeholder="Describe what you want to post about..."
+                                    class="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    rows="3"
+                                    disabled
+                                ></textarea>
+                                <button 
+                                    id="sendButton" 
+                                    class="bg-gray-400 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50"
+                                    disabled
+                                >
+                                    Send
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Post Preview and Actions -->
+                        <div id="postActions" class="mt-4 hidden">
+                            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                                <h4 class="font-bold text-gray-900 mb-2">📝 Generated Post Preview</h4>
+                                <div id="postContent" class="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap border-l-4 border-blue-500 pl-4 py-2 bg-gray-50">
+                                    <!-- Generated content will appear here -->
+                                </div>
+                            </div>
+                            <div class="flex gap-3 justify-end">
+                                <button id="regeneratePost" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200">
+                                    🔄 Regenerate
+                                </button>
+                                <button id="schedulePost" class="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700">
+                                    📅 Schedule Post
+                                </button>
+                                <button id="postNow" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
+                                    🚀 Post Now
+                                </button>
+                            </div>
+                            
+                            <!-- Schedule Options -->
+                            <div class="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4 hidden" id="scheduleOptions">
+                                <h5 class="font-medium text-gray-900 mb-3">⏰ Schedule Your Post</h5>
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                                        <input type="date" id="scheduleDate" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                                        <input type="time" id="scheduleTime" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button id="confirmSchedule" class="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700">
+                                        ✅ Confirm Schedule
+                                    </button>
+                                    <button id="cancelSchedule" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200">
+                                        ❌ Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // AI Agent configurations
+        const agents = {
+            linkedin_post: {
+                name: "LinkedIn Pro",
+                icon: "💼",
+                description: "Expert at creating professional LinkedIn posts with high engagement"
+            },
+            viral_content: {
+                name: "Viral Master", 
+                icon: "🔥",
+                description: "Specializes in creating viral content that drives massive engagement"
+            },
+            tweet_repurpose: {
+                name: "Tweet Translator",
+                icon: "🐦", 
+                description: "Transforms Twitter content into professional LinkedIn posts"
+            },
+            manual_content: {
+                name: "Content Alchemist",
+                icon: "✨",
+                description: "Transforms raw ideas into polished professional posts"
+            },
+            research_helper: {
+                name: "Research Scout",
+                icon: "🔍",
+                description: "Helps find and research trending topics for content creation"
+            },
+            research_summarizer: {
+                name: "Insight Synthesizer", 
+                icon: "📊",
+                description: "Synthesizes complex research into engaging LinkedIn content"
+            },
+            research_post: {
+                name: "Thought Leader",
+                icon: "🎯", 
+                description: "Creates research-backed thought leadership content"
+            },
+            student_industry_post: {
+                name: "Student Success",
+                icon: "🎓",
+                description: "Helps students create authentic professional content"
+            }
+        };
+
+        let selectedAgent = null;
+        let currentPostContent = null;
+        let currentUserInput = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAgents();
+            setupEventListeners();
+            setDefaultScheduleDateTime();
+        });
+
+        function loadAgents() {
+            const container = document.getElementById('agentSelection');
+            
+            Object.entries(agents).forEach(([key, agent]) => {
+                const card = document.createElement('div');
+                card.className = 'agent-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md';
+                card.dataset.agentKey = key;
+                
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">${agent.icon}</span>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-sm text-gray-900">${agent.name}</h4>
+                            <p class="text-xs text-gray-600 mt-1">${agent.description}</p>
+                        </div>
+                    </div>
+                `;
+                
+                card.addEventListener('click', () => selectAgent(key));
+                container.appendChild(card);
+            });
+        }
+
+        function selectAgent(agentKey) {
+            // Remove previous selection
+            document.querySelectorAll('.agent-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Select new agent
+            document.querySelector(`[data-agent-key="${agentKey}"]`).classList.add('selected');
+            selectedAgent = agentKey;
+            
+            // Update UI
+            updateAgentInfo(agentKey);
+            enableInput();
+        }
+
+        function updateAgentInfo(agentKey) {
+            const agent = agents[agentKey];
+            const agentInfo = document.getElementById('selectedAgentInfo');
+            
+            document.getElementById('agentIcon').textContent = agent.icon;
+            document.getElementById('agentName').textContent = agent.name;
+            document.getElementById('agentDescription').textContent = agent.description;
+            
+            agentInfo.classList.remove('hidden');
+        }
+
+        function enableInput() {
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            sendButton.classList.remove('bg-gray-400');
+            sendButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            
+            messageInput.placeholder = `Tell ${agents[selectedAgent].name} what you want to post about...`;
+            messageInput.focus();
+        }
+
+        function setupEventListeners() {
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            
+            sendButton.addEventListener('click', sendMessage);
+            
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Post action buttons
+            document.getElementById('regeneratePost').addEventListener('click', regeneratePost);
+            document.getElementById('schedulePost').addEventListener('click', showScheduleOptions);
+            document.getElementById('postNow').addEventListener('click', postNow);
+            document.getElementById('confirmSchedule').addEventListener('click', confirmSchedule);
+            document.getElementById('cancelSchedule').addEventListener('click', hideScheduleOptions);
+        }
+
+        async function sendMessage() {
+            if (!selectedAgent) {
+                alert('Please select an AI agent first!');
+                return;
+            }
+            
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message) return;
+            
+            currentUserInput = message;
+            addMessage(message, 'user');
+            messageInput.value = '';
+            showTypingIndicator();
+            
+            try {
+                const response = await fetch('/api/manual-post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        userInput: message,
+                        agentType: selectedAgent,
+                        tone: 'professional',
+                        length: 'medium'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                removeTypingIndicator();
+                
+                if (data.success) {
+                    currentPostContent = data.post;
+                    addMessage("Great! I've created a LinkedIn post for you. Check the preview below!", 'ai');
+                    showPostPreview(data.post);
+                } else if (data.needsAuth) {
+                    addMessage('Please connect your LinkedIn account to use this feature.', 'ai');
+                    window.location.href = '/auth/linkedin';
+                } else if (data.needsCredits) {
+                    addMessage('You need credits to generate content. Please visit the pricing page to purchase credits.', 'ai');
+                } else {
+                    addMessage(`Sorry, I encountered an error: ${data.error}`, 'ai');
+                }
+                
+            } catch (error) {
+                removeTypingIndicator();
+                addMessage('Sorry, I encountered an error. Please try again.', 'ai');
+            }
+        }
+
+        function getAuthToken() {
+            return localStorage.getItem('auth_token') || getCookie('auth_token') || '';
+        }
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        function addMessage(content, type) {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            // Clear welcome message if it exists
+            if (chatMessages.querySelector('.text-center')) {
+                chatMessages.innerHTML = '';
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message flex ${type === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = `max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                type === 'user' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-800'
+            }`;
+            bubbleDiv.textContent = content;
+            
+            messageDiv.appendChild(bubbleDiv);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message flex justify-start typing-indicator';
+            typingDiv.innerHTML = `
+                <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg bg-gray-100 text-gray-600">
+                    <div class="flex space-x-1">
+                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('chatMessages').appendChild(typingDiv);
+            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.querySelector('.typing-indicator');
+            if (indicator) indicator.remove();
+        }
+
+        function showPostPreview(content) {
+            document.getElementById('postContent').textContent = content;
+            document.getElementById('postActions').classList.remove('hidden');
+        }
+
+        function regeneratePost() {
+            if (!currentUserInput || !selectedAgent) return;
+            addMessage("Please regenerate the post with a different approach.", 'user');
+            showTypingIndicator();
+            sendMessage();
+        }
+
+        function showScheduleOptions() {
+            document.getElementById('scheduleOptions').classList.remove('hidden');
+        }
+
+        function hideScheduleOptions() {
+            document.getElementById('scheduleOptions').classList.add('hidden');
+        }
+
+        function setDefaultScheduleDateTime() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('scheduleDate').value = tomorrow.toISOString().split('T')[0];
+            document.getElementById('scheduleTime').value = '13:00';
+        }
+
+        async function confirmSchedule() {
+            const date = document.getElementById('scheduleDate').value;
+            const time = document.getElementById('scheduleTime').value;
+            
+            if (!date || !time) {
+                alert('Please select both date and time.');
+                return;
+            }
+            
+            const scheduledDateTime = new Date(`${date}T${time}`);
+            
+            if (scheduledDateTime <= new Date()) {
+                alert('Please select a future date and time.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/schedule-post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        content: currentPostContent,
+                        scheduledFor: scheduledDateTime.toISOString(),
+                        source: 'manual'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`Post scheduled for ${scheduledDateTime.toLocaleString()}!`);
+                    hideScheduleOptions();
+                    location.reload();
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                
+            } catch (error) {
+                alert('Error scheduling post. Please try again.');
+            }
+        }
+
+        async function postNow() {
+            if (!confirm('Post this to LinkedIn now?')) return;
+            
+            try {
+                const response = await fetch('/api/post-now', {
+                    method: 'POST', 
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getAuthToken()}`
+                    },
+                    body: JSON.stringify({
+                        content: currentPostContent
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Post published successfully!');
+                    location.reload();
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                
+            } catch (error) {
+                alert('Error posting. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html> 

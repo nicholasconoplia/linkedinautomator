@@ -313,7 +313,7 @@ function initializeDatabase() {
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL UNIQUE,
             enabled BOOLEAN DEFAULT false,
-            frequency TEXT DEFAULT 'weekly' CHECK (frequency IN ('daily', 'weekly', 'biweekly')),
+            frequency TEXT DEFAULT 'weekly' CHECK (frequency IN ('multiple_daily', 'twice_daily', 'daily', 'weekly', 'biweekly')),
             posting_times TEXT DEFAULT 'afternoon',
             content_mix TEXT DEFAULT 'balanced' CHECK (content_mix IN ('news_heavy', 'balanced', 'viral_heavy', 'professional')),
             default_tone TEXT DEFAULT 'professional',

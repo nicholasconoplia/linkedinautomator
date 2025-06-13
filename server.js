@@ -4175,9 +4175,159 @@ app.post('/api/generate-post', rateLimitMiddleware, async (req, res) => {
   }
 });
 
+// Manual Post API endpoints
+app.post('/api/manual-post', requireAuth, rateLimitMiddleware, async (req, res) => {
+  try {
+    const { userInput, agentType, tone = 'professional', length = 'medium' } = req.body;
+    
+    if (!userInput || !agentType) {
+      return res.status(400).json({ 
+        error: 'User input and agent type are required' 
+      });
+    }
+
+    const token = extractJWTFromRequest(req);
+    const decoded = verifyJWT(token);
+    const userId = decoded.id;
+    
+    // Check credit balance
+    const creditCheck = await CreditDB.hasCredits(userId, 1);
+    if (!creditCheck.hasEnough) {
+      return res.status(403).json({
+        error: 'Insufficient credits',
+        reason: `You need 1 credit to generate content. Current balance: ${creditCheck.currentCredits}`,
+        creditsRemaining: creditCheck.currentCredits,
+        needsCredits: true
+      });
+    }
+
+    // Use the system prompt for the selected agent
+    const result = await generateManualPostWithAgent(userInput, agentType, tone, length, userId);
+    
+    // Deduct credit
+    const newCreditBalance = await CreditDB.deductCredits(userId, 1, 'Manual post generation');
+    
+    // Track usage
+    await UsageDB.trackUsage(userId, 'manual_post_generation', 0.00136, 1200, {
+      agentType,
+      tone,
+      length,
+      credits_deducted: 1,
+      new_credit_balance: newCreditBalance,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      post: result.post,
+      agentType,
+      credits: {
+        used: 1,
+        remaining: newCreditBalance
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error in manual post generation:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate post. Please try again.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Route to serve the manual post page
+app.get('/manual-post', (req, res) => {
+  const filePath = path.join(__dirname, 'manual-post.html');
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('Error serving manual-post.html:', err);
+      res.status(500).send('Error loading page');
+    }
+  });
+});
+
 // ====================
 // POST GENERATION FUNCTION (Unchanged from previous version)
 // ====================
+
+async function generateManualPostWithAgent(userInput, agentType, tone, length, userId = null) {
+  try {
+    console.log(`✍️ Generating manual post with agent: ${agentType}`);
+    
+    const lengthGuide = {
+      short: '50-100 words, concise and impactful',
+      medium: '100-200 words, balanced detail',
+      long: '200-300 words, comprehensive coverage'
+    };
+
+    // Get the appropriate system prompt based on agent type
+    const systemPrompt = systemPrompts[agentType] || systemPrompts.manual_content;
+
+    let prompt = `${systemPrompt}
+
+User Input: "${userInput}"
+
+Requirements:
+- Length: ${lengthGuide[length] || lengthGuide.medium}
+- Tone: ${tone}
+- Create a LinkedIn post based on the user's input
+- Use proper formatting with line breaks
+- Focus on providing value to the LinkedIn audience
+- Make it engaging and shareable
+
+Format the response as just the LinkedIn post text, nothing else.`;
+
+    // Add user context if available
+    if (userId) {
+      try {
+        const userContext = await UserDB.getContext(userId);
+        if (userContext && (userContext.personalBackground || userContext.recentActivities || userContext.expertiseInterests)) {
+          console.log('👤 Adding user context to manual post generation');
+          prompt += `\n\nPersonal Context to naturally weave into the post:`;
+          
+          if (userContext.personalBackground) {
+            prompt += `\nBackground: ${userContext.personalBackground}`;
+          }
+          
+          if (userContext.recentActivities) {
+            prompt += `\nRecent activities/achievements: ${userContext.recentActivities}`;
+          }
+          
+          if (userContext.expertiseInterests) {
+            prompt += `\nExpertise/interests: ${userContext.expertiseInterests}`;
+          }
+          
+          prompt += `\n\nIncorporate this personal context authentically to add credibility and make the post more relatable.`;
+        }
+      } catch (contextError) {
+        console.warn('⚠️ Could not load user context:', contextError.message);
+      }
+    }
+
+    let post = await callOpenAI(prompt, agentType);
+    
+    // Clean markdown formatting
+    post = post.replace(/\*\*(.*?)\*\*/g, '$1');
+    post = post.replace(/\*(.*?)\*/g, '$1');
+    post = post.replace(/__(.*?)__/g, '$1');
+    post = post.replace(/_(.*?)_/g, '$1');
+    
+    return {
+      post: post,
+      agent_type: agentType,
+      user_input: userInput,
+      post_type: 'manual_agent'
+    };
+  } catch (error) {
+    console.error('❌ Error in generateManualPostWithAgent:', error);
+    throw error;
+  }
+}
 
 async function generatePost(topic, tone, length = 'medium', engagementOptions = {}, studentContext = {}) {
   try {
@@ -6542,6 +6692,8 @@ app.get('/api/automation/analytics', requireAuth, async (req, res) => {
 // Helper functions for automation
 function getPostsPerWeek(frequency) {
   switch (frequency) {
+    case 'multiple_daily': return 35; // 5 posts per day * 7 days
+    case 'twice_daily': return 14; // 2 posts per day * 7 days
     case 'daily': return 7;
     case 'weekly': return 3;
     case 'biweekly': return 2;
@@ -6551,6 +6703,34 @@ function getPostsPerWeek(frequency) {
 
 function getPostingTime(timeSlot) {
   switch (timeSlot) {
+    case 'spread_throughout':
+      const spreadTimes = [
+        { hour: 9, minute: 0 },   // 9 AM
+        { hour: 13, minute: 0 },  // 1 PM
+        { hour: 17, minute: 0 },  // 5 PM
+        { hour: 20, minute: 0 }   // 8 PM
+      ];
+      return spreadTimes[Math.floor(Math.random() * spreadTimes.length)];
+    case 'business_hours':
+      const businessTimes = [
+        { hour: 9, minute: 0 },   // 9 AM
+        { hour: 12, minute: 0 },  // 12 PM
+        { hour: 15, minute: 0 },  // 3 PM
+        { hour: 18, minute: 0 }   // 6 PM
+      ];
+      return businessTimes[Math.floor(Math.random() * businessTimes.length)];
+    case 'morning_afternoon':
+      const morningAfternoonTimes = [
+        { hour: 9, minute: 0 },   // 9 AM
+        { hour: 14, minute: 0 }   // 2 PM
+      ];
+      return morningAfternoonTimes[Math.floor(Math.random() * morningAfternoonTimes.length)];
+    case 'afternoon_evening':
+      const afternoonEveningTimes = [
+        { hour: 13, minute: 0 },  // 1 PM
+        { hour: 18, minute: 0 }   // 6 PM
+      ];
+      return afternoonEveningTimes[Math.floor(Math.random() * afternoonEveningTimes.length)];
     case 'morning': return { hour: 9, minute: 0 };
     case 'afternoon': return { hour: 13, minute: 0 };
     case 'evening': return { hour: 17, minute: 0 };
