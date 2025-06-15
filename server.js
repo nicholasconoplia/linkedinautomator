@@ -6301,6 +6301,11 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
     const userId = req.user.id;
     const { limit = 50, offset = 0, showPosted = 'false' } = req.query;
 
+    // Build WHERE clause based on showPosted filter
+    const statusFilter = showPosted === 'true' 
+      ? '' // Show all statuses
+      : "AND status != 'posted' AND scheduled_for > NOW()"; // Only show upcoming posts
+
     // Get both automation queue items and scheduled posts
     const result = await pool.query(`
       SELECT 
@@ -6316,7 +6321,7 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
         NULL as post_content,
         'automation' as source
       FROM automation_queue 
-      WHERE user_id = $1
+      WHERE user_id = $1 ${statusFilter}
       
       UNION ALL
       
@@ -6333,7 +6338,7 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
         post_content,
         'manual' as source
       FROM scheduled_posts 
-      WHERE user_id = $1
+      WHERE user_id = $1 ${statusFilter.replace("status != 'posted'", "status != 'posted'")}
       
       ORDER BY scheduled_for ASC 
       LIMIT $2 OFFSET $3
@@ -6341,9 +6346,9 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
 
     const countResult = await pool.query(`
       SELECT COUNT(*) as total FROM (
-        SELECT id FROM automation_queue WHERE user_id = $1
+        SELECT id FROM automation_queue WHERE user_id = $1 ${statusFilter}
         UNION ALL
-        SELECT id FROM scheduled_posts WHERE user_id = $1
+        SELECT id FROM scheduled_posts WHERE user_id = $1 ${statusFilter.replace("status != 'posted'", "status != 'posted'")}
       ) combined
     `, [userId]);
 

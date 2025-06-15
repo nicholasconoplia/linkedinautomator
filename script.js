@@ -892,6 +892,7 @@ class EmploymentApp {
         const toggleBtn = document.getElementById('showPostedToggle');
         if (!toggleBtn) return;
 
+        console.log(`🔄 Updating show posted toggle to: ${showPosted}`);
         this.currentShowPosted = showPosted;
         
         if (showPosted) {
@@ -1315,8 +1316,24 @@ class EmploymentApp {
     }
 
     async handleShowPostedToggle() {
-        // Simple reload of the queue - the working version doesn't have complex filtering
-        await this.loadAutomationQueue();
+        console.log('👁️ Show posted toggle clicked');
+        const toggleBtn = document.getElementById('showPostedToggle');
+        const currentShowPosted = this.currentShowPosted || false;
+        const newShowPosted = !currentShowPosted;
+        
+        console.log(`👁️ Toggling show posted from ${currentShowPosted} to ${newShowPosted}`);
+        
+        // Update button appearance immediately
+        if (newShowPosted) {
+            toggleBtn.className = toggleBtn.className.replace('bg-[#6b7280]', 'bg-[#10b981]');
+            toggleBtn.innerHTML = '👁️ Hide Posted';
+        } else {
+            toggleBtn.className = toggleBtn.className.replace('bg-[#10b981]', 'bg-[#6b7280]');
+            toggleBtn.innerHTML = '👁️ Show Posted';
+        }
+        
+        // Reload queue with new filter
+        await this.loadAutomationQueue(newShowPosted);
     }
 
     switchQueueView(view) {
