@@ -63,9 +63,6 @@ class EmploymentApp {
         this.currentArticleData = null;
         this.isLoggedIn = false;
         this.currentUser = null;
-        this.onboardingChecked = false;
-        this.authCheckInProgress = false; // Prevent multiple simultaneous auth checks
-        this.authRetryCount = 0; // Track auth retry attempts
         
         // Determine which page we're on
         this.currentPage = this.detectCurrentPage();
@@ -1604,16 +1601,6 @@ class EmploymentApp {
         console.log('🔍 [Navigation Debug] Current section:', this.currentSection);
         console.log('🔍 [Navigation Debug] Token exists:', !!this.getAuthToken());
         console.log('🔍 [Navigation Debug] URL:', window.location.href);
-        console.log('🔍 [Navigation Debug] Auth check in progress:', this.authCheckInProgress);
-        console.log('🔍 [Navigation Debug] Auth retry count:', this.authRetryCount);
-        
-        // Prevent multiple simultaneous auth checks
-        if (this.authCheckInProgress) {
-            console.log('⏸️ [Navigation Debug] Auth check already in progress, skipping...');
-            return;
-        }
-        
-        this.authCheckInProgress = true;
         try {
             const response = await fetch('/api/auth-status');
             
@@ -1663,9 +1650,6 @@ class EmploymentApp {
         } catch (error) {
             console.error('❌ Auth check failed:', error);
             this.showUnauthenticatedState();
-        } finally {
-            this.authCheckInProgress = false;
-            console.log('🔍 [Navigation Debug] Auth check completed, flag cleared');
         }
         
         this.updatePostButtonState();
@@ -1722,50 +1706,7 @@ class EmploymentApp {
             }
         }
         
-        // Handle mobile auth sections
-        const mobileLoginSection = document.getElementById('mobileLoginSection');
-        const mobileUserSection = document.getElementById('mobileUserSection');
-        if (mobileLoginSection) {
-            mobileLoginSection.style.display = 'none';
-        }
-        if (mobileUserSection) {
-            mobileUserSection.style.display = 'block';
-        }
-        
-        // Show dashboard section and hide hero section
-        const heroSection = document.getElementById('heroSection');
-        const dashboardSection = document.getElementById('dashboardSection');
-        if (heroSection) {
-            heroSection.style.display = 'none';
-        }
-        if (dashboardSection) {
-            dashboardSection.style.display = 'block';
-        }
-        
-        // Update user initials
-        const userInitials = document.getElementById('userInitials');
-        const mobileUserInitials = document.getElementById('mobileUserInitials');
-        if (userInitials && this.currentUser?.name) {
-            const initials = this.currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-            userInitials.textContent = initials;
-        }
-        if (mobileUserInitials && this.currentUser?.name) {
-            const initials = this.currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-            mobileUserInitials.textContent = initials;
-        }
-        
-        // Update user profile picture display logic
-        const userInitialsEl = document.getElementById('userInitials');
-        if (userProfilePic && userInitialsEl) {
-            if (this.currentUser?.profilePicture) {
-                userProfilePic.style.display = 'block';
-                userInitialsEl.style.display = 'none';
-            } else {
-                // Show initials instead of profile picture
-                userProfilePic.style.display = 'none';  
-                userInitialsEl.style.display = 'flex';
-            }
-        }
+
         
         // Update dashboard user name
         const dashboardUserName = document.getElementById('dashboardUserName');
@@ -1773,15 +1714,13 @@ class EmploymentApp {
             dashboardUserName.textContent = this.currentUser.name;
         }
         
-        this.isLoggedIn = true;
+        // Show user status section in dashboard
+        const userStatusSection = document.getElementById('userStatusSection');
+        if (userStatusSection) {
+            userStatusSection.style.display = 'block';
+        }
         
-        // DELAY onboarding check to allow LinkedIn auth to fully complete
-        // This prevents race conditions and multiple login attempts
-        console.log('⏰ [ONBOARDING DEBUG] Delaying onboarding check to allow auth to stabilize...');
-        setTimeout(async () => {
-            console.log('⏰ [ONBOARDING DEBUG] Auth stabilization period complete, checking onboarding...');
-            await this.checkOnboardingStatus();
-        }, 2000); // 2 second delay to allow LinkedIn auth to fully complete
+        this.isLoggedIn = true;
         
         // Load and display subscription status
         this.loadSubscriptionStatus();
@@ -1846,174 +1785,7 @@ class EmploymentApp {
         this.isLoggedIn = false;
     }
 
-    async checkOnboardingStatus() {
-        console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK START ==========');
-        console.log('🔍 [ONBOARDING DEBUG] Current URL:', window.location.href);
-        console.log('🔍 [ONBOARDING DEBUG] Pathname:', window.location.pathname);
-        console.log('🔍 [ONBOARDING DEBUG] Search:', window.location.search);
-        console.log('🔍 [ONBOARDING DEBUG] Current user:', this.currentUser);
-        console.log('🔍 [ONBOARDING DEBUG] Already checked:', this.onboardingChecked);
-        console.log('🔍 [ONBOARDING DEBUG] User name length:', this.currentUser?.name?.length);
-        console.log('🔍 [ONBOARDING DEBUG] User has full name:', this.currentUser?.name?.includes(' '));
-        
-        // Skip onboarding check if we're already on an onboarding page or dashboard
-        if (window.location.pathname.includes('onboarding') || 
-            window.location.search.includes('onboarding=complete') ||
-            window.location.pathname.includes('test-onboarding')) {
-            console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - on onboarding/test page');
-            return;
-        }
-        
-        // Only check onboarding for authenticated users
-        if (!this.currentUser) {
-            console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - user not authenticated');
-            return;
-        }
-        
-        // Check if LinkedIn auth is still incomplete (user name is just first name)
-        // This indicates LinkedIn auth is still processing
-        if (this.currentUser?.name && !this.currentUser.name.includes(' ') && this.currentUser.name.length < 10) {
-            console.log('⏰ [ONBOARDING DEBUG] LinkedIn auth appears incomplete (name too short/no space) - delaying check');
-            console.log('⏰ [ONBOARDING DEBUG] Current name:', this.currentUser.name);
-            console.log('⏰ [ONBOARDING DEBUG] Auth retry count:', this.authRetryCount);
-            
-            // Prevent infinite retries
-            if (this.authRetryCount >= 3) {
-                console.log('⚠️ [ONBOARDING DEBUG] Max auth retries reached, proceeding with current user data');
-            } else {
-                this.authRetryCount++;
-                // Retry after another delay
-                setTimeout(async () => {
-                    console.log('⏰ [ONBOARDING DEBUG] Retrying onboarding check after auth completion...');
-                    // Re-check auth status first
-                    await this.checkAuthStatus();
-                }, 3000);
-                return;
-            }
-        }
-        
-        // Skip if we've already checked onboarding in this session
-        if (this.onboardingChecked) {
-            console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - already checked this session');
-            return;
-        }
-        
-        // Also check sessionStorage to prevent multiple checks across page loads
-        const sessionChecked = sessionStorage.getItem('onboardingChecked');
-        if (sessionChecked) {
-            console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - already checked in this session (sessionStorage)');
-            this.onboardingChecked = true;
-            return;
-        }
-        
-        console.log('🔍 [ONBOARDING DEBUG] Proceeding with onboarding check...');
-        this.onboardingChecked = true;
-        sessionStorage.setItem('onboardingChecked', 'true');
-        
-        // Bypass onboarding for existing users with credits or subscription
-        if (this.currentUser?.credits > 0 || this.currentUser?.name === 'Nick Conoplia' || this.currentUser?.email === 'nickconoplia@gmail.com') {
-            console.log('🎯 [ONBOARDING DEBUG] Bypassing onboarding for existing user with credits:', this.currentUser?.credits);
-            console.log('🎯 [ONBOARDING DEBUG] User:', this.currentUser?.name, this.currentUser?.email);
-            console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK END (EXISTING USER BYPASS) ==========');
-            return;
-        }
-        
-        try {
-            // Check server for user's onboarding status
-            console.log('🔍 [ONBOARDING DEBUG] Making API call to /api/user/onboarding-status');
-            const response = await fetch('/api/user/onboarding-status', {
-                credentials: 'include'
-            });
-            
-            console.log('🔍 [ONBOARDING DEBUG] API response status:', response.status);
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('🔍 [ONBOARDING DEBUG] API response data:', JSON.stringify(data, null, 2));
-                console.log('🔍 [ONBOARDING DEBUG] Data completed:', data.completed);
-                console.log('🔍 [ONBOARDING DEBUG] Data skipped:', data.skipped);
-                
-                if (data.completed) {
-                    console.log('🔍 [ONBOARDING DEBUG] Onboarding marked as completed');
-                    
-                    // Check if user skipped onboarding
-                    if (data.skipped) {
-                        console.log('⏭️ [ONBOARDING DEBUG] User previously skipped onboarding - allowing access');
-                        console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK END (SKIPPED) ==========');
-                        return; // User skipped onboarding, don't redirect
-                    }
-                    
-                    console.log('🔍 [ONBOARDING DEBUG] User completed onboarding normally');
-                    
-                    // User has completed onboarding, load their preferences
-                    if (data.onboardingData) {
-                        // Update localStorage with server data for immediate use
-                        if (data.onboardingData.step1) {
-                            localStorage.setItem('onboardingStep1', JSON.stringify(data.onboardingData.step1));
-                        }
-                        if (data.onboardingData.step2) {
-                            localStorage.setItem('onboardingStep2', JSON.stringify(data.onboardingData.step2));
-                        }
-                        console.log('✅ [ONBOARDING DEBUG] Onboarding completed - data loaded from server');
-                    }
-                    // User has completed onboarding, don't redirect
-                    console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK END (COMPLETED) ==========');
-                    return;
-                } else {
-                    // User hasn't completed onboarding, redirect them
-                    console.log('🎯 [ONBOARDING DEBUG] User needs to complete onboarding, redirecting...');
-                    console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK END (REDIRECTING) ==========');
-                    window.location.href = '/onboarding-step1.html';
-                }
-            } else if (response.status === 404) {
-                // No onboarding data found, check if this is a new user or existing user
-                console.log('📋 [ONBOARDING DEBUG] No onboarding data found on server (404), checking fallback...');
-                this.checkOnboardingStatusFallback();
-            } else {
-                console.warn('⚠️ [ONBOARDING DEBUG] Could not check onboarding status:', response.status);
-                // Fallback to localStorage check
-                this.checkOnboardingStatusFallback();
-            }
-        } catch (error) {
-            console.error('❌ [ONBOARDING DEBUG] Error checking onboarding status:', error);
-            // Fallback to localStorage check
-            this.checkOnboardingStatusFallback();
-        }
-    }
-    
-    checkOnboardingStatusFallback() {
-        // Fallback method using localStorage and automation status
-        const step1Data = localStorage.getItem('onboardingStep1');
-        const step2Data = localStorage.getItem('onboardingStep2');
-        const hasLocalOnboarding = step1Data && step2Data;
-        
-        if (hasLocalOnboarding) {
-            console.log('✅ Found local onboarding data, user has completed onboarding');
-            return; // User has completed onboarding locally
-        }
-        
-        // Check if user has any automation settings or history as fallback
-        fetch('/api/automation/status', {
-            credentials: 'include'
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('📋 Automation status check:', data);
-            // If user has automation enabled OR has generated posts, they're not new
-            if (data.automation_enabled || data.has_generated_posts) {
-                console.log('✅ User has existing automation/posts, skipping onboarding');
-                return; // User is not new, don't force onboarding
-            } else {
-                console.log('🎯 New user detected (fallback), redirecting to onboarding');
-                window.location.href = '/onboarding-step1.html';
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error checking automation status:', error);
-            // Don't redirect on error - better to let user use the app
-            console.log('⚠️ Could not determine user status, allowing access');
-        });
-    }
+
 
     async loadDashboardPreferences() {
         try {
