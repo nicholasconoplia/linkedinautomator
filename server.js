@@ -6864,56 +6864,7 @@ app.get('/api/automation/status', requireAuth, async (req, res) => {
   }
 });
 
-// Debug endpoint to check database tables
-app.get('/api/automation/debug-tables', requireAuth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    // Check automation_queue table
-    const automationQueueResult = await pool.query(`
-      SELECT id, topic, status, scheduled_for, created_at, 'automation_queue' as table_name
-      FROM automation_queue 
-      WHERE user_id = $1 
-      ORDER BY created_at DESC 
-      LIMIT 10
-    `, [userId]);
 
-    // Check scheduled_posts table  
-    const scheduledPostsResult = await pool.query(`
-      SELECT id, topic, status, scheduled_for, created_at, 'scheduled_posts' as table_name
-      FROM scheduled_posts 
-      WHERE user_id = $1 
-      ORDER BY created_at DESC 
-      LIMIT 10
-    `, [userId]);
-
-    // Get counts
-    const automationCountResult = await pool.query(`
-      SELECT COUNT(*) as total FROM automation_queue WHERE user_id = $1
-    `, [userId]);
-    
-    const scheduledCountResult = await pool.query(`
-      SELECT COUNT(*) as total FROM scheduled_posts WHERE user_id = $1
-    `, [userId]);
-
-    res.json({
-      user_id: userId,
-      automation_queue: {
-        count: parseInt(automationCountResult.rows[0].total),
-        recent_items: automationQueueResult.rows
-      },
-      scheduled_posts: {
-        count: parseInt(scheduledCountResult.rows[0].total),
-        recent_items: scheduledPostsResult.rows
-      },
-      debug_timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('❌ Error in debug endpoint:', error);
-    res.status(500).json({ error: 'Failed to fetch debug data' });
-  }
-});
 
 // Get automation analytics
 app.get('/api/automation/analytics', requireAuth, async (req, res) => {

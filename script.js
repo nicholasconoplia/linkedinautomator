@@ -530,56 +530,7 @@ class EmploymentApp {
         }
     }
 
-    async debugDatabaseTables() {
-        try {
-            console.log('🔍 [DEBUG] Checking database tables...');
-            const response = await fetch('/api/automation/debug-tables', {
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('🔍 [DEBUG] Database contents:', data);
-                
-                // Show a visual alert with the debug info so you can see it easily
-                const debugInfo = `
-DEBUG INFO:
-- Automation Queue Items: ${data.automation_queue.count}
-- Scheduled Posts Items: ${data.scheduled_posts.count}
-- Recent Automation Queue: ${JSON.stringify(data.automation_queue.recent_items, null, 2)}
-- Recent Scheduled Posts: ${JSON.stringify(data.scheduled_posts.recent_items, null, 2)}
-                `;
-                
-                // Create a debug modal to show the info
-                this.showDebugModal(debugInfo);
-            } else {
-                console.log('🔍 [DEBUG] Could not fetch debug data:', response.status);
-                alert(`Debug API failed with status: ${response.status}`);
-            }
-        } catch (error) {
-            console.log('🔍 [DEBUG] Error fetching debug data:', error);
-            alert(`Debug error: ${error.message}`);
-        }
-    }
 
-    showDebugModal(debugInfo) {
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
-            align-items: center; justify-content: center;
-        `;
-        
-        modal.innerHTML = `
-            <div style="background: white; padding: 20px; border-radius: 10px; max-width: 80%; max-height: 80%; overflow: auto;">
-                <h3>🔍 Database Debug Info</h3>
-                <pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 12px; overflow: auto;">${debugInfo}</pre>
-                <button onclick="this.parentElement.parentElement.remove()" style="margin-top: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Close</button>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-    }
 
     async loadAutomationSettings() {
         try {
@@ -754,85 +705,58 @@ DEBUG INFO:
     }
 
     async loadAutomationQueue(showPosted = false) {
+        console.log('📋 Loading automation queue...', { showPosted });
         try {
-            console.log(`📡 Loading automation queue (showPosted: ${showPosted})...`);
             const response = await fetch(`/api/automation/queue?showPosted=${showPosted}`, {
                 credentials: 'include'
             });
-            
-            console.log('📡 Queue response status:', response.status);
-            
+
             if (response.ok) {
                 const data = await response.json();
-                console.log('📋 Queue data received:', data);
-                console.log('📋 Queue length:', data.queue?.length || 0);
-                console.log('📋 Show posted setting:', showPosted);
-                console.log('📋 Individual queue items:', data.queue);
-                
-                // Log status breakdown and source breakdown
-                if (data.queue && data.queue.length > 0) {
-                    const statusCounts = {};
-                    const sourceCounts = {};
-                    data.queue.forEach(item => {
-                        statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
-                        sourceCounts[item.source] = (sourceCounts[item.source] || 0) + 1;
-                    });
-                    console.log('📊 Status breakdown:', statusCounts);
-                    console.log('📊 Source breakdown (automation vs manual):', sourceCounts);
-                } else {
-                    console.log('⚠️ No queue items found - this might mean:');
-                    console.log('   1. No automation queue items exist');
-                    console.log('   2. No scheduled_posts exist');  
-                    console.log('   3. All posts are filtered out by status/time');
-                    console.log('   4. Database query issue');
-                }
-                
-                this.displayAutomationQueue(data.queue);
+                console.log('✅ Automation queue loaded:', data);
                 this.currentShowPosted = showPosted;
-                
-                // Update toggle button state to match current setting
-                const toggleBtn = document.getElementById('showPostedToggle');
-                if (toggleBtn && showPosted) {
-                    toggleBtn.className = toggleBtn.className.replace('bg-[#6b7280]', 'bg-[#10b981]');
-                    toggleBtn.innerHTML = '👁️ Hide Posted';
-                } else if (toggleBtn && !showPosted) {
-                    toggleBtn.className = toggleBtn.className.replace('bg-[#10b981]', 'bg-[#6b7280]');
-                    toggleBtn.innerHTML = '👁️ Show Posted';
-                }
+                this.displayAutomationQueue(data.queue, data.showPosted);
+                this.updateShowPostedToggle(showPosted);
             } else {
-                console.error('❌ Failed to load queue:', response.status, response.statusText);
+                console.error('❌ Failed to load automation queue:', response.status);
+                this.displayAutomationQueue([], false);
             }
         } catch (error) {
             console.error('❌ Error loading automation queue:', error);
+            this.displayAutomationQueue([], false);
         }
     }
 
-    displayAutomationQueue(queue) {
-        // Update calendar view
-        this.updateCalendarView(queue);
+    displayAutomationQueue(queue, showPosted = false) {
+        console.log('🎨 Displaying automation queue:', { count: queue.length, showPosted });
         
-        // Update list view
+        const calendarView = document.getElementById('calendarView');
+        const listView = document.getElementById('listView');
+        
+        if (!calendarView || !listView) {
+            console.error('❌ Queue view elements not found');
+            return;
+        }
+
+        // Update both calendar and list views
+        this.updateCalendarView(queue);
         this.updateListView(queue);
     }
 
     updateCalendarView(queue) {
         const calendarGrid = document.getElementById('calendarGrid');
-        const calendarEmpty = document.getElementById('calendarEmpty');
-        
-        if (!calendarGrid) return;
-
-        if (queue.length === 0) {
-            if (calendarEmpty) calendarEmpty.style.display = 'block';
+        if (!calendarGrid) {
+            console.warn('⚠️ Calendar grid not found');
             return;
         }
-
-        if (calendarEmpty) calendarEmpty.style.display = 'none';
 
         // Group posts by date
         const postsByDate = {};
         queue.forEach(post => {
             const date = new Date(post.scheduled_for).toDateString();
-            if (!postsByDate[date]) postsByDate[date] = [];
+            if (!postsByDate[date]) {
+                postsByDate[date] = [];
+            }
             postsByDate[date].push(post);
         });
 
@@ -855,24 +779,23 @@ DEBUG INFO:
                 const posts = postsByDate[dateStr] || [];
                 
                 const dayElement = document.createElement('div');
-                dayElement.className = 'border border-[#e7edf4] rounded-lg p-2 min-h-[80px] text-center';
+                dayElement.className = 'min-h-[100px] p-2 border border-[#e7edf4] bg-white';
                 
-                if (currentDate < today) {
-                    dayElement.className += ' bg-[#f8fafc] text-[#9ca3af]';
-                }
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'text-sm font-medium text-[#0d151c] mb-2';
+                dayNumber.textContent = currentDate.getDate();
+                dayElement.appendChild(dayNumber);
                 
-                dayElement.innerHTML = `
-                    <div class="text-sm font-medium mb-1">${currentDate.getDate()}</div>
-                    ${posts.map(post => {
-                        const bgColor = post.source === 'manual' ? 'bg-[#10b981]' : 'bg-[#0b80ee]';
-                        const icon = post.source === 'manual' ? '✏️' : '📝';
-                        return `
-                            <div class="text-xs ${bgColor} text-white rounded px-2 py-1 mb-1 truncate" title="${post.topic} (${post.source === 'manual' ? 'Manual' : 'Auto'})">
-                                ${icon} ${post.topic.substring(0, 12)}...
-                            </div>
-                        `;
-                    }).join('')}
-                `;
+                posts.forEach(post => {
+                    const postElement = document.createElement('div');
+                    postElement.className = `text-xs p-1 mb-1 rounded ${
+                        post.status === 'posted' ? 'bg-green-100 text-green-800' :
+                        post.status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                    }`;
+                    postElement.textContent = post.topic || 'Scheduled Post';
+                    dayElement.appendChild(postElement);
+                });
                 
                 calendarGrid.appendChild(dayElement);
             }
@@ -880,59 +803,92 @@ DEBUG INFO:
     }
 
     updateListView(queue) {
-        const tableBody = document.getElementById('queueTableBody');
-        if (!tableBody) return;
+        const listContainer = document.getElementById('queueListContainer');
+        if (!listContainer) {
+            console.warn('⚠️ List container not found');
+            return;
+        }
 
         if (queue.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center py-8 text-[#6b7280]">
-                        📋 No scheduled posts yet. Generate your content queue to see posts here.
-                    </td>
-                </tr>
+            listContainer.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="text-6xl mb-4">📅</div>
+                    <h3 class="text-xl font-semibold text-[#0d151c] mb-2">No scheduled posts yet</h3>
+                    <p class="text-[#49749c] mb-6">Generate your automation queue to get started!</p>
+                    <button onclick="window.employment?.handleGenerateQueue()" 
+                            class="bg-[#0b80ee] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#0969da] transition-colors">
+                        ✨ Generate Queue
+                    </button>
+                </div>
             `;
             return;
         }
 
-        tableBody.innerHTML = queue.map(post => {
+        const queueHtml = queue.map(post => {
             const scheduledDate = new Date(post.scheduled_for);
-            const statusColor = {
-                'pending': 'bg-[#fbbf24] text-white',
-                'ready': 'bg-[#10b981] text-white',
-                'posted': 'bg-[#6b7280] text-white',
-                'failed': 'bg-[#ef4444] text-white',
-                'scheduled': 'bg-[#3b82f6] text-white'
-            }[post.status] || 'bg-[#6b7280] text-white';
-
-            // Show different content based on source
-            const contentPreview = post.source === 'manual' && post.post_content 
-                ? post.post_content.substring(0, 50) + '...'
-                : `${post.topic} - ${post.content_type} post`;
-
-            // Add source indicator
-            const sourceIcon = post.source === 'manual' ? '✏️' : '🤖';
-            const sourceLabel = post.source === 'manual' ? 'Manual' : 'Auto';
-
+            const isManual = post.source === 'manual';
+            
             return `
-                <tr class="border-b border-[#e7edf4]">
-                    <td class="px-4 py-3">
-                        <div class="max-w-[200px] truncate text-sm">${contentPreview}</div>
-                        <div class="text-xs text-gray-500 mt-1">${sourceIcon} ${sourceLabel}</div>
-                    </td>
-                    <td class="px-4 py-3 text-sm">${post.topic}</td>
-                    <td class="px-4 py-3 text-sm">${scheduledDate.toLocaleString()}</td>
-                    <td class="px-4 py-3">
-                        <span class="px-2 py-1 rounded text-xs ${statusColor}">${post.status}</span>
-                    </td>
-                    <td class="px-4 py-3">
-                        <div class="flex gap-2">
-                            <button onclick="editQueueItem(${post.id})" class="text-[#0b80ee] hover:underline text-sm">Edit</button>
-                            <button onclick="deleteQueueItem(${post.id})" class="text-[#ef4444] hover:underline text-sm">Delete</button>
+                <div class="bg-white border border-[#e7edf4] rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h4 class="font-medium text-[#0d151c]">${post.topic || 'Generated Content'}</h4>
+                                <span class="text-xs px-2 py-1 rounded-full ${isManual ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">
+                                    ${isManual ? '✏️ Manual' : '🤖 Auto'}
+                                </span>
+                            </div>
+                            <div class="text-sm text-[#49749c] mb-2">
+                                📅 ${scheduledDate.toLocaleDateString()} at ${scheduledDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                            <div class="flex items-center gap-4 text-sm">
+                                <span class="text-[#49749c]">🎭 ${post.tone || 'professional'}</span>
+                                <span class="px-2 py-1 rounded-full text-xs ${
+                                    post.status === 'posted' ? 'bg-green-100 text-green-800' :
+                                    post.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                    post.status === 'ready' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-gray-100 text-gray-800'
+                                }">
+                                    ${post.status === 'posted' ? '✅ Posted' :
+                                      post.status === 'pending' ? '⏳ Pending' :
+                                      post.status === 'ready' ? '🚀 Ready' :
+                                      post.status}
+                                </span>
+                            </div>
                         </div>
-                    </td>
-                </tr>
+                        <div class="flex gap-2 ml-4">
+                            <button onclick="window.employment?.editQueueItem(${post.id})" 
+                                    class="text-[#0b80ee] hover:text-[#0969da] p-2 rounded-lg hover:bg-[#f0f9ff] transition-colors"
+                                    title="Edit post">
+                                ✏️
+                            </button>
+                            <button onclick="window.employment?.deleteQueueItem(${post.id})" 
+                                    class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                    title="Delete post">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
             `;
         }).join('');
+
+        listContainer.innerHTML = queueHtml;
+    }
+
+    updateShowPostedToggle(showPosted) {
+        const toggleBtn = document.getElementById('showPostedToggle');
+        if (!toggleBtn) return;
+
+        this.currentShowPosted = showPosted;
+        
+        if (showPosted) {
+            toggleBtn.className = toggleBtn.className.replace('bg-[#6b7280]', 'bg-[#10b981]');
+            toggleBtn.innerHTML = '👁️ Hide Posted';
+        } else {
+            toggleBtn.className = toggleBtn.className.replace('bg-[#10b981]', 'bg-[#6b7280]');
+            toggleBtn.innerHTML = '👁️ Show Posted';
+        }
     }
 
     async loadAutomationAnalytics() {
@@ -1025,13 +981,7 @@ DEBUG INFO:
         }
 
         // Debug database button
-        const debugDatabaseBtn = document.getElementById('debugDatabaseBtn');
-        if (debugDatabaseBtn) {
-            console.log('✅ Adding debug database button listener');
-            debugDatabaseBtn.addEventListener('click', this.debugDatabaseTables.bind(this));
-        } else {
-            console.warn('⚠️ Debug database button not found');
-        }
+
 
         // View toggle buttons
         const calendarViewBtn = document.getElementById('queueViewCalendar');
