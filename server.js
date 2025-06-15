@@ -6299,7 +6299,7 @@ app.post('/api/automation/generate-queue', requireAuth, async (req, res) => {
 app.get('/api/automation/queue', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { limit = 50, offset = 0 } = req.query;
+    const { limit = 50, offset = 0, showPosted = 'false' } = req.query;
 
     // Get both automation queue items and scheduled posts
     const result = await pool.query(`
