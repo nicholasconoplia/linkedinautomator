@@ -434,14 +434,19 @@ class EmploymentApp {
                                 </div>
                                 <div>
                                     <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Post Time</label>
-                                    <input type="time" id="postTime" value="09:00" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                    <select id="postTimes" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="morning">Morning (9:00 AM)</option>
+                                        <option value="lunch">Lunch (12:00 PM)</option>
+                                        <option value="afternoon" selected>Afternoon (3:00 PM)</option>
+                                        <option value="evening">Evening (6:00 PM)</option>
+                                    </select>
                                 </div>
                                 <div>
-                                    <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Content Type</label>
-                                    <select id="autoContentType" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
-                                        <option value="news">News-Based Posts</option>
-                                        <option value="viral_format">Viral Format Posts</option>
-                                        <option value="mixed">Mixed Content</option>
+                                    <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Content Mix</label>
+                                    <select id="autoContentMix" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="news_heavy">News Heavy (60% News)</option>
+                                        <option value="balanced" selected>Balanced Mix</option>
+                                        <option value="insights_heavy">Insights Heavy (60% Insights)</option>
                                     </select>
                                 </div>
                                 <div>
@@ -454,9 +459,22 @@ class EmploymentApp {
                                     </select>
                                 </div>
                             </div>
+                            
+                            <div class="mt-6">
+                                <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Topic Pool</label>
+                                <div id="topicPool" class="flex flex-wrap gap-2">
+                                    ${['Artificial Intelligence', 'Leadership', 'Digital Marketing', 'Technology', 'Career Development', 'Innovation', 'Data Science', 'Entrepreneurship'].map(topic => `
+                                        <label class="flex items-center gap-2 bg-[#f8fafc] border border-[#e7edf4] rounded-lg px-3 py-2 cursor-pointer hover:bg-[#e7edf4]">
+                                            <input type="checkbox" value="${topic}" class="text-[#0b80ee]" ${['Artificial Intelligence', 'Leadership', 'Digital Marketing'].includes(topic) ? 'checked' : ''}>
+                                            <span class="text-[#0d151c] text-sm font-medium">${topic}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            
                             <div class="mt-6">
                                 <label class="block text-[#0d151c] text-base font-medium leading-normal pb-2">Days of Week</label>
-                                <div class="flex flex-wrap gap-2">
+                                <div id="daysOfWeek" class="flex flex-wrap gap-2">
                                     ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => `
                                         <label class="flex items-center gap-2 bg-[#f8fafc] border border-[#e7edf4] rounded-lg px-3 py-2 cursor-pointer hover:bg-[#e7edf4]">
                                             <input type="checkbox" value="${day.toLowerCase()}" class="text-[#0b80ee]" ${['monday', 'wednesday', 'friday'].includes(day.toLowerCase()) ? 'checked' : ''}>
@@ -503,7 +521,7 @@ class EmploymentApp {
         try {
             await Promise.all([
                 this.loadAutomationSettings(),
-                this.loadAutomationQueue(false),
+                this.loadAutomationQueue(true), // Show posted items by default so user can see automation working
                 this.loadAutomationAnalytics()
             ]);
             this.setupAutomationEventListeners();
@@ -512,28 +530,89 @@ class EmploymentApp {
         }
     }
 
-    async loadAutomationSettings() {
+    async debugDatabaseTables() {
         try {
-            const response = await fetch('/api/automation/settings', {
+            console.log('🔍 [DEBUG] Checking database tables...');
+            const response = await fetch('/api/automation/debug-tables', {
                 credentials: 'include'
             });
             
             if (response.ok) {
-                const settings = await response.json();
-                this.populateAutomationSettingsForm(settings);
-                this.updateAutomationToggle(settings.enabled);
+                const data = await response.json();
+                console.log('🔍 [DEBUG] Database contents:', data);
+                
+                // Show a visual alert with the debug info so you can see it easily
+                const debugInfo = `
+DEBUG INFO:
+- Automation Queue Items: ${data.automation_queue.count}
+- Scheduled Posts Items: ${data.scheduled_posts.count}
+- Recent Automation Queue: ${JSON.stringify(data.automation_queue.recent_items, null, 2)}
+- Recent Scheduled Posts: ${JSON.stringify(data.scheduled_posts.recent_items, null, 2)}
+                `;
+                
+                // Create a debug modal to show the info
+                this.showDebugModal(debugInfo);
+            } else {
+                console.log('🔍 [DEBUG] Could not fetch debug data:', response.status);
+                alert(`Debug API failed with status: ${response.status}`);
             }
         } catch (error) {
-            console.error('Error loading automation settings:', error);
+            console.log('🔍 [DEBUG] Error fetching debug data:', error);
+            alert(`Debug error: ${error.message}`);
+        }
+    }
+
+    showDebugModal(debugInfo) {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); z-index: 10000; display: flex; 
+            align-items: center; justify-content: center;
+        `;
+        
+        modal.innerHTML = `
+            <div style="background: white; padding: 20px; border-radius: 10px; max-width: 80%; max-height: 80%; overflow: auto;">
+                <h3>🔍 Database Debug Info</h3>
+                <pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 12px; overflow: auto;">${debugInfo}</pre>
+                <button onclick="this.parentElement.parentElement.remove()" style="margin-top: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Close</button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+
+    async loadAutomationSettings() {
+        try {
+            console.log('📡 Loading automation settings...');
+            const response = await fetch('/api/automation/settings', {
+                credentials: 'include'
+            });
+            
+            console.log('📡 Settings response status:', response.status);
+            
+            if (response.ok) {
+                const settings = await response.json();
+                console.log('📋 Loaded settings:', settings);
+                this.populateAutomationSettingsForm(settings);
+                this.updateAutomationToggle(settings.enabled);
+            } else {
+                console.error('❌ Failed to load settings:', response.status, response.statusText);
+            }
+        } catch (error) {
+            console.error('❌ Error loading automation settings:', error);
         }
     }
 
     populateAutomationSettingsForm(settings) {
+        console.log('🔧 Populating automation settings form with:', settings);
+        
         // Load onboarding data to supplement server settings
         const onboardingData = this.loadOnboardingDataForAutomation();
+        console.log('📋 Onboarding data:', onboardingData);
         
         // Merge server settings with onboarding preferences
         const mergedSettings = { ...onboardingData, ...settings };
+        console.log('🔀 Merged settings:', mergedSettings);
         
         // Update form fields
         const postFrequency = document.getElementById('postFrequency');
@@ -541,21 +620,45 @@ class EmploymentApp {
         const autoContentMix = document.getElementById('autoContentMix');
         const autoTone = document.getElementById('autoTone');
         
-        if (postFrequency) postFrequency.value = mergedSettings.frequency || 'weekly';
-        if (postTimes) postTimes.value = mergedSettings.posting_times || 'afternoon';
-        if (autoContentMix) autoContentMix.value = mergedSettings.content_mix || 'balanced';
-        if (autoTone) autoTone.value = mergedSettings.default_tone || 'professional';
+        console.log('🔍 Form elements found:');
+        console.log('  postFrequency:', postFrequency);
+        console.log('  postTimes:', postTimes);
+        console.log('  autoContentMix:', autoContentMix);
+        console.log('  autoTone:', autoTone);
+        
+        if (postFrequency) {
+            postFrequency.value = mergedSettings.frequency || 'weekly';
+            console.log('✅ Set frequency to:', postFrequency.value);
+        }
+        if (postTimes) {
+            postTimes.value = mergedSettings.posting_times || 'afternoon';
+            console.log('✅ Set posting times to:', postTimes.value);
+        }
+        if (autoContentMix) {
+            autoContentMix.value = mergedSettings.content_mix || 'balanced';
+            console.log('✅ Set content mix to:', autoContentMix.value);
+        }
+        if (autoTone) {
+            autoTone.value = mergedSettings.default_tone || 'professional';
+            console.log('✅ Set tone to:', autoTone.value);
+        }
 
         // Update topic pool
         const topicCheckboxes = document.querySelectorAll('#topicPool input[type="checkbox"]');
+        console.log('🔍 Topic checkboxes found:', topicCheckboxes.length);
         topicCheckboxes.forEach(checkbox => {
-            checkbox.checked = mergedSettings.topic_pool?.includes(checkbox.value) || false;
+            const isChecked = mergedSettings.topic_pool?.includes(checkbox.value) || false;
+            checkbox.checked = isChecked;
+            console.log(`  Topic "${checkbox.value}": ${isChecked}`);
         });
 
         // Update posting days
         const dayCheckboxes = document.querySelectorAll('#daysOfWeek input[type="checkbox"]');
+        console.log('🔍 Day checkboxes found:', dayCheckboxes.length);
         dayCheckboxes.forEach(checkbox => {
-            checkbox.checked = mergedSettings.posting_days?.includes(checkbox.value) || false;
+            const isChecked = mergedSettings.posting_days?.includes(checkbox.value) || false;
+            checkbox.checked = isChecked;
+            console.log(`  Day "${checkbox.value}": ${isChecked}`);
         });
     }
     
@@ -652,17 +755,55 @@ class EmploymentApp {
 
     async loadAutomationQueue(showPosted = false) {
         try {
+            console.log(`📡 Loading automation queue (showPosted: ${showPosted})...`);
             const response = await fetch(`/api/automation/queue?showPosted=${showPosted}`, {
                 credentials: 'include'
             });
             
+            console.log('📡 Queue response status:', response.status);
+            
             if (response.ok) {
                 const data = await response.json();
+                console.log('📋 Queue data received:', data);
+                console.log('📋 Queue length:', data.queue?.length || 0);
+                console.log('📋 Show posted setting:', showPosted);
+                console.log('📋 Individual queue items:', data.queue);
+                
+                // Log status breakdown and source breakdown
+                if (data.queue && data.queue.length > 0) {
+                    const statusCounts = {};
+                    const sourceCounts = {};
+                    data.queue.forEach(item => {
+                        statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+                        sourceCounts[item.source] = (sourceCounts[item.source] || 0) + 1;
+                    });
+                    console.log('📊 Status breakdown:', statusCounts);
+                    console.log('📊 Source breakdown (automation vs manual):', sourceCounts);
+                } else {
+                    console.log('⚠️ No queue items found - this might mean:');
+                    console.log('   1. No automation queue items exist');
+                    console.log('   2. No scheduled_posts exist');  
+                    console.log('   3. All posts are filtered out by status/time');
+                    console.log('   4. Database query issue');
+                }
+                
                 this.displayAutomationQueue(data.queue);
                 this.currentShowPosted = showPosted;
+                
+                // Update toggle button state to match current setting
+                const toggleBtn = document.getElementById('showPostedToggle');
+                if (toggleBtn && showPosted) {
+                    toggleBtn.className = toggleBtn.className.replace('bg-[#6b7280]', 'bg-[#10b981]');
+                    toggleBtn.innerHTML = '👁️ Hide Posted';
+                } else if (toggleBtn && !showPosted) {
+                    toggleBtn.className = toggleBtn.className.replace('bg-[#10b981]', 'bg-[#6b7280]');
+                    toggleBtn.innerHTML = '👁️ Show Posted';
+                }
+            } else {
+                console.error('❌ Failed to load queue:', response.status, response.statusText);
             }
         } catch (error) {
-            console.error('Error loading automation queue:', error);
+            console.error('❌ Error loading automation queue:', error);
         }
     }
 
@@ -883,6 +1024,15 @@ class EmploymentApp {
             console.warn('⚠️ Show posted toggle button not found');
         }
 
+        // Debug database button
+        const debugDatabaseBtn = document.getElementById('debugDatabaseBtn');
+        if (debugDatabaseBtn) {
+            console.log('✅ Adding debug database button listener');
+            debugDatabaseBtn.addEventListener('click', this.debugDatabaseTables.bind(this));
+        } else {
+            console.warn('⚠️ Debug database button not found');
+        }
+
         // View toggle buttons
         const calendarViewBtn = document.getElementById('queueViewCalendar');
         const listViewBtn = document.getElementById('queueViewList');
@@ -976,6 +1126,15 @@ class EmploymentApp {
         e.stopPropagation();
 
         try {
+            // Debug: Check if form elements exist
+            console.log('🔍 Checking form elements:');
+            console.log('  postFrequency:', document.getElementById('postFrequency'));
+            console.log('  postTimes:', document.getElementById('postTimes'));
+            console.log('  autoContentMix:', document.getElementById('autoContentMix'));
+            console.log('  autoTone:', document.getElementById('autoTone'));
+            console.log('  topicPool checkboxes:', document.querySelectorAll('#topicPool input:checked'));
+            console.log('  daysOfWeek checkboxes:', document.querySelectorAll('#daysOfWeek input:checked'));
+
             // Collect form data
             const formData = {
                 enabled: true,
