@@ -709,10 +709,7 @@ class EmploymentApp {
         console.log(`📋 Loading automation queue with showPosted=${showPosted}...`);
         try {
             const response = await fetch(`/api/automation/queue?showPosted=${showPosted}`, {
-                credentials: 'include',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+                credentials: 'include'
             });
 
             if (response.ok) {
