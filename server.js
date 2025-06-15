@@ -1189,6 +1189,92 @@ app.get('/api/user/context', requireAuth, async (req, res) => {
 });
 
 // ====================
+// USER ONBOARDING ROUTES
+// ====================
+
+// Save user onboarding data
+app.post('/api/user/onboarding', requireAuth, async (req, res) => {
+  try {
+    console.log('📋 Saving onboarding data for user:', req.user.id);
+    console.log('📦 Onboarding data:', JSON.stringify(req.body, null, 2));
+    
+    const userId = req.user.id;
+    const onboardingData = req.body;
+    
+    // Validate required fields
+    if (!onboardingData.step1 || !onboardingData.step2) {
+      return res.status(400).json({ error: 'Both step1 and step2 data are required' });
+    }
+    
+    // Save to database
+    await UserDB.saveOnboardingData(userId, onboardingData);
+    
+    console.log('✅ Onboarding data saved successfully');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error saving onboarding data:', error);
+    res.status(500).json({ error: 'Failed to save onboarding data' });
+  }
+});
+
+// Get user onboarding status and data
+app.get('/api/user/onboarding-status', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const onboardingData = await UserDB.getOnboardingData(userId);
+    
+    if (onboardingData) {
+      res.json({
+        completed: true,
+        onboardingData: onboardingData
+      });
+    } else {
+      res.status(404).json({
+        completed: false,
+        onboardingData: null
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error getting onboarding status:', error);
+    res.status(500).json({ error: 'Failed to get onboarding status' });
+  }
+});
+
+// Set up automation from onboarding data
+app.post('/api/automation/setup-from-onboarding', requireAuth, async (req, res) => {
+  try {
+    console.log('🤖 Setting up automation from onboarding for user:', req.user.id);
+    const userId = req.user.id;
+    const { step1Data, step2Data } = req.body;
+    
+    // Map onboarding data to automation settings
+    const automationSettings = {
+      automation_enabled: true,
+      posting_frequency: step1Data.postingFrequency || 'few_times_week',
+      posting_times: step2Data.postingTimes || ['09:00'],
+      content_mix: step2Data.contentMix || {
+        news: 40,
+        insights: 40,
+        motivational: 20
+      },
+      content_tone: step2Data.contentTone || 'professional',
+      topic_pool: step1Data.contentTypes || ['Technology'],
+      max_posts_per_day: step1Data.postingFrequency === 'daily' ? 1 : 
+                        step1Data.postingFrequency === 'multiple-day' ? 2 : 1
+    };
+    
+    // Save automation settings
+    await AutomationDB.saveUserSettings(userId, automationSettings);
+    
+    console.log('✅ Automation set up from onboarding data');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error setting up automation from onboarding:', error);
+    res.status(500).json({ error: 'Failed to set up automation' });
+  }
+});
+
+// ====================
 // USER PREFERENCES ROUTES
 // ====================
 

@@ -327,24 +327,40 @@
         </div>
     </div>
 
+    <script src="script.js"></script>
     <script>
-        // Load previous onboarding data
-        document.addEventListener('DOMContentLoaded', function() {
-            const onboardingData = localStorage.getItem('onboardingData');
-            if (onboardingData) {
-                const data = JSON.parse(onboardingData);
+        let employmentApp;
+        
+        // Load previous onboarding data and initialize authentication
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Initialize EmploymentApp for authentication
+            employmentApp = new EmploymentApp();
+            await employmentApp.init();
+            
+            // Check if user is authenticated
+            if (!employmentApp.currentUser) {
+                console.log('User not authenticated, redirecting to login');
+                window.location.href = '/';
+                return;
+            }
+            // Load step 1 data to set intelligent defaults
+            const step1Data = localStorage.getItem('onboardingStep1');
+            if (step1Data) {
+                const data = JSON.parse(step1Data);
                 
                 // Set defaults based on step 1 preferences
-                if (data.frequency === 'multiple-day') {
+                if (data.postingFrequency === 'multiple-day') {
                     document.getElementById('time_mixed').checked = true;
                     document.getElementById('mix_viral').checked = true;
-                } else if (data.frequency === 'once-per-day') {
+                } else if (data.postingFrequency === 'once-per-day') {
                     document.getElementById('time_afternoon').checked = true;
                     document.getElementById('mix_balanced').checked = true;
-                } else if (data.frequency === 'three-per-week') {
+                } else if (data.postingFrequency === 'few_times_week') {
                     document.getElementById('time_morning').checked = true;
                     document.getElementById('mix_professional').checked = true;
                 }
+                
+                console.log('✅ Loaded step 1 data for intelligent defaults');
             }
         });
 
@@ -362,23 +378,35 @@
             // Get previous onboarding data
             const previousData = JSON.parse(localStorage.getItem('onboardingData') || '{}');
             
-            // Combine all onboarding data
+            // Get step 1 data from localStorage
+            const step1Data = JSON.parse(localStorage.getItem('onboardingStep1') || '{}');
+            
+            // Prepare step 2 data
+            const step2Data = {
+                postingTimes: [postingTime],
+                contentMix: {
+                    news: contentMix === 'news_heavy' ? 60 : contentMix === 'balanced' ? 40 : 20,
+                    insights: contentMix === 'viral_heavy' ? 20 : contentMix === 'balanced' ? 40 : 60,
+                    motivational: contentMix === 'viral_heavy' ? 60 : contentMix === 'balanced' ? 20 : 20
+                },
+                contentTone: tone,
+                enableAutomation
+            };
+            
+            // Save to localStorage for immediate use
+            localStorage.setItem('onboardingStep2', JSON.stringify(step2Data));
+            
+            // Combine all onboarding data for server
             const completeOnboardingData = {
-                ...previousData,
-                postingTime,
-                contentMix,
-                tone,
-                enableAutomation,
-                step: 2,
+                step1: step1Data,
+                step2: step2Data,
                 completed: true,
                 completedAt: new Date().toISOString()
             };
             
-            localStorage.setItem('onboardingData', JSON.stringify(completeOnboardingData));
-            
             try {
-                // Send onboarding data to server to set up automation
-                const response = await fetch('/api/automation/setup-onboarding', {
+                // Save onboarding data to user profile
+                const response = await fetch('/api/user/onboarding', {
                     method: 'POST',
                     credentials: 'include',
                     headers: {
@@ -388,13 +416,35 @@
                 });
                 
                 if (response.ok) {
+                    console.log('✅ Onboarding data saved to user profile');
+                    
+                    // Also set up automation if enabled
+                    if (enableAutomation) {
+                        try {
+                            const automationResponse = await fetch('/api/automation/setup-from-onboarding', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ step1Data, step2Data })
+                            });
+                            
+                            if (automationResponse.ok) {
+                                console.log('✅ Automation enabled from onboarding');
+                            }
+                        } catch (automationError) {
+                            console.warn('⚠️ Could not enable automation:', automationError);
+                        }
+                    }
+                    
                     // Success! Redirect to dashboard
                     window.location.href = '/?onboarding=complete';
                 } else {
-                    throw new Error('Failed to save automation settings');
+                    throw new Error('Failed to save onboarding data');
                 }
             } catch (error) {
-                console.error('Error saving onboarding data:', error);
+                console.error('❌ Error saving onboarding data:', error);
                 // Still redirect to dashboard even if API fails
                 window.location.href = '/?onboarding=complete';
             }

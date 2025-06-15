@@ -120,6 +120,21 @@ function initializeDatabase() {
           }
         }
 
+        // Add onboarding columns if they don't exist (for existing databases)
+        try {
+          await client.query(`
+            ALTER TABLE users 
+            ADD COLUMN onboarding_data JSONB,
+            ADD COLUMN onboarding_completed BOOLEAN DEFAULT false
+          `);
+          console.log('✅ Added onboarding columns to users table');
+        } catch (error) {
+          // Columns already exist, which is fine
+          if (!error.message.includes('already exists')) {
+            console.log('ℹ️ Onboarding columns already exist in users table');
+          }
+        }
+
         // User preferences table
         await client.query(`
           CREATE TABLE IF NOT EXISTS user_preferences (
@@ -581,6 +596,47 @@ const UserDB = {
       `, [userId]);
       
       return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Save user onboarding data
+  saveOnboardingData: async (userId, onboardingData) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        UPDATE users 
+        SET onboarding_data = $1, 
+            onboarding_completed = true,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2 
+        RETURNING id
+      `, [JSON.stringify(onboardingData), userId]);
+      
+      console.log(`✅ Saved onboarding data for user ${userId}`);
+      return result.rows[0] || null;
+    } finally {
+      client.release();
+    }
+  },
+
+  // Get user onboarding data
+  getOnboardingData: async (userId) => {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT onboarding_data, onboarding_completed
+        FROM users 
+        WHERE id = $1
+      `, [userId]);
+      
+      const row = result.rows[0];
+      if (row && row.onboarding_completed && row.onboarding_data) {
+        return JSON.parse(row.onboarding_data);
+      }
+      
+      return null;
     } finally {
       client.release();
     }

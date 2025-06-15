@@ -63,6 +63,7 @@ class EmploymentApp {
         this.currentArticleData = null;
         this.isLoggedIn = false;
         this.currentUser = null;
+        this.onboardingChecked = false;
         
         // Determine which page we're on
         this.currentPage = this.detectCurrentPage();
@@ -1760,14 +1761,14 @@ class EmploymentApp {
         this.isLoggedIn = true;
         
         // Check if user needs onboarding
-        this.checkOnboardingStatus();
+        await this.checkOnboardingStatus();
         
         // Load and display subscription status
         this.loadSubscriptionStatus();
         
         // Load dashboard preferences if on dashboard page
         if (this.currentPage === 'dashboard') {
-            this.loadDashboardPreferences();
+            await this.loadDashboardPreferences();
         }
     }
     
@@ -1825,44 +1826,134 @@ class EmploymentApp {
         this.isLoggedIn = false;
     }
 
-    checkOnboardingStatus() {
+    async checkOnboardingStatus() {
         // Skip onboarding check if we're already on an onboarding page or dashboard
         if (window.location.pathname.includes('onboarding') || 
-            window.location.search.includes('onboarding=complete')) {
+            window.location.search.includes('onboarding=complete') ||
+            window.location.pathname.includes('test-onboarding')) {
+            console.log('🎯 Skipping onboarding check - on onboarding/test page');
             return;
         }
         
-        // Check if user has completed onboarding
-        const onboardingData = localStorage.getItem('onboardingData');
-        const hasCompletedOnboarding = onboardingData ? JSON.parse(onboardingData).completed : false;
+        // Only check onboarding for authenticated users
+        if (!this.currentUser) {
+            console.log('🎯 Skipping onboarding check - user not authenticated');
+            return;
+        }
         
-        // Check if this appears to be a new user (no automation settings, no posts, etc.)
-        if (!hasCompletedOnboarding && this.currentUser) {
-            // Check if user has any automation settings or history
-            fetch('/api/automation/status', {
+        // Skip if we've already checked onboarding in this session
+        if (this.onboardingChecked) {
+            console.log('🎯 Skipping onboarding check - already checked this session');
+            return;
+        }
+        
+        this.onboardingChecked = true;
+        
+        try {
+            // Check server for user's onboarding status
+            const response = await fetch('/api/user/onboarding-status', {
                 credentials: 'include'
-            })
-            .then(response => response.json())
-            .then(data => {
-                // If no automation is set up and user is new, redirect to onboarding
-                if (!data.automation_enabled && !data.has_generated_posts) {
-                    console.log('🎯 New user detected, redirecting to onboarding');
-                    window.location.href = '/onboarding-step1.html';
-                }
-            })
-            .catch(error => {
-                // If API fails, check localStorage
-                if (!hasCompletedOnboarding) {
-                    console.log('🎯 No onboarding data found, redirecting to onboarding');
-                    window.location.href = '/onboarding-step1.html';
-                }
             });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📋 Onboarding status from server:', data);
+                
+                if (data.completed) {
+                    // User has completed onboarding, load their preferences
+                    if (data.onboardingData) {
+                        // Update localStorage with server data for immediate use
+                        if (data.onboardingData.step1) {
+                            localStorage.setItem('onboardingStep1', JSON.stringify(data.onboardingData.step1));
+                        }
+                        if (data.onboardingData.step2) {
+                            localStorage.setItem('onboardingStep2', JSON.stringify(data.onboardingData.step2));
+                        }
+                        console.log('✅ Onboarding completed - data loaded from server');
+                    }
+                    // User has completed onboarding, don't redirect
+                    return;
+                } else {
+                    // User hasn't completed onboarding, redirect them
+                    console.log('🎯 User needs to complete onboarding, redirecting...');
+                    window.location.href = '/onboarding-step1.html';
+                }
+            } else if (response.status === 404) {
+                // No onboarding data found, check if this is a new user or existing user
+                console.log('📋 No onboarding data found on server, checking fallback...');
+                this.checkOnboardingStatusFallback();
+            } else {
+                console.warn('⚠️ Could not check onboarding status:', response.status);
+                // Fallback to localStorage check
+                this.checkOnboardingStatusFallback();
+            }
+        } catch (error) {
+            console.error('❌ Error checking onboarding status:', error);
+            // Fallback to localStorage check
+            this.checkOnboardingStatusFallback();
         }
     }
+    
+    checkOnboardingStatusFallback() {
+        // Fallback method using localStorage and automation status
+        const step1Data = localStorage.getItem('onboardingStep1');
+        const step2Data = localStorage.getItem('onboardingStep2');
+        const hasLocalOnboarding = step1Data && step2Data;
+        
+        if (hasLocalOnboarding) {
+            console.log('✅ Found local onboarding data, user has completed onboarding');
+            return; // User has completed onboarding locally
+        }
+        
+        // Check if user has any automation settings or history as fallback
+        fetch('/api/automation/status', {
+            credentials: 'include'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('📋 Automation status check:', data);
+            // If user has automation enabled OR has generated posts, they're not new
+            if (data.automation_enabled || data.has_generated_posts) {
+                console.log('✅ User has existing automation/posts, skipping onboarding');
+                return; // User is not new, don't force onboarding
+            } else {
+                console.log('🎯 New user detected (fallback), redirecting to onboarding');
+                window.location.href = '/onboarding-step1.html';
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error checking automation status:', error);
+            // Don't redirect on error - better to let user use the app
+            console.log('⚠️ Could not determine user status, allowing access');
+        });
+    }
 
-    loadDashboardPreferences() {
+    async loadDashboardPreferences() {
         try {
-            // Load onboarding data from localStorage
+            // Try to load fresh data from server first
+            try {
+                const response = await fetch('/api/user/onboarding-status', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.completed && data.onboardingData) {
+                        // Update localStorage with fresh server data
+                        if (data.onboardingData.step1) {
+                            localStorage.setItem('onboardingStep1', JSON.stringify(data.onboardingData.step1));
+                        }
+                        if (data.onboardingData.step2) {
+                            localStorage.setItem('onboardingStep2', JSON.stringify(data.onboardingData.step2));
+                        }
+                        console.log('✅ Refreshed preferences from server');
+                    }
+                }
+            } catch (serverError) {
+                console.log('⚠️ Could not load preferences from server, using localStorage');
+            }
+            
+            // Load onboarding data from localStorage (now potentially updated from server)
             const step1Data = JSON.parse(localStorage.getItem('onboardingStep1') || '{}');
             const step2Data = JSON.parse(localStorage.getItem('onboardingStep2') || '{}');
             

@@ -325,23 +325,39 @@
         </div>
     </div>
 
+    <script src="script.js"></script>
     <script>
-        // Get user name from current user if available
+        let employmentApp;
+        
+        // Initialize the app and get user name
         document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                const response = await fetch('/api/user/profile', {
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const user = await response.json();
-                    if (user.name) {
-                        const firstName = user.name.split(' ')[0].toUpperCase();
-                        document.getElementById('userName').textContent = firstName;
+            // Initialize EmploymentApp for authentication
+            employmentApp = new EmploymentApp();
+            await employmentApp.init();
+            
+            // Get user name from current user if available
+            if (employmentApp.currentUser && employmentApp.currentUser.name) {
+                const firstName = employmentApp.currentUser.name.split(' ')[0].toUpperCase();
+                document.getElementById('userName').textContent = firstName;
+            } else {
+                // Fallback API call if needed
+                try {
+                    const response = await fetch('/api/user', {
+                        credentials: 'include'
+                    });
+                    
+                    if (response.ok) {
+                        const user = await response.json();
+                        if (user.name) {
+                            const firstName = user.name.split(' ')[0].toUpperCase();
+                            document.getElementById('userName').textContent = firstName;
+                        }
                     }
+                } catch (error) {
+                    console.log('User not logged in or error fetching profile');
+                    // Redirect to login if not authenticated
+                    window.location.href = '/';
                 }
-            } catch (error) {
-                console.log('User not logged in or error fetching profile');
             }
         });
 
@@ -351,26 +367,14 @@
             
             // Collect form data
             const formData = new FormData(this);
-            const goals = Array.from(formData.getAll('goals'));
+            const goals = formData.get('goals');
             const contentTypes = Array.from(formData.getAll('contentTypes'));
-            const role = formData.get('role');
-            const frequency = formData.get('frequency');
+            const roleIndustry = formData.get('role');
+            const postingFrequency = formData.get('frequency');
             
-            // Store in localStorage for now (could be sent to server later)
-            const onboardingData = {
-                goals,
-                contentTypes,
-                role,
-                frequency,
-                step: 1,
-                completed: false
-            };
-            
-            localStorage.setItem('onboardingData', JSON.stringify(onboardingData));
-            
-            // Validate at least one goal and content type selected
-            if (goals.length === 0) {
-                alert('Please select at least one goal');
+            // Validate required fields
+            if (!goals) {
+                alert('Please select your primary goal');
                 return;
             }
             
@@ -379,12 +383,26 @@
                 return;
             }
             
-            if (!role.trim()) {
+            if (!roleIndustry.trim()) {
                 alert('Please enter your role/industry');
                 return;
             }
             
-            // Redirect to step 2 or automation setup
+            // Prepare step 1 data in the format expected by preferences
+            const step1Data = {
+                goals,
+                roleIndustry,
+                postingFrequency,
+                contentTypes,
+                personalBackground: '', // Will be filled in preferences if needed
+                recentActivities: '', // Will be filled in preferences if needed
+                expertiseInterests: '' // Will be filled in preferences if needed
+            };
+            
+            // Store in localStorage for step 2
+            localStorage.setItem('onboardingStep1', JSON.stringify(step1Data));
+            
+            // Redirect to step 2
             window.location.href = '/onboarding-step2.html';
         });
     </script>
