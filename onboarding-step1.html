@@ -385,9 +385,9 @@
                 const response = await fetch('/api/user/onboarding', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                        'Content-Type': 'application/json'
                     },
+                    credentials: 'include', // Use cookies for authentication
                     body: JSON.stringify({
                         skipped: true,
                         completed: true // Mark as completed so it doesn't show again
@@ -401,7 +401,7 @@
                     // Redirect to dashboard
                     window.location.href = '/';
                 } else {
-                    console.error('Failed to save skip status');
+                    console.error('Failed to save skip status:', response.status, response.statusText);
                     alert('There was an error. Please try again.');
                 }
             } catch (error) {
