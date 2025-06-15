@@ -1722,6 +1722,9 @@ class EmploymentApp {
         
         this.isLoggedIn = true;
         
+        // Check if this is a first-time user who needs onboarding (simple, one-time check)
+        this.checkFirstTimeOnboarding();
+        
         // Load and display subscription status
         this.loadSubscriptionStatus();
         
@@ -1785,7 +1788,40 @@ class EmploymentApp {
         this.isLoggedIn = false;
     }
 
-
+    checkFirstTimeOnboarding() {
+        // Skip if we're already on an onboarding page
+        if (window.location.pathname.includes('onboarding')) {
+            console.log('🎯 Already on onboarding page, skipping check');
+            return;
+        }
+        
+        // Check if user has ever seen onboarding (persistent flag)
+        const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+        if (hasSeenOnboarding === 'true') {
+            console.log('✅ User has already seen onboarding, skipping');
+            return;
+        }
+        
+        // Check if user has existing preferences (indicating they're not new)
+        const hasPreferences = localStorage.getItem('onboardingStep1') || localStorage.getItem('onboardingStep2');
+        if (hasPreferences) {
+            console.log('✅ User has existing preferences, marking onboarding as seen');
+            localStorage.setItem('hasSeenOnboarding', 'true');
+            return;
+        }
+        
+        // Check if user has credits (existing user indicator)
+        if (this.currentUser?.credits > 0) {
+            console.log('✅ User has credits, marking as existing user');
+            localStorage.setItem('hasSeenOnboarding', 'true');
+            return;
+        }
+        
+        // This is a first-time user - show onboarding once
+        console.log('🎯 First-time user detected, redirecting to onboarding');
+        localStorage.setItem('hasSeenOnboarding', 'true'); // Mark as seen immediately to prevent loops
+        window.location.href = '/onboarding-step1.html';
+    }
 
     async loadDashboardPreferences() {
         try {

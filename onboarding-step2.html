@@ -418,6 +418,9 @@
                 if (response.ok) {
                     console.log('✅ Onboarding data saved to user profile');
                     
+                    // Mark that user has seen onboarding to prevent future redirects
+                    localStorage.setItem('hasSeenOnboarding', 'true');
+                    
                     // Also set up automation if enabled
                     if (enableAutomation) {
                         try {
@@ -445,6 +448,8 @@
                 }
             } catch (error) {
                 console.error('❌ Error saving onboarding data:', error);
+                // Mark as seen even if API fails to prevent loops
+                localStorage.setItem('hasSeenOnboarding', 'true');
                 // Still redirect to dashboard even if API fails
                 window.location.href = '/?onboarding=complete';
             }

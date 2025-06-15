@@ -301,6 +301,21 @@
             </div>
         </div>
 
+        <!-- Advanced Options Section -->
+        <div class="preference-section">
+            <h2 class="text-2xl font-bold text-black mb-6">Advanced Options</h2>
+            
+            <div class="bg-gray-50 p-4 rounded-button">
+                <h3 class="text-lg font-medium text-text-primary mb-2">Reset Onboarding</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Want to go through the onboarding process again? This will show you the guided setup next time you log in.
+                </p>
+                <button id="resetOnboarding" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-button hover:bg-gray-300 transition-colors duration-200 font-medium">
+                    🔄 Reset Onboarding
+                </button>
+            </div>
+        </div>
+
         <!-- Save Button -->
         <div class="text-center">
             <button id="savePreferences" class="bg-accent text-white px-8 py-3 rounded-button hover:bg-opacity-90 transition-colors duration-200 font-medium">
@@ -412,6 +427,14 @@
             }
         }
 
+        // Reset onboarding
+        document.getElementById('resetOnboarding').addEventListener('click', function() {
+            if (confirm('Are you sure you want to reset the onboarding? You will see the guided setup next time you log in.')) {
+                localStorage.removeItem('hasSeenOnboarding');
+                showSuccessMessage('Onboarding reset! You will see the guided setup next time you log in.');
+            }
+        });
+
         // Save preferences
         document.getElementById('savePreferences').addEventListener('click', async function() {
             try {
@@ -499,6 +522,16 @@
                 alert('Error saving preferences. Please try again.');
             }
         });
+
+        // Show success message
+        function showSuccessMessage(message) {
+            const popup = document.getElementById('successPopup');
+            popup.querySelector('span:last-child').textContent = message;
+            popup.style.display = 'block';
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 3000);
+        }
     </script>
 </body>
 </html> 

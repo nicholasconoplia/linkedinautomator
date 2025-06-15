@@ -395,9 +395,10 @@
                 });
 
                 if (response.ok) {
-                    console.log('✅ [ONBOARDING DEBUG] Skip onboarding successful, clearing session check');
-                    // Clear the session check so onboarding check can run again and see the skip status
-                    sessionStorage.removeItem('onboardingChecked');
+                    console.log('✅ [ONBOARDING DEBUG] Skip onboarding successful');
+                    
+                    // Mark that user has seen onboarding to prevent future redirects
+                    localStorage.setItem('hasSeenOnboarding', 'true');
                     
                     // Show final confirmation message
                     alert('Onboarding skipped! You can always customize your preferences later in the Preferences tab to get more personalized content.');
