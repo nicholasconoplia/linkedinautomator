@@ -766,10 +766,19 @@ class EmploymentApp {
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Start from Monday
 
-        // Clear existing calendar content except headers
-        const headers = Array.from(calendarGrid.querySelectorAll('.text-center.font-medium'));
-        calendarGrid.innerHTML = '';
-        headers.forEach(header => calendarGrid.appendChild(header));
+        // Clear existing calendar content except headers (first 7 children are headers)
+        const children = Array.from(calendarGrid.children);
+        for (let i = 7; i < children.length; i++) {
+            children[i].remove();
+        }
+
+        // Hide/show empty message
+        const calendarEmpty = document.getElementById('calendarEmpty');
+        if (calendarEmpty) {
+            calendarEmpty.style.display = queue.length === 0 ? 'block' : 'none';
+        }
+
+        if (queue.length === 0) return;
 
         for (let week = 0; week < 4; week++) {
             for (let day = 0; day < 7; day++) {
@@ -780,7 +789,7 @@ class EmploymentApp {
                 const posts = postsByDate[dateStr] || [];
                 
                 const dayElement = document.createElement('div');
-                dayElement.className = 'min-h-[100px] p-2 border border-[#e7edf4] bg-white';
+                dayElement.className = 'min-h-[100px] p-2 border border-[#e7edf4] bg-white rounded-lg';
                 
                 const dayNumber = document.createElement('div');
                 dayNumber.className = 'text-sm font-medium text-[#0d151c] mb-2';
@@ -789,12 +798,13 @@ class EmploymentApp {
                 
                 posts.forEach(post => {
                     const postElement = document.createElement('div');
-                    postElement.className = `text-xs p-1 mb-1 rounded ${
+                    postElement.className = `text-xs p-1 mb-1 rounded cursor-pointer hover:opacity-80 ${
                         post.status === 'posted' ? 'bg-green-100 text-green-800' :
                         post.status === 'pending' ? 'bg-blue-100 text-blue-800' :
                         'bg-gray-100 text-gray-800'
                     }`;
                     postElement.textContent = post.topic || 'Scheduled Post';
+                    postElement.onclick = () => window.employment?.editQueueItem(post.id);
                     dayElement.appendChild(postElement);
                 });
                 
@@ -804,23 +814,19 @@ class EmploymentApp {
     }
 
     updateListView(queue) {
-        const listContainer = document.getElementById('queueListContainer');
-        if (!listContainer) {
-            console.warn('⚠️ List container not found');
+        const tableBody = document.getElementById('queueTableBody');
+        if (!tableBody) {
+            console.warn('⚠️ Queue table body not found');
             return;
         }
 
         if (queue.length === 0) {
-            listContainer.innerHTML = `
-                <div class="text-center py-12">
-                    <div class="text-6xl mb-4">📅</div>
-                    <h3 class="text-xl font-semibold text-[#0d151c] mb-2">No scheduled posts yet</h3>
-                    <p class="text-[#49749c] mb-6">Generate your automation queue to get started!</p>
-                    <button onclick="window.employment?.handleGenerateQueue()" 
-                            class="bg-[#0b80ee] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#0969da] transition-colors">
-                        ✨ Generate Queue
-                    </button>
-                </div>
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-8 text-[#6b7280]">
+                        📋 No scheduled posts yet. Generate your content queue to see posts here.
+                    </td>
+                </tr>
             `;
             return;
         }
@@ -830,51 +836,56 @@ class EmploymentApp {
             const isManual = post.source === 'manual';
             
             return `
-                <div class="bg-white border border-[#e7edf4] rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                                <h4 class="font-medium text-[#0d151c]">${post.topic || 'Generated Content'}</h4>
-                                <span class="text-xs px-2 py-1 rounded-full ${isManual ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">
-                                    ${isManual ? '✏️ Manual' : '🤖 Auto'}
-                                </span>
-                            </div>
-                            <div class="text-sm text-[#49749c] mb-2">
-                                📅 ${scheduledDate.toLocaleDateString()} at ${scheduledDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                            </div>
-                            <div class="flex items-center gap-4 text-sm">
-                                <span class="text-[#49749c]">🎭 ${post.tone || 'professional'}</span>
-                                <span class="px-2 py-1 rounded-full text-xs ${
-                                    post.status === 'posted' ? 'bg-green-100 text-green-800' :
-                                    post.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                    post.status === 'ready' ? 'bg-blue-100 text-blue-800' :
-                                    'bg-gray-100 text-gray-800'
-                                }">
-                                    ${post.status === 'posted' ? '✅ Posted' :
-                                      post.status === 'pending' ? '⏳ Pending' :
-                                      post.status === 'ready' ? '🚀 Ready' :
-                                      post.status}
-                                </span>
-                            </div>
+                <tr class="border-b border-[#e7edf4] hover:bg-[#f8fafc]">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs px-2 py-1 rounded-full ${isManual ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">
+                                ${isManual ? '✏️ Manual' : '🤖 Auto'}
+                            </span>
+                            <span class="text-[#49749c] text-sm">🎭 ${post.tone || 'professional'}</span>
                         </div>
-                        <div class="flex gap-2 ml-4">
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-[#0d151c] text-sm">${post.topic || 'Generated Content'}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-sm text-[#49749c]">
+                            ${scheduledDate.toLocaleDateString()}<br>
+                            <span class="text-xs">${scheduledDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded-full text-xs ${
+                            post.status === 'posted' ? 'bg-green-100 text-green-800' :
+                            post.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            post.status === 'ready' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                        }">
+                            ${post.status === 'posted' ? '✅ Posted' :
+                              post.status === 'pending' ? '⏳ Pending' :
+                              post.status === 'ready' ? '🚀 Ready' :
+                              post.status}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex gap-2">
                             <button onclick="window.employment?.editQueueItem(${post.id})" 
-                                    class="text-[#0b80ee] hover:text-[#0969da] p-2 rounded-lg hover:bg-[#f0f9ff] transition-colors"
+                                    class="text-[#0b80ee] hover:text-[#0969da] p-1 rounded hover:bg-[#f0f9ff] transition-colors"
                                     title="Edit post">
                                 ✏️
                             </button>
                             <button onclick="window.employment?.deleteQueueItem(${post.id})" 
-                                    class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                    class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
                                     title="Delete post">
                                 🗑️
                             </button>
                         </div>
-                    </div>
-                </div>
+                    </td>
+                </tr>
             `;
         }).join('');
 
-        listContainer.innerHTML = queueHtml;
+        tableBody.innerHTML = queueHtml;
     }
 
     updateShowPostedToggle(showPosted) {
