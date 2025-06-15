@@ -1626,7 +1626,7 @@ class EmploymentApp {
                     console.log('✅ User is authenticated:', authData.user.name);
                     this.currentUser = authData.user;
                     this.isLoggedIn = true;
-                    this.showAuthenticatedState();
+                    await this.showAuthenticatedState();
                     
                     // Update credit display with latest balance
                     this.updateCreditDisplay();
@@ -1656,7 +1656,7 @@ class EmploymentApp {
         this.updatePostButtonState();
     }
     
-    showAuthenticatedState() {
+    async showAuthenticatedState() {
         console.log('🟢 [Navigation Debug] ========== AUTH STATE ==========');
         console.log('🟢 [Navigation Debug] Showing authenticated state');
         console.log('🟢 [Navigation Debug] User:', this.currentUser?.name);
