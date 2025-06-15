@@ -64,6 +64,8 @@ class EmploymentApp {
         this.isLoggedIn = false;
         this.currentUser = null;
         this.onboardingChecked = false;
+        this.authCheckInProgress = false; // Prevent multiple simultaneous auth checks
+        this.authRetryCount = 0; // Track auth retry attempts
         
         // Determine which page we're on
         this.currentPage = this.detectCurrentPage();
@@ -1602,6 +1604,16 @@ class EmploymentApp {
         console.log('🔍 [Navigation Debug] Current section:', this.currentSection);
         console.log('🔍 [Navigation Debug] Token exists:', !!this.getAuthToken());
         console.log('🔍 [Navigation Debug] URL:', window.location.href);
+        console.log('🔍 [Navigation Debug] Auth check in progress:', this.authCheckInProgress);
+        console.log('🔍 [Navigation Debug] Auth retry count:', this.authRetryCount);
+        
+        // Prevent multiple simultaneous auth checks
+        if (this.authCheckInProgress) {
+            console.log('⏸️ [Navigation Debug] Auth check already in progress, skipping...');
+            return;
+        }
+        
+        this.authCheckInProgress = true;
         try {
             const response = await fetch('/api/auth-status');
             
@@ -1651,6 +1663,9 @@ class EmploymentApp {
         } catch (error) {
             console.error('❌ Auth check failed:', error);
             this.showUnauthenticatedState();
+        } finally {
+            this.authCheckInProgress = false;
+            console.log('🔍 [Navigation Debug] Auth check completed, flag cleared');
         }
         
         this.updatePostButtonState();
@@ -1760,8 +1775,13 @@ class EmploymentApp {
         
         this.isLoggedIn = true;
         
-        // Check if user needs onboarding
-        await this.checkOnboardingStatus();
+        // DELAY onboarding check to allow LinkedIn auth to fully complete
+        // This prevents race conditions and multiple login attempts
+        console.log('⏰ [ONBOARDING DEBUG] Delaying onboarding check to allow auth to stabilize...');
+        setTimeout(async () => {
+            console.log('⏰ [ONBOARDING DEBUG] Auth stabilization period complete, checking onboarding...');
+            await this.checkOnboardingStatus();
+        }, 2000); // 2 second delay to allow LinkedIn auth to fully complete
         
         // Load and display subscription status
         this.loadSubscriptionStatus();
@@ -1833,6 +1853,8 @@ class EmploymentApp {
         console.log('🔍 [ONBOARDING DEBUG] Search:', window.location.search);
         console.log('🔍 [ONBOARDING DEBUG] Current user:', this.currentUser);
         console.log('🔍 [ONBOARDING DEBUG] Already checked:', this.onboardingChecked);
+        console.log('🔍 [ONBOARDING DEBUG] User name length:', this.currentUser?.name?.length);
+        console.log('🔍 [ONBOARDING DEBUG] User has full name:', this.currentUser?.name?.includes(' '));
         
         // Skip onboarding check if we're already on an onboarding page or dashboard
         if (window.location.pathname.includes('onboarding') || 
@@ -1846,6 +1868,28 @@ class EmploymentApp {
         if (!this.currentUser) {
             console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - user not authenticated');
             return;
+        }
+        
+        // Check if LinkedIn auth is still incomplete (user name is just first name)
+        // This indicates LinkedIn auth is still processing
+        if (this.currentUser?.name && !this.currentUser.name.includes(' ') && this.currentUser.name.length < 10) {
+            console.log('⏰ [ONBOARDING DEBUG] LinkedIn auth appears incomplete (name too short/no space) - delaying check');
+            console.log('⏰ [ONBOARDING DEBUG] Current name:', this.currentUser.name);
+            console.log('⏰ [ONBOARDING DEBUG] Auth retry count:', this.authRetryCount);
+            
+            // Prevent infinite retries
+            if (this.authRetryCount >= 3) {
+                console.log('⚠️ [ONBOARDING DEBUG] Max auth retries reached, proceeding with current user data');
+            } else {
+                this.authRetryCount++;
+                // Retry after another delay
+                setTimeout(async () => {
+                    console.log('⏰ [ONBOARDING DEBUG] Retrying onboarding check after auth completion...');
+                    // Re-check auth status first
+                    await this.checkAuthStatus();
+                }, 3000);
+                return;
+            }
         }
         
         // Skip if we've already checked onboarding in this session
