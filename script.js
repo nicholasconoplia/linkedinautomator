@@ -486,47 +486,13 @@ class EmploymentApp {
                                 // Add event listeners
                 const automationForm = document.getElementById('automationForm');
                 if (automationForm) {
-                    automationForm.addEventListener('submit', this.handleSaveAutomation.bind(this));
+                    automationForm.addEventListener('submit', this.handleSaveAutomationSettings.bind(this));
                 }
             }
         }
     }
 
-    async handleSaveAutomation(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(e.target);
-        const checkboxes = e.target.querySelectorAll('input[type="checkbox"]:checked');
-        const selectedDays = Array.from(checkboxes).map(cb => cb.value);
-        
-        const automationSettings = {
-            frequency: document.getElementById('postFrequency').value,
-            time: document.getElementById('postTime').value,
-            contentType: document.getElementById('autoContentType').value,
-            tone: document.getElementById('autoTone').value,
-            days: selectedDays
-        };
-        
-        try {
-            const response = await fetch('/api/automation/settings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify(automationSettings)
-            });
-            
-            if (response.ok) {
-                this.showSuccess('Automation settings saved successfully!');
-            } else {
-                this.showError('Failed to save automation settings');
-            }
-        } catch (error) {
-            console.error('Error saving automation:', error);
-            this.showError('Failed to save automation settings');
-        }
-    }
+
 
     // ====================
     // AUTOMATION FUNCTIONALITY  
@@ -563,28 +529,112 @@ class EmploymentApp {
     }
 
     populateAutomationSettingsForm(settings) {
+        // Load onboarding data to supplement server settings
+        const onboardingData = this.loadOnboardingDataForAutomation();
+        
+        // Merge server settings with onboarding preferences
+        const mergedSettings = { ...onboardingData, ...settings };
+        
         // Update form fields
         const postFrequency = document.getElementById('postFrequency');
         const postTimes = document.getElementById('postTimes');
         const autoContentMix = document.getElementById('autoContentMix');
         const autoTone = document.getElementById('autoTone');
         
-        if (postFrequency) postFrequency.value = settings.frequency || 'weekly';
-        if (postTimes) postTimes.value = settings.posting_times || 'afternoon';
-        if (autoContentMix) autoContentMix.value = settings.content_mix || 'balanced';
-        if (autoTone) autoTone.value = settings.default_tone || 'professional';
+        if (postFrequency) postFrequency.value = mergedSettings.frequency || 'weekly';
+        if (postTimes) postTimes.value = mergedSettings.posting_times || 'afternoon';
+        if (autoContentMix) autoContentMix.value = mergedSettings.content_mix || 'balanced';
+        if (autoTone) autoTone.value = mergedSettings.default_tone || 'professional';
 
         // Update topic pool
         const topicCheckboxes = document.querySelectorAll('#topicPool input[type="checkbox"]');
         topicCheckboxes.forEach(checkbox => {
-            checkbox.checked = settings.topic_pool?.includes(checkbox.value) || false;
+            checkbox.checked = mergedSettings.topic_pool?.includes(checkbox.value) || false;
         });
 
         // Update posting days
         const dayCheckboxes = document.querySelectorAll('#daysOfWeek input[type="checkbox"]');
         dayCheckboxes.forEach(checkbox => {
-            checkbox.checked = settings.posting_days?.includes(checkbox.value) || false;
+            checkbox.checked = mergedSettings.posting_days?.includes(checkbox.value) || false;
         });
+    }
+    
+    loadOnboardingDataForAutomation() {
+        try {
+            const step1Data = JSON.parse(localStorage.getItem('onboardingStep1') || '{}');
+            const step2Data = JSON.parse(localStorage.getItem('onboardingStep2') || '{}');
+            
+            // Map onboarding data to automation settings
+            const automationSettings = {};
+            
+            // Map posting frequency
+            if (step1Data.postingFrequency) {
+                const frequencyMap = {
+                    'daily': 'daily',
+                    'few_times_week': 'few_times_week',
+                    'weekly': 'weekly',
+                    'few_times_month': 'few_times_month',
+                    'monthly': 'monthly'
+                };
+                automationSettings.frequency = frequencyMap[step1Data.postingFrequency] || 'weekly';
+            }
+            
+            // Map posting times
+            if (step2Data.postingTimes && step2Data.postingTimes.length > 0) {
+                automationSettings.posting_times = step2Data.postingTimes[0]; // Use first selected time
+            }
+            
+            // Map content tone
+            if (step2Data.contentTone) {
+                automationSettings.default_tone = step2Data.contentTone;
+            }
+            
+            // Map content types to topic pool
+            if (step1Data.contentTypes && step1Data.contentTypes.length > 0) {
+                const topicMap = {
+                    'industry_insights': 'Technology',
+                    'career_advice': 'Career Development',
+                    'personal_stories': 'Leadership',
+                    'thought_leadership': 'Leadership',
+                    'company_updates': 'Digital Marketing',
+                    'learning_sharing': 'Career Development'
+                };
+                
+                automationSettings.topic_pool = step1Data.contentTypes.map(type => 
+                    topicMap[type] || 'Technology'
+                ).filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+            }
+            
+            // Map content mix
+            if (step2Data.contentMix) {
+                const total = step2Data.contentMix.news + step2Data.contentMix.insights + step2Data.contentMix.motivational;
+                if (total > 80) {
+                    automationSettings.content_mix = 'news_heavy';
+                } else if (step2Data.contentMix.insights > 50) {
+                    automationSettings.content_mix = 'insights_heavy';
+                } else {
+                    automationSettings.content_mix = 'balanced';
+                }
+            }
+            
+            // Default posting days based on frequency
+            if (!automationSettings.posting_days) {
+                if (automationSettings.frequency === 'daily') {
+                    automationSettings.posting_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+                } else if (automationSettings.frequency === 'few_times_week') {
+                    automationSettings.posting_days = ['monday', 'wednesday', 'friday'];
+                } else {
+                    automationSettings.posting_days = ['monday'];
+                }
+            }
+            
+            console.log('📋 Loaded onboarding data for automation:', automationSettings);
+            return automationSettings;
+            
+        } catch (error) {
+            console.error('❌ Error loading onboarding data for automation:', error);
+            return {};
+        }
     }
 
     updateAutomationToggle(enabled) {

@@ -466,8 +466,26 @@
                 localStorage.setItem('onboardingStep1', JSON.stringify(step1Data));
                 localStorage.setItem('onboardingStep2', JSON.stringify(step2Data));
                 
-                // TODO: Also send to server to update user preferences in database
-                // This would require an API endpoint to update user preferences
+                // Also update automation settings if user has them configured
+                try {
+                    const response = await fetch('/api/automation/sync-preferences', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            step1Data,
+                            step2Data
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        console.log('✅ Automation settings synced with preferences');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Could not sync automation settings:', error);
+                }
                 
                 // Show success message
                 const popup = document.getElementById('successPopup');
