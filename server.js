@@ -6299,12 +6299,7 @@ app.post('/api/automation/generate-queue', requireAuth, async (req, res) => {
 app.get('/api/automation/queue', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { limit = 50, offset = 0, showPosted = 'false' } = req.query;
-
-    // Build WHERE clause based on showPosted filter
-    const statusFilter = showPosted === 'true' 
-      ? '' // Show all statuses
-      : "AND status != 'posted' AND scheduled_for > NOW()"; // Only show upcoming posts
+    const { limit = 50, offset = 0 } = req.query;
 
     // Get both automation queue items and scheduled posts
     const result = await pool.query(`
@@ -6321,7 +6316,7 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
         NULL as post_content,
         'automation' as source
       FROM automation_queue 
-      WHERE user_id = $1 ${statusFilter}
+      WHERE user_id = $1
       
       UNION ALL
       
@@ -6338,7 +6333,7 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
         post_content,
         'manual' as source
       FROM scheduled_posts 
-      WHERE user_id = $1 ${statusFilter.replace("status != 'posted'", "status != 'posted'")}
+      WHERE user_id = $1
       
       ORDER BY scheduled_for ASC 
       LIMIT $2 OFFSET $3
@@ -6346,17 +6341,16 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
 
     const countResult = await pool.query(`
       SELECT COUNT(*) as total FROM (
-        SELECT id FROM automation_queue WHERE user_id = $1 ${statusFilter}
+        SELECT id FROM automation_queue WHERE user_id = $1
         UNION ALL
-        SELECT id FROM scheduled_posts WHERE user_id = $1 ${statusFilter.replace("status != 'posted'", "status != 'posted'")}
+        SELECT id FROM scheduled_posts WHERE user_id = $1
       ) combined
     `, [userId]);
 
     res.json({
       queue: result.rows,
       total: parseInt(countResult.rows[0].total),
-      hasMore: (parseInt(offset) + result.rows.length) < parseInt(countResult.rows[0].total),
-      showPosted: showPosted === 'true'
+      hasMore: (parseInt(offset) + result.rows.length) < parseInt(countResult.rows[0].total)
     });
   } catch (error) {
     console.error('❌ Error fetching automation queue:', error);

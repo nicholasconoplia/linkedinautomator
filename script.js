@@ -521,7 +521,7 @@ class EmploymentApp {
         try {
             await Promise.all([
                 this.loadAutomationSettings(),
-                this.loadAutomationQueue(true), // Show posted items by default so user can see automation working
+                this.loadAutomationQueue(),
                 this.loadAutomationAnalytics()
             ]);
             this.setupAutomationEventListeners();
@@ -705,30 +705,28 @@ class EmploymentApp {
     }
 
     async loadAutomationQueue(showPosted = false) {
-        console.log('📋 Loading automation queue...', { showPosted });
+        console.log('📋 Loading automation queue...');
         try {
-            const response = await fetch(`/api/automation/queue?showPosted=${showPosted}`, {
+            const response = await fetch('/api/automation/queue', {
                 credentials: 'include'
             });
 
             if (response.ok) {
                 const data = await response.json();
                 console.log('✅ Automation queue loaded:', data);
-                this.currentShowPosted = showPosted;
-                this.displayAutomationQueue(data.queue, data.showPosted);
-                this.updateShowPostedToggle(showPosted);
+                this.displayAutomationQueue(data.queue);
             } else {
                 console.error('❌ Failed to load automation queue:', response.status);
-                this.displayAutomationQueue([], false);
+                this.displayAutomationQueue([]);
             }
         } catch (error) {
             console.error('❌ Error loading automation queue:', error);
-            this.displayAutomationQueue([], false);
+            this.displayAutomationQueue([]);
         }
     }
 
-    displayAutomationQueue(queue, showPosted = false) {
-        console.log('🎨 Displaying automation queue:', { count: queue.length, showPosted });
+    displayAutomationQueue(queue) {
+        console.log('🎨 Displaying automation queue:', { count: queue.length });
         
         const calendarView = document.getElementById('calendarView');
         const listView = document.getElementById('listView');
@@ -1202,7 +1200,7 @@ class EmploymentApp {
                     this.showSuccess(`Generated ${result.generated} posts for your automation queue! Processing will happen on next check.`);
                 }
                 
-                await this.loadAutomationQueue(this.currentShowPosted || false);
+                await this.loadAutomationQueue();
                 await this.loadAutomationAnalytics();
             } else {
                 const errorData = await response.text();
@@ -1276,7 +1274,7 @@ class EmploymentApp {
                     this.showSuccess(message);
                 }
                 
-                await this.loadAutomationQueue(this.currentShowPosted || false);
+                await this.loadAutomationQueue();
                 await this.loadAutomationAnalytics();
             } else {
                 const errorData = await response.text();
@@ -1303,21 +1301,8 @@ class EmploymentApp {
     }
 
     async handleShowPostedToggle() {
-        const toggleBtn = document.getElementById('showPostedToggle');
-        const currentShowPosted = this.currentShowPosted || false;
-        const newShowPosted = !currentShowPosted;
-        
-        // Update button appearance
-        if (newShowPosted) {
-            toggleBtn.className = toggleBtn.className.replace('bg-[#6b7280]', 'bg-[#10b981]');
-            toggleBtn.innerHTML = '👁️ Hide Posted';
-        } else {
-            toggleBtn.className = toggleBtn.className.replace('bg-[#10b981]', 'bg-[#6b7280]');
-            toggleBtn.innerHTML = '👁️ Show Posted';
-        }
-        
-        // Reload queue with new filter
-        await this.loadAutomationQueue(newShowPosted);
+        // Simple reload of the queue - the working version doesn't have complex filtering
+        await this.loadAutomationQueue();
     }
 
     switchQueueView(view) {
@@ -1557,7 +1542,7 @@ class EmploymentApp {
             if (response.ok) {
                 this.showSuccess('Post updated successfully!');
                 this.closeEditQueueModal();
-                await this.loadAutomationQueue(this.currentShowPosted || false);
+                await this.loadAutomationQueue();
                 await this.loadAutomationAnalytics();
             } else {
                 const errorData = await response.text();
@@ -1591,7 +1576,7 @@ class EmploymentApp {
 
             if (response.ok) {
                 this.showSuccess('Post deleted successfully');
-                await this.loadAutomationQueue(this.currentShowPosted || false);
+                await this.loadAutomationQueue();
                 await this.loadAutomationAnalytics();
             } else {
                 this.showError('Failed to delete post');
