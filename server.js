@@ -6408,7 +6408,7 @@ app.put('/api/automation/queue/:id', requireAuth, async (req, res) => {
       // Update scheduled_posts table for manual posts
       result = await pool.query(`
         UPDATE scheduled_posts 
-        SET topic = $1, tone = $2, scheduled_for = $3, status = $4, post_content = $5
+        SET topic = $1, tone = $2, scheduled_for = $3, status = $4, post_content = $5, updated_at = CURRENT_TIMESTAMP
         WHERE id = $6 AND user_id = $7
         RETURNING *
       `, [topic, tone, scheduled_for, status, post_content, queueId, userId]);
