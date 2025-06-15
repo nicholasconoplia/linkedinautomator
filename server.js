@@ -6300,11 +6300,21 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { limit = 50, offset = 0, showPosted = 'false' } = req.query;
+    console.log(`🔍 Queue request - showPosted: ${showPosted}, userId: ${userId}`);
 
     // Build WHERE clause based on showPosted filter
-    const statusFilter = showPosted === 'true' 
-      ? '' // Show all statuses
-      : "AND status != 'posted' AND scheduled_for > NOW()"; // Only show upcoming posts
+    let automationFilter = '';
+    let scheduledFilter = '';
+    
+    if (showPosted === 'false') {
+      // Hide posted: only show pending/ready posts scheduled for future
+      automationFilter = "AND status IN ('pending', 'ready') AND scheduled_for > NOW()";
+      scheduledFilter = "AND status = 'pending' AND scheduled_for > NOW()";
+      console.log('🔍 Filtering to show only pending/ready posts');
+    } else {
+      console.log('🔍 Showing all posts including posted ones');
+    }
+    // If showPosted === 'true', show all posts (no additional filter)
 
     // Get both automation queue items and scheduled posts
     const result = await pool.query(`
@@ -6321,7 +6331,7 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
         NULL as post_content,
         'automation' as source
       FROM automation_queue 
-      WHERE user_id = $1 ${statusFilter}
+      WHERE user_id = $1 ${automationFilter}
       
       UNION ALL
       
@@ -6338,7 +6348,7 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
         post_content,
         'manual' as source
       FROM scheduled_posts 
-      WHERE user_id = $1 ${statusFilter.replace("status != 'posted'", "status != 'posted'")}
+      WHERE user_id = $1 ${scheduledFilter}
       
       ORDER BY scheduled_for ASC 
       LIMIT $2 OFFSET $3
@@ -6346,16 +6356,26 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
 
     const countResult = await pool.query(`
       SELECT COUNT(*) as total FROM (
-        SELECT id FROM automation_queue WHERE user_id = $1 ${statusFilter}
+        SELECT id FROM automation_queue WHERE user_id = $1 ${automationFilter}
         UNION ALL
-        SELECT id FROM scheduled_posts WHERE user_id = $1 ${statusFilter.replace("status != 'posted'", "status != 'posted'")}
+        SELECT id FROM scheduled_posts WHERE user_id = $1 ${scheduledFilter}
       ) combined
     `, [userId]);
 
+    const totalCount = parseInt(countResult.rows[0].total);
+    
+    console.log(`🔍 Returning ${result.rows.length} items, total: ${totalCount}, showPosted: ${showPosted}`);
+    console.log(`🔍 Sample items:`, result.rows.slice(0, 3).map(item => ({
+      id: item.id,
+      status: item.status,
+      scheduled_for: item.scheduled_for,
+      topic: item.topic
+    })));
+
     res.json({
       queue: result.rows,
-      total: parseInt(countResult.rows[0].total),
-      hasMore: (parseInt(offset) + result.rows.length) < parseInt(countResult.rows[0].total),
+      total: totalCount,
+      hasMore: (parseInt(offset) + result.rows.length) < totalCount,
       showPosted: showPosted === 'true'
     });
   } catch (error) {

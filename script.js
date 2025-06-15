@@ -706,17 +706,24 @@ class EmploymentApp {
     }
 
     async loadAutomationQueue(showPosted = false) {
-        console.log('📋 Loading automation queue...');
+        console.log(`📋 Loading automation queue with showPosted=${showPosted}...`);
         try {
-            const response = await fetch('/api/automation/queue', {
-                credentials: 'include'
+            const response = await fetch(`/api/automation/queue?showPosted=${showPosted}`, {
+                credentials: 'include',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
             });
 
             if (response.ok) {
                 const data = await response.json();
                 console.log('✅ Automation queue loaded:', data);
+                console.log(`📋 Received ${data.queue?.length || data.items?.length || 0} items`);
                 this.currentShowPosted = showPosted;
-                this.displayAutomationQueue(data.queue);
+                
+                // Handle both possible response formats
+                const queueItems = data.queue || data.items || [];
+                this.displayAutomationQueue(queueItems);
                 this.updateShowPostedToggle(showPosted);
             } else {
                 console.error('❌ Failed to load automation queue:', response.status);
