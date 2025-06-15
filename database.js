@@ -633,7 +633,30 @@ const UserDB = {
       
       const row = result.rows[0];
       if (row && row.onboarding_completed && row.onboarding_data) {
-        return JSON.parse(row.onboarding_data);
+        try {
+          // Handle corrupted data gracefully
+          if (row.onboarding_data === '[object Object]' || typeof row.onboarding_data === 'object') {
+            console.log('⚠️ [ONBOARDING DEBUG] Corrupted onboarding data detected, clearing it');
+            // Clear corrupted data
+            await client.query(`
+              UPDATE users 
+              SET onboarding_data = NULL, onboarding_completed = false
+              WHERE id = $1
+            `, [userId]);
+            return null;
+          }
+          
+          return JSON.parse(row.onboarding_data);
+        } catch (parseError) {
+          console.log('⚠️ [ONBOARDING DEBUG] Failed to parse onboarding data, clearing it:', parseError.message);
+          // Clear corrupted data
+          await client.query(`
+            UPDATE users 
+            SET onboarding_data = NULL, onboarding_completed = false
+            WHERE id = $1
+          `, [userId]);
+          return null;
+        }
       }
       
       return null;

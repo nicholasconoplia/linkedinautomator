@@ -1240,8 +1240,28 @@ app.get('/api/user/onboarding-status', requireAuth, async (req, res) => {
     const userId = req.user.id;
     console.log('🔍 [ONBOARDING DEBUG] Getting onboarding status for user:', userId);
     
+    // First, let's check the raw database data
+    const client = await pool.connect();
+    try {
+      const rawResult = await client.query(`
+        SELECT onboarding_data, onboarding_completed
+        FROM users 
+        WHERE id = $1
+      `, [userId]);
+      
+      const rawRow = rawResult.rows[0];
+      console.log('🔍 [ONBOARDING DEBUG] Raw database row:', {
+        onboarding_completed: rawRow?.onboarding_completed,
+        onboarding_data_type: typeof rawRow?.onboarding_data,
+        onboarding_data_value: rawRow?.onboarding_data,
+        onboarding_data_length: rawRow?.onboarding_data?.length
+      });
+    } finally {
+      client.release();
+    }
+    
     const onboardingData = await UserDB.getOnboardingData(userId);
-    console.log('🔍 [ONBOARDING DEBUG] Raw onboarding data from DB:', JSON.stringify(onboardingData, null, 2));
+    console.log('🔍 [ONBOARDING DEBUG] Processed onboarding data from DB:', JSON.stringify(onboardingData, null, 2));
     
     if (onboardingData) {
       const response = {
@@ -1257,8 +1277,8 @@ app.get('/api/user/onboarding-status', requireAuth, async (req, res) => {
         skipped: false,
         onboardingData: null
       };
-      console.log('🔍 [ONBOARDING DEBUG] No onboarding data found, sending 404:', JSON.stringify(response, null, 2));
-      res.status(404).json(response);
+      console.log('🔍 [ONBOARDING DEBUG] No onboarding data found, sending response:', JSON.stringify(response, null, 2));
+      res.json(response);
     }
   } catch (error) {
     console.error('❌ [ONBOARDING DEBUG] Error getting onboarding status:', error);
