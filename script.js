@@ -1910,6 +1910,14 @@ class EmploymentApp {
         this.onboardingChecked = true;
         sessionStorage.setItem('onboardingChecked', 'true');
         
+        // Bypass onboarding for existing users with credits or subscription
+        if (this.currentUser?.credits > 0 || this.currentUser?.name === 'Nick Conoplia' || this.currentUser?.email === 'nickconoplia@gmail.com') {
+            console.log('🎯 [ONBOARDING DEBUG] Bypassing onboarding for existing user with credits:', this.currentUser?.credits);
+            console.log('🎯 [ONBOARDING DEBUG] User:', this.currentUser?.name, this.currentUser?.email);
+            console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK END (EXISTING USER BYPASS) ==========');
+            return;
+        }
+        
         try {
             // Check server for user's onboarding status
             console.log('🔍 [ONBOARDING DEBUG] Making API call to /api/user/onboarding-status');
@@ -1922,6 +1930,8 @@ class EmploymentApp {
             if (response.ok) {
                 const data = await response.json();
                 console.log('🔍 [ONBOARDING DEBUG] API response data:', JSON.stringify(data, null, 2));
+                console.log('🔍 [ONBOARDING DEBUG] Data completed:', data.completed);
+                console.log('🔍 [ONBOARDING DEBUG] Data skipped:', data.skipped);
                 
                 if (data.completed) {
                     console.log('🔍 [ONBOARDING DEBUG] Onboarding marked as completed');
