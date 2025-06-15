@@ -1827,44 +1827,69 @@ class EmploymentApp {
     }
 
     async checkOnboardingStatus() {
+        console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK START ==========');
+        console.log('🔍 [ONBOARDING DEBUG] Current URL:', window.location.href);
+        console.log('🔍 [ONBOARDING DEBUG] Pathname:', window.location.pathname);
+        console.log('🔍 [ONBOARDING DEBUG] Search:', window.location.search);
+        console.log('🔍 [ONBOARDING DEBUG] Current user:', this.currentUser);
+        console.log('🔍 [ONBOARDING DEBUG] Already checked:', this.onboardingChecked);
+        
         // Skip onboarding check if we're already on an onboarding page or dashboard
         if (window.location.pathname.includes('onboarding') || 
             window.location.search.includes('onboarding=complete') ||
             window.location.pathname.includes('test-onboarding')) {
-            console.log('🎯 Skipping onboarding check - on onboarding/test page');
+            console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - on onboarding/test page');
             return;
         }
         
         // Only check onboarding for authenticated users
         if (!this.currentUser) {
-            console.log('🎯 Skipping onboarding check - user not authenticated');
+            console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - user not authenticated');
             return;
         }
         
         // Skip if we've already checked onboarding in this session
         if (this.onboardingChecked) {
-            console.log('🎯 Skipping onboarding check - already checked this session');
+            console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - already checked this session');
             return;
         }
         
+        // Also check sessionStorage to prevent multiple checks across page loads
+        const sessionChecked = sessionStorage.getItem('onboardingChecked');
+        if (sessionChecked) {
+            console.log('🎯 [ONBOARDING DEBUG] Skipping onboarding check - already checked in this session (sessionStorage)');
+            this.onboardingChecked = true;
+            return;
+        }
+        
+        console.log('🔍 [ONBOARDING DEBUG] Proceeding with onboarding check...');
         this.onboardingChecked = true;
+        sessionStorage.setItem('onboardingChecked', 'true');
         
         try {
             // Check server for user's onboarding status
+            console.log('🔍 [ONBOARDING DEBUG] Making API call to /api/user/onboarding-status');
             const response = await fetch('/api/user/onboarding-status', {
                 credentials: 'include'
             });
             
+            console.log('🔍 [ONBOARDING DEBUG] API response status:', response.status);
+            
             if (response.ok) {
                 const data = await response.json();
-                console.log('📋 Onboarding status from server:', data);
+                console.log('🔍 [ONBOARDING DEBUG] API response data:', JSON.stringify(data, null, 2));
                 
                 if (data.completed) {
+                    console.log('🔍 [ONBOARDING DEBUG] Onboarding marked as completed');
+                    
                     // Check if user skipped onboarding
                     if (data.skipped) {
-                        console.log('⏭️ User previously skipped onboarding - allowing access');
+                        console.log('⏭️ [ONBOARDING DEBUG] User previously skipped onboarding - allowing access');
+                        console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK END (SKIPPED) ==========');
                         return; // User skipped onboarding, don't redirect
                     }
+                    
+                    console.log('🔍 [ONBOARDING DEBUG] User completed onboarding normally');
                     
                     // User has completed onboarding, load their preferences
                     if (data.onboardingData) {
@@ -1875,26 +1900,28 @@ class EmploymentApp {
                         if (data.onboardingData.step2) {
                             localStorage.setItem('onboardingStep2', JSON.stringify(data.onboardingData.step2));
                         }
-                        console.log('✅ Onboarding completed - data loaded from server');
+                        console.log('✅ [ONBOARDING DEBUG] Onboarding completed - data loaded from server');
                     }
                     // User has completed onboarding, don't redirect
+                    console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK END (COMPLETED) ==========');
                     return;
                 } else {
                     // User hasn't completed onboarding, redirect them
-                    console.log('🎯 User needs to complete onboarding, redirecting...');
+                    console.log('🎯 [ONBOARDING DEBUG] User needs to complete onboarding, redirecting...');
+                    console.log('🔍 [ONBOARDING DEBUG] ========== ONBOARDING CHECK END (REDIRECTING) ==========');
                     window.location.href = '/onboarding-step1.html';
                 }
             } else if (response.status === 404) {
                 // No onboarding data found, check if this is a new user or existing user
-                console.log('📋 No onboarding data found on server, checking fallback...');
+                console.log('📋 [ONBOARDING DEBUG] No onboarding data found on server (404), checking fallback...');
                 this.checkOnboardingStatusFallback();
             } else {
-                console.warn('⚠️ Could not check onboarding status:', response.status);
+                console.warn('⚠️ [ONBOARDING DEBUG] Could not check onboarding status:', response.status);
                 // Fallback to localStorage check
                 this.checkOnboardingStatusFallback();
             }
         } catch (error) {
-            console.error('❌ Error checking onboarding status:', error);
+            console.error('❌ [ONBOARDING DEBUG] Error checking onboarding status:', error);
             // Fallback to localStorage check
             this.checkOnboardingStatusFallback();
         }

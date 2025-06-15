@@ -1203,15 +1203,18 @@ app.post('/api/user/onboarding', requireAuth, async (req, res) => {
     
     // Handle skip functionality
     if (onboardingData.skipped && onboardingData.completed) {
-      console.log('⏭️ User skipped onboarding');
-      await UserDB.saveOnboardingData(userId, {
+      console.log('⏭️ [ONBOARDING DEBUG] User skipped onboarding, saving skip status');
+      const skipData = {
         skipped: true,
         completed: true,
         step1: null,
         step2: null
-      });
+      };
+      console.log('⏭️ [ONBOARDING DEBUG] Skip data to save:', JSON.stringify(skipData, null, 2));
       
-      console.log('✅ Onboarding skip status saved successfully');
+      await UserDB.saveOnboardingData(userId, skipData);
+      
+      console.log('✅ [ONBOARDING DEBUG] Onboarding skip status saved successfully');
       return res.json({ success: true, skipped: true });
     }
     
@@ -1235,23 +1238,30 @@ app.post('/api/user/onboarding', requireAuth, async (req, res) => {
 app.get('/api/user/onboarding-status', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('🔍 [ONBOARDING DEBUG] Getting onboarding status for user:', userId);
+    
     const onboardingData = await UserDB.getOnboardingData(userId);
+    console.log('🔍 [ONBOARDING DEBUG] Raw onboarding data from DB:', JSON.stringify(onboardingData, null, 2));
     
     if (onboardingData) {
-      res.json({
+      const response = {
         completed: true,
         skipped: onboardingData.skipped || false,
         onboardingData: onboardingData
-      });
+      };
+      console.log('🔍 [ONBOARDING DEBUG] Sending response:', JSON.stringify(response, null, 2));
+      res.json(response);
     } else {
-      res.status(404).json({
+      const response = {
         completed: false,
         skipped: false,
         onboardingData: null
-      });
+      };
+      console.log('🔍 [ONBOARDING DEBUG] No onboarding data found, sending 404:', JSON.stringify(response, null, 2));
+      res.status(404).json(response);
     }
   } catch (error) {
-    console.error('❌ Error getting onboarding status:', error);
+    console.error('❌ [ONBOARDING DEBUG] Error getting onboarding status:', error);
     res.status(500).json({ error: 'Failed to get onboarding status' });
   }
 });
