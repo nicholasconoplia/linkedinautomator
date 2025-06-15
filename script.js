@@ -76,9 +76,9 @@ class EmploymentApp {
         const path = window.location.pathname;
         console.log('🔍 [Navigation Debug] Current path:', path);
         let page = 'dashboard';
-        if (path === '/generator') page = 'generator';
-        if (path === '/automation') page = 'automation';
-        if (path === '/saved-posts') page = 'saved-posts';
+        if (path === '/generator' || path === '/generator.html') page = 'generator';
+        if (path === '/automation' || path === '/automation.html') page = 'automation';
+        if (path === '/saved-posts' || path === '/saved-posts.html') page = 'saved-posts';
         console.log('🔍 [Navigation Debug] Detected page:', page);
         return page;
     }
@@ -152,6 +152,7 @@ class EmploymentApp {
     setupAutomationPage() {
         console.log('🤖 Setting up Automation page...');
         this.setupEventListeners();
+        this.setupAutomationForm();
         this.loadAutomationData();
     }
 
