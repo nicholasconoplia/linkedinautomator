@@ -1688,21 +1688,57 @@ class EmploymentApp {
             mobileUserName.textContent = this.currentUser.name;
         }
         
+        // Handle mobile auth sections
+        const mobileLoginSection = document.getElementById('mobileLoginSection');
+        const mobileUserSection = document.getElementById('mobileUserSection');
+        if (mobileLoginSection) {
+            mobileLoginSection.style.display = 'none';
+        }
+        if (mobileUserSection) {
+            mobileUserSection.style.display = 'block';
+        }
+        
         // Update credit balance display
         this.updateCreditDisplay();
         
-        // Update user profile picture
+        // Update user profile picture and initials
         const userProfilePic = document.getElementById('userProfilePic');
-        if (userProfilePic) {
-            if (this.currentUser?.profilePicture) {
-                console.log('🔸 Setting user profile picture:', this.currentUser.profilePicture);
+        const userInitials = document.getElementById('userInitials');
+        const mobileUserInitials = document.getElementById('mobileUserInitials');
+        
+        if (this.currentUser?.profilePicture) {
+            console.log('🔸 Setting user profile picture:', this.currentUser.profilePicture);
+            // Show profile picture, hide initials
+            if (userProfilePic) {
                 userProfilePic.src = this.currentUser.profilePicture;
                 userProfilePic.style.display = 'block';
-            } else {
-                // Show default avatar if no profile picture
-                console.log('🔸 Using default avatar - no profile picture available');
-                userProfilePic.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiNkMWQ1ZGIiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMTYgMTZhNCA0IDAgMSAwIDAtOCA0IDQgMCAwIDAgMCA4em0wIDJjLTIuNjcgMC04IDEuMzQtOCA0djJoMTZ2LTJjMC0yLjY2LTUuMzMtNC04LTR6Ii8+PC9zdmc+';
-                userProfilePic.style.display = 'block';
+            }
+            if (userInitials) {
+                userInitials.style.display = 'none';
+            }
+            if (mobileUserInitials) {
+                mobileUserInitials.style.display = 'none';
+            }
+        } else {
+            console.log('🔸 Using initials avatar - no profile picture available');
+            // Hide profile picture, show initials
+            if (userProfilePic) {
+                userProfilePic.style.display = 'none';
+            }
+            if (userInitials) {
+                userInitials.style.display = 'flex';
+                // Set initials from user name
+                const initials = this.currentUser?.name ? 
+                    this.currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 
+                    'U';
+                userInitials.textContent = initials;
+            }
+            if (mobileUserInitials) {
+                mobileUserInitials.style.display = 'flex';
+                const initials = this.currentUser?.name ? 
+                    this.currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 
+                    'U';
+                mobileUserInitials.textContent = initials;
             }
         }
         
@@ -1718,6 +1754,18 @@ class EmploymentApp {
         const userStatusSection = document.getElementById('userStatusSection');
         if (userStatusSection) {
             userStatusSection.style.display = 'block';
+        }
+        
+        // Show dashboard section and hide hero section for authenticated users
+        const heroSection = document.getElementById('heroSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        if (this.currentPage === 'dashboard') {
+            if (heroSection) {
+                heroSection.style.display = 'none';
+            }
+            if (dashboardSection) {
+                dashboardSection.style.display = 'block';
+            }
         }
         
         this.isLoggedIn = true;
