@@ -403,7 +403,8 @@
                                 EMPLOYMENT
                             </a>
                         </div>
-                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <!-- Desktop Navigation -->
+                        <div class="hidden md:ml-6 md:flex md:space-x-8">
                             <a href="/" class="text-accent border-b-2 border-accent px-3 py-2 text-sm font-medium">
                                 Dashboard
                             </a>
@@ -422,40 +423,98 @@
                         </div>
                     </div>
                     
-                    <!-- Authentication buttons -->
-                    <div class="flex items-center" id="authSection">
-                        <div id="loginSection">
-                            <a href="/auth/linkedin" class="bg-white text-text-primary px-6 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium">
-                                Connect to LinkedIn
-                            </a>
+                    <div class="flex items-center">
+                        <!-- Mobile menu button -->
+                        <div class="md:hidden">
+                            <button id="mobileMenuBtn" type="button" class="text-text-primary hover:text-accent p-2 rounded-md">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
                         </div>
                         
-                        <div id="userSection" style="display: none;">
-                            <div class="flex items-center space-x-4">
-                                <div class="relative">
-                                    <button id="userDropdownBtn" class="flex items-center space-x-2 hover:bg-gray-50 px-2 py-1 rounded-button transition-colors duration-200">
-                                        <img id="userProfilePic" src="" alt="Profile" class="h-8 w-8 rounded-full" style="display: none;">
-                                        <div class="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-white" id="userInitials">
-                                            U
-                                        </div>
-                                        <span class="text-sm font-medium text-text-primary" id="userName">User</span>
-                                        <svg class="w-4 h-4 text-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                        </svg>
-                                    </button>
-                                    
-                                    <!-- Dropdown Menu -->
-                                    <div id="userDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-button shadow-lg border z-50 hidden">
-                                        <div class="py-1">
-                                            <a href="/preferences.html" class="block px-4 py-2 text-sm text-text-primary hover:bg-gray-50">
-                                                ⚙️ Edit Preferences
-                                            </a>
-                                            <hr class="my-1">
-                                            <button data-action="logout" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-50">
-                                                🚪 Sign Out
-                                            </button>
+                        <!-- Authentication buttons -->
+                        <div class="hidden md:block" id="authSection">
+                            <div id="loginSection">
+                                <a href="/auth/linkedin" class="bg-white text-text-primary px-6 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium">
+                                    Connect to LinkedIn
+                                </a>
+                            </div>
+                            
+                            <div id="userSection" style="display: none;">
+                                <div class="flex items-center space-x-4">
+                                    <div class="relative">
+                                        <button id="userDropdownBtn" class="flex items-center space-x-2 hover:bg-gray-50 px-2 py-1 rounded-button transition-colors duration-200">
+                                            <img id="userProfilePic" src="" alt="Profile" class="h-8 w-8 rounded-full" style="display: none;">
+                                            <div class="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-white" id="userInitials">
+                                                U
+                                            </div>
+                                            <span class="text-sm font-medium text-text-primary" id="userName">User</span>
+                                            <svg class="w-4 h-4 text-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                            </svg>
+                                        </button>
+                                        
+                                        <!-- Dropdown Menu -->
+                                        <div id="userDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-button shadow-lg border z-50 hidden">
+                                            <div class="py-1">
+                                                <a href="/preferences.html" class="block px-4 py-2 text-sm text-text-primary hover:bg-gray-50">
+                                                    ⚙️ Edit Preferences
+                                                </a>
+                                                <hr class="my-1">
+                                                <button data-action="logout" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-50">
+                                                    🚪 Sign Out
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Mobile Navigation Menu -->
+                <div id="mobileMenu" class="md:hidden hidden">
+                    <div class="px-2 pt-2 pb-3 space-y-1 bg-white border-t">
+                        <a href="/" class="text-accent font-medium block px-3 py-2 text-base border-l-4 border-accent bg-accent bg-opacity-5">
+                            Dashboard
+                        </a>
+                        <a href="/generator.html" class="text-text-primary hover:text-accent block px-3 py-2 text-base font-medium">
+                            Content Generator
+                        </a>
+                        <a href="/automation.html" class="text-text-primary hover:text-accent block px-3 py-2 text-base font-medium">
+                            Automation
+                        </a>
+                        <a href="/manual-post.html" class="text-text-primary hover:text-accent block px-3 py-2 text-base font-medium">
+                            Manual Post
+                        </a>
+                        <a href="/pricing.html" class="text-text-primary hover:text-accent block px-3 py-2 text-base font-medium">
+                            Pricing
+                        </a>
+                        
+                        <!-- Mobile Auth Section -->
+                        <div class="border-t pt-3 mt-3">
+                            <div id="mobileLoginSection">
+                                <a href="/auth/linkedin" class="bg-accent text-white block px-3 py-2 text-base font-medium rounded-button mx-3">
+                                    Connect to LinkedIn
+                                </a>
+                            </div>
+                            
+                            <div id="mobileUserSection" style="display: none;">
+                                <div class="px-3 py-2">
+                                    <div class="flex items-center space-x-3 mb-3">
+                                        <div class="h-10 w-10 rounded-full bg-accent flex items-center justify-center text-white" id="mobileUserInitials">
+                                            U
+                                        </div>
+                                        <span class="text-base font-medium text-text-primary" id="mobileUserName">User</span>
+                                    </div>
+                                    <a href="/preferences.html" class="block px-3 py-2 text-base text-text-primary">
+                                        ⚙️ Edit Preferences
+                                    </a>
+                                    <button data-action="logout" class="block w-full text-left px-3 py-2 text-base text-text-primary">
+                                        🚪 Sign Out
+                                    </button>
                                 </div>
                             </div>
                         </div>
