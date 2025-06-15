@@ -6350,7 +6350,8 @@ app.get('/api/automation/queue', requireAuth, async (req, res) => {
     res.json({
       queue: result.rows,
       total: parseInt(countResult.rows[0].total),
-      hasMore: (parseInt(offset) + result.rows.length) < parseInt(countResult.rows[0].total)
+      hasMore: (parseInt(offset) + result.rows.length) < parseInt(countResult.rows[0].total),
+      showPosted: showPosted === 'true'
     });
   } catch (error) {
     console.error('❌ Error fetching automation queue:', error);

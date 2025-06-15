@@ -485,10 +485,10 @@ class EmploymentApp {
                             </div>
                             <div class="mt-6 flex gap-4">
                                 <button type="submit" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 bg-[#0b80ee] text-slate-50 text-base font-bold leading-normal tracking-[0.015em]">
-                                    Save Automation Settings
+                                    💾 Save Settings
                                 </button>
-                                <button type="button" id="pauseAutomation" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 bg-[#6b7280] text-slate-50 text-base font-bold leading-normal tracking-[0.015em]">
-                                    Pause Automation
+                                <button type="button" id="automationToggle" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 bg-[#6b7280] text-slate-50 text-base font-bold leading-normal tracking-[0.015em]">
+                                    🔴 Automation OFF
                                 </button>
                             </div>
                         </form>
@@ -521,7 +521,7 @@ class EmploymentApp {
         try {
             await Promise.all([
                 this.loadAutomationSettings(),
-                this.loadAutomationQueue(),
+                this.loadAutomationQueue(false),
                 this.loadAutomationAnalytics()
             ]);
             this.setupAutomationEventListeners();
@@ -714,7 +714,9 @@ class EmploymentApp {
             if (response.ok) {
                 const data = await response.json();
                 console.log('✅ Automation queue loaded:', data);
+                this.currentShowPosted = showPosted;
                 this.displayAutomationQueue(data.queue);
+                this.updateShowPostedToggle(showPosted);
             } else {
                 console.error('❌ Failed to load automation queue:', response.status);
                 this.displayAutomationQueue([]);
