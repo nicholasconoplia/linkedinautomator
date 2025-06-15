@@ -6,15 +6,33 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; img-src 'self' data: https: http:; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com; font-src 'self' https://fonts.gstatic.com;">
     <title>Content Generator - Employment</title>
     
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
-    <link
-      rel="stylesheet"
-      as="style"
-      onload="this.rel='stylesheet'"
-      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
-    />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'background': '#f2f2f2',
+                        'text-primary': '#333333',
+                        'accent': '#0066CC',
+                    },
+                    fontFamily: {
+                        'sans': ['Montserrat', 'sans-serif'],
+                    },
+                    borderRadius: {
+                        'button': '8px',
+                    },
+                    boxShadow: {
+                        'subtle': '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    },
+                }
+            }
+        }
+    </script>
     
     <meta name="description" content="Generate AI-powered LinkedIn content with Employment's advanced content creation tools.">
     <meta name="keywords" content="LinkedIn content generator, AI content creation, social media posts">
@@ -310,130 +328,181 @@
         }
     </style>
 </head>
-<body>
-    <div class="relative flex size-full min-h-screen flex-col bg-slate-50 group/design-root overflow-x-hidden"
-         style="--checkbox-tick-svg: url('data:image/svg+xml,%3csvg viewBox=%270 0 16 16%27 fill=%27rgb(248,250,252)%27 xmlns=%27http://www.w3.org/2000/svg%27%3e%3cpath d=%27M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z%27/%3e%3c/svg%3e'); --select-button-svg: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(73,116,156)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e'); font-family: Inter, 'Noto Sans', sans-serif;">
-        
-        <div class="layout-container flex h-full grow flex-col">
-            <!-- Header -->
-            <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e7edf4] px-10 py-3">
-                <div class="flex items-center gap-4 text-[#0d151c]">
-                    <div class="size-4">
-                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M4 42.4379C4 42.4379 14.0962 36.0744 24 41.1692C35.0664 46.8624 44 42.2078 44 42.2078L44 7.01134C44 7.01134 35.068 11.6577 24.0031 5.96913C14.0971 0.876274 4 7.27094 4 7.27094L4 42.4379Z" fill="currentColor"></path>
-                    </svg>
-                    </div>
-                    <h2 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em]">Employment</h2>
-                </div>
-                
-                <div class="flex flex-1 justify-end gap-8">
-                    <div class="flex items-center gap-9">
-                        <a href="/" class="text-[#0d151c] text-sm font-medium leading-normal">Dashboard</a>
-                        <a href="/generator" class="text-[#0d151c] text-sm font-medium leading-normal font-bold border-b-2 border-[#0b80ee]">Content Generator</a>
-                        <a href="/fake-it-mode" class="text-[#0d151c] text-sm font-medium leading-normal">🎭 Fake It Mode</a>
-                        <a href="/automation" class="text-[#0d151c] text-sm font-medium leading-normal">Automation</a>
-                        <a href="/manual-post" class="text-[#0d151c] text-sm font-medium leading-normal">✏️ Manual Post</a>
-                        <a href="/saved-posts" class="text-[#0d151c] text-sm font-medium leading-normal">💾 Saved Posts</a>
-                        <a href="/pricing" class="text-[#0d151c] text-sm font-medium leading-normal">Pricing</a>
+<body class="min-h-screen bg-background font-sans">
+    <div class="min-h-screen bg-background">
+        <!-- Header -->
+        <nav class="bg-white shadow-subtle">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <a href="/" class="text-accent font-bold text-xl">
+                                EMPLOYMENT
+                            </a>
+                        </div>
+                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <a href="/" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Dashboard
+                            </a>
+                            <a href="/generator.html" class="text-accent border-b-2 border-accent px-3 py-2 text-sm font-medium">
+                                Content Generator
+                            </a>
+                            <a href="/automation.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Automation
+                            </a>
+                            <a href="/manual-post.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Manual Post
+                            </a>
+                            <a href="/pricing.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Pricing
+                            </a>
+                        </div>
                     </div>
                     
                     <!-- Authentication buttons -->
-                    <div id="authSection">
+                    <div class="flex items-center" id="authSection">
                         <div id="loginSection">
-                            <a href="/auth/linkedin" class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#e7edf4] text-[#0d151c] text-sm font-bold leading-normal tracking-[0.015em]">
-                                <span class="truncate">Connect LinkedIn</span>
+                            <a href="/auth/linkedin" class="bg-white text-text-primary px-6 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium">
+                                Connect to LinkedIn
                             </a>
                         </div>
                         
                         <div id="userSection" style="display: none;">
-                            <div class="flex items-center gap-3">
-                                <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full border border-[#e7edf4]" style="display: none;">
-                                <span class="text-[#0d151c] text-sm font-medium" id="userName">User</span>
-                                <button data-action="logout" class="text-[#49749c] text-sm font-medium hover:text-[#0d151c]">Sign Out</button>
+                            <div class="flex items-center space-x-4">
+                                <div class="relative">
+                                    <button id="userDropdownBtn" class="flex items-center space-x-2 hover:bg-gray-50 px-2 py-1 rounded-button transition-colors duration-200">
+                                        <img id="userProfilePic" src="" alt="Profile" class="h-8 w-8 rounded-full" style="display: none;">
+                                        <div class="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-white" id="userInitials">
+                                            U
+                                        </div>
+                                        <span class="text-sm font-medium text-text-primary" id="userName">User</span>
+                                        <svg class="w-4 h-4 text-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                        </svg>
+                                    </button>
+                                    
+                                    <!-- Dropdown Menu -->
+                                    <div id="userDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-button shadow-lg border z-50 hidden">
+                                        <div class="py-1">
+                                            <a href="/preferences.html" class="block px-4 py-2 text-sm text-text-primary hover:bg-gray-50">
+                                                ⚙️ Edit Preferences
+                                            </a>
+                                            <hr class="my-1">
+                                            <button data-action="logout" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-50">
+                                                🚪 Sign Out
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </header>
+            </div>
+        </nav>
 
-            <!-- Main Content -->
-            <div class="px-40 flex flex-1 justify-center py-5">
-                <div class="layout-content-container flex flex-col max-w-[960px] flex-1">
-                    
-                    <!-- Content Generator Section -->
-                    <section class="content-section active" id="content-generator-section">
-                        <div class="flex flex-wrap justify-between gap-3 p-4">
-                            <p class="text-[#0d151c] tracking-light text-[32px] font-bold leading-tight min-w-72">Content Generator</p>
-                        </div>
+        <!-- Main Content -->
+        <div class="flex-1 py-12 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-4xl mx-auto">
+                <!-- Header -->
+                <div class="mb-8">
+                    <h1 class="text-5xl font-bold text-black font-sans mb-4">
+                        Content Generator
+                    </h1>
+                    <p class="text-lg text-text-primary">
+                        Create AI-powered LinkedIn posts that engage your professional network
+                    </p>
+                </div>
+                
+                <!-- Content Generator Section -->
+                <div class="bg-white rounded-button shadow-subtle p-8"
+                    id="content-generator-section">
 
                         <form id="postForm">
                             <!-- Topic Input -->
-                            <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
-                                <label class="flex flex-col min-w-40 flex-1">
-                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">What's on your mind?</p>
-                                    <textarea id="topic" name="topic" placeholder="Share your thoughts or choose a topic" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] min-h-36 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal"></textarea>
+                            <div class="mb-6">
+                                <label class="block">
+                                    <span class="text-lg font-medium text-text-primary mb-2 block">What's on your mind?</span>
+                                    <textarea id="topic" name="topic" placeholder="Share your thoughts or choose a topic" class="w-full px-4 py-3 border border-gray-300 rounded-button focus:ring-accent focus:border-accent resize-none min-h-36 text-text-primary placeholder-gray-500"></textarea>
                                 </label>
                             </div>
 
                             <!-- Topic Chips -->
-                            <div class="flex gap-3 p-3 flex-wrap pr-4" id="topicChips">
-                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Artificial Intelligence">
-                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">🤖 AI & Tech</p>
-                                </div>
-                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Leadership">
-                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">👑 Leadership</p>
-                                </div>
-                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Entrepreneurship">
-                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">🚀 Startup</p>
-                                </div>
-                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Digital Marketing">
-                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">📱 Marketing</p>
-                                </div>
-                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Remote Work">
-                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">🏠 Remote Work</p>
-                                </div>
-                                <div class="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-full bg-[#e7edf4] pl-4 pr-4 topic-chip cursor-pointer hover:bg-[#cedce8]" data-topic="Career Development">
-                                    <p class="text-[#0d151c] text-sm font-medium leading-normal">📈 Career Growth</p>
-                                </div>
+                            <div class="flex gap-3 flex-wrap mb-6" id="topicChips">
+                                <button type="button" class="bg-background text-text-primary px-4 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium topic-chip cursor-pointer" data-topic="Artificial Intelligence">
+                                    🤖 AI & Tech
+                                </button>
+                                <button type="button" class="bg-background text-text-primary px-4 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium topic-chip cursor-pointer" data-topic="Leadership">
+                                    👑 Leadership
+                                </button>
+                                <button type="button" class="bg-background text-text-primary px-4 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium topic-chip cursor-pointer" data-topic="Entrepreneurship">
+                                    🚀 Startup
+                                </button>
+                                <button type="button" class="bg-background text-text-primary px-4 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium topic-chip cursor-pointer" data-topic="Digital Marketing">
+                                    📱 Marketing
+                                </button>
+                                <button type="button" class="bg-background text-text-primary px-4 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium topic-chip cursor-pointer" data-topic="Remote Work">
+                                    🏠 Remote Work
+                                </button>
+                                <button type="button" class="bg-background text-text-primary px-4 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium topic-chip cursor-pointer" data-topic="Career Development">
+                                    📈 Career Growth
+                                </button>
                             </div>
 
                             <!-- Form Controls -->
-                            <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
-                                <label class="flex flex-col min-w-40 flex-1">
-                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Content Tone</p>
-                                    <select id="tone" name="tone" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
-                                        <option value="professional">🎯 Professional</option>
-                                        <option value="student-professional">🎓 Student Professional</option>
-                                        <option value="conversational">💬 Conversational</option>
-                                        <option value="inspirational">✨ Inspirational</option>
-                                        <option value="educational">📚 Educational</option>
-                                        <option value="thought-provoking">🤔 Thought-Provoking</option>
-                                    </select>
-                                </label>
-                            </div>
-
-                            <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
-                                <label class="flex flex-col min-w-40 flex-1">
-                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Post Length</p>
-                                    <select id="length" name="length" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
-                                        <option value="short">📝 Short</option>
-                                        <option value="medium" selected>📄 Medium</option>
-                                        <option value="long">📖 Long</option>
-                                    </select>
-                                </label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label class="block">
+                                        <span class="text-lg font-medium text-text-primary mb-2 block">Content Tone</span>
+                                        <select id="tone" name="tone" class="w-full px-4 py-3 border border-gray-300 rounded-button focus:ring-accent focus:border-accent text-text-primary">
+                                            <option value="professional">🎯 Professional</option>
+                                            <option value="student-professional">🎓 Student Professional</option>
+                                            <option value="conversational">💬 Conversational</option>
+                                            <option value="inspirational">✨ Inspirational</option>
+                                            <option value="educational">📚 Educational</option>
+                                            <option value="thought-provoking">🤔 Thought-Provoking</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div>
+                                    <label class="block">
+                                        <span class="text-lg font-medium text-text-primary mb-2 block">Post Length</span>
+                                        <select id="length" name="length" class="w-full px-4 py-3 border border-gray-300 rounded-button focus:ring-accent focus:border-accent text-text-primary">
+                                            <option value="short">📝 Short</option>
+                                            <option value="medium" selected>📄 Medium</option>
+                                            <option value="long">📖 Long</option>
+                                        </select>
+                                    </label>
+                                </div>
                             </div>
 
                             <!-- Content Generation Mode -->
                             <h3 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Content Generation Mode</h3>
+                            
+                            <!-- Base Content Type -->
                             <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
                                 <label class="flex flex-col min-w-40 flex-1">
-                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Content Type</p>
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Base Content Type</p>
                                     <select id="contentType" name="contentType" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
                                         <option value="research" selected>🔍 Research-Based Post (BYOB)</option>
                                         <option value="news">🔁 News-Based Post</option>
-                                        <option value="viral">🔥 Viral Format Post</option>
-                                        <option value="tweet">🔄 Repurpose Tweet</option>
                                         <option value="manual">🧠 Manual Content</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <!-- Viral Format Option -->
+                            <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+                                <label class="flex flex-col min-w-40 flex-1">
+                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Format Style (Optional)</p>
+                                    <select id="viralFormat" name="viralFormat" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
+                                        <option value="">📝 Standard Professional Format</option>
+                                        <option value="open-loop">🧠 Open Loop Hook - Curiosity-driven suspense</option>
+                                        <option value="contrarian">🔥 Contrarian Opinion - Bold, polarizing take</option>
+                                        <option value="confession">🧍‍♂️ Confession + Lesson - Personal story of failure → redemption</option>
+                                        <option value="framework">🧩 Framework/List - 3-5 tips for solving a problem</option>
+                                        <option value="experience">📈 Insight from Experience - Career/business insight</option>
+                                        <option value="data-driven">🧪 Data-Driven Post - Key data point with analysis</option>
                                     </select>
                                 </label>
                             </div>
@@ -460,29 +529,6 @@
                                     <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Required Keywords</p>
                                     <input id="keywords" name="keywords" type="text" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal" placeholder="e.g., ASX, IPO, Australia (comma-separated)" />
                                     <p class="text-[#49749c] text-sm mt-1">Specify words that MUST appear in news articles to ensure relevance</p>
-                                </label>
-                            </div>
-
-                            <!-- Viral Format Templates -->
-                            <div id="viralTemplates" style="display: none;" class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
-                                <label class="flex flex-col min-w-40 flex-1">
-                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Viral Template</p>
-                                    <select id="viralFormat" name="viralFormat" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] h-14 bg-[image:--select-button-svg] placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal">
-                                        <option value="open-loop">🧠 Open Loop Hook - Curiosity-driven suspense</option>
-                                        <option value="contrarian">🔥 Contrarian Opinion - Bold, polarizing take</option>
-                                        <option value="confession">🧍‍♂️ Confession + Lesson - Personal story of failure → redemption</option>
-                                        <option value="framework">🧩 Framework/List - 3-5 tips for solving a problem</option>
-                                        <option value="experience">📈 Insight from Experience - Career/business insight</option>
-                                        <option value="data-driven">🧪 Data-Driven Post - Key data point with analysis</option>
-                                    </select>
-                                </label>
-                            </div>
-
-                            <!-- Tweet Input -->
-                            <div id="tweetInput" style="display: none;" class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
-                                <label class="flex flex-col min-w-40 flex-1">
-                                    <p class="text-[#0d151c] text-base font-medium leading-normal pb-2">Tweet Content</p>
-                                    <textarea id="tweetText" name="tweetText" rows="4" class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#0d151c] focus:outline-0 focus:ring-0 border border-[#cedce8] bg-slate-50 focus:border-[#cedce8] min-h-24 placeholder:text-[#49749c] p-[15px] text-base font-normal leading-normal" placeholder="Paste the tweet content you want to repurpose for LinkedIn..."></textarea>
                                 </label>
                             </div>
 
@@ -549,59 +595,7 @@
                                 </div>
                             </div>
 
-                            <!-- Personal Context Panel -->
-                            <h3 class="text-[#0d151c] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Personal Context</h3>
-                            <div class="px-4">
-                                <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 mb-4">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div class="flex items-center gap-2">
-                                            <div class="text-purple-600 text-lg">👤</div>
-                                            <h4 class="text-purple-900 font-semibold text-sm">Add Your Personal Context</h4>
-                                        </div>
-                                        <button type="button" id="contextToggle" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
-                                            <span id="toggleText">Show</span> ▼
-                                        </button>
-                                    </div>
-                                    <p class="text-purple-700 text-sm leading-relaxed mb-3">
-                                        Tell the AI about yourself, your background, recent activities, and achievements. This context will be used to personalize your content, especially for viral posts and frameworks.
-                                    </p>
-                                    
-                                    <div id="contextPanel" style="display: none;">
-                                        <div class="space-y-4">
-                                            <!-- Personal Background -->
-                                            <div>
-                                                <label class="block text-sm font-medium text-purple-900 mb-2">Who You Are & Your Background</label>
-                                                <textarea id="personalBackground" name="personalBackground" rows="3" 
-                                                    class="w-full rounded-lg border border-purple-200 bg-white p-3 text-sm focus:border-purple-400 focus:outline-none resize-none"
-                                                    placeholder="e.g., Senior Marketing Manager at TechCorp with 8 years in B2B SaaS, specialized in growth marketing and team leadership..."></textarea>
-                                            </div>
-                                            
-                                            <!-- Recent Activities -->
-                                            <div>
-                                                <label class="block text-sm font-medium text-purple-900 mb-2">Recent Activities & Achievements</label>
-                                                <textarea id="recentActivities" name="recentActivities" rows="2" 
-                                                    class="w-full rounded-lg border border-purple-200 bg-white p-3 text-sm focus:border-purple-400 focus:outline-none resize-none"
-                                                    placeholder="e.g., Just launched a new product, completed MBA, spoke at industry conference, hit team targets..."></textarea>
-                                            </div>
-                                            
-                                            <!-- Expertise & Interests -->
-                                            <div>
-                                                <label class="block text-sm font-medium text-purple-900 mb-2">Key Expertise & Interests</label>
-                                                <textarea id="expertiseInterests" name="expertiseInterests" rows="2" 
-                                                    class="w-full rounded-lg border border-purple-200 bg-white p-3 text-sm focus:border-purple-400 focus:outline-none resize-none"
-                                                    placeholder="e.g., AI in marketing, remote team management, startup scaling, data-driven decision making..."></textarea>
-                                            </div>
-                                            
-                                            <div class="flex justify-between items-center pt-2">
-                                                <button type="button" id="saveContext" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
-                                                    💾 Save Context
-                                                </button>
-                                                <span id="contextSaveStatus" class="text-sm text-purple-600"></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+
 
                             <!-- Generate Button -->
                             <div class="flex px-4 py-3 justify-start">

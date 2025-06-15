@@ -3,57 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual Post - LinkedIn Automation</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; img-src 'self' data: https: http:; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com; font-src 'self' https://fonts.gstatic.com;">
+    <title>Manual Post - Employment</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'background': '#f2f2f2',
+                        'text-primary': '#333333',
+                        'accent': '#0066CC',
+                    },
+                    fontFamily: {
+                        'sans': ['Montserrat', 'sans-serif'],
+                    },
+                    borderRadius: {
+                        'button': '8px',
+                    },
+                    boxShadow: {
+                        'subtle': '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <meta name="description" content="Manually post and improve your LinkedIn content with Employment's AI-powered tools.">
+    <meta name="keywords" content="LinkedIn manual post, content improvement, social media posting">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+
+    <script src="script.js"></script>
+    
     <style>
         .sparkle-btn {
-            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             transition: all 0.3s ease;
         }
+        
         .sparkle-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
         }
-        .improved-content {
-            animation: fadeIn 0.5s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .loading-dots {
-            display: inline-block;
-        }
+        
         .loading-dots::after {
-            content: '';
-            animation: dots 1.5s infinite;
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
         }
+        
         @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
             60% { content: '..'; }
             80%, 100% { content: '...'; }
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="min-h-screen bg-background font-sans">
     <!-- Navigation -->
-    <nav class="bg-white shadow-sm border-b">
+    <nav class="bg-white shadow-subtle">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <a href="/" class="flex items-center space-x-2">
-                        <i class="fab fa-linkedin text-blue-600 text-2xl"></i>
-                        <span class="font-bold text-xl text-gray-900">LinkedIn Automation</span>
-                    </a>
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/" class="text-accent font-bold text-xl">
+                            EMPLOYMENT
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="/generator.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                            Content Generator
+                        </a>
+                        <a href="/automation.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                            Automation
+                        </a>
+                        <a href="/manual-post.html" class="text-accent border-b-2 border-accent px-3 py-2 text-sm font-medium">
+                            Manual Post
+                        </a>
+                        <a href="/pricing.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                            Pricing
+                        </a>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <a href="/automation" class="text-gray-600 hover:text-gray-900">🤖 Automation</a>
-                    <a href="/generator" class="text-gray-600 hover:text-gray-900">⚡ Generator</a>
-                    <a href="/manual-post" class="text-blue-600 font-medium">✏️ Manual Post</a>
-                    <a href="/saved-posts" class="text-gray-600 hover:text-gray-900">💾 Saved Posts</a>
-                    <a href="/pricing" class="text-gray-600 hover:text-gray-900">💎 Pricing</a>
+                
+                <!-- Authentication buttons -->
+                <div class="flex items-center" id="authSection">
+                    <div id="loginSection">
+                        <a href="/auth/linkedin" class="bg-white text-text-primary px-6 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium">
+                            Connect to LinkedIn
+                        </a>
+                    </div>
+                    
+                    <div id="userSection" style="display: none;">
+                        <div class="flex items-center space-x-4">
+                            <div class="relative">
+                                <button id="userDropdownBtn" class="flex items-center space-x-2 hover:bg-gray-50 px-2 py-1 rounded-button transition-colors duration-200">
+                                    <img id="userProfilePic" src="" alt="Profile" class="h-8 w-8 rounded-full" style="display: none;">
+                                    <div class="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-white" id="userInitials">
+                                        U
+                                    </div>
+                                    <span class="text-sm font-medium text-text-primary" id="userName">User</span>
+                                    <svg class="w-4 h-4 text-text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
+                                
+                                <!-- Dropdown Menu -->
+                                <div id="userDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-button shadow-lg border z-50 hidden">
+                                    <div class="py-1">
+                                        <a href="/preferences.html" class="block px-4 py-2 text-sm text-text-primary hover:bg-gray-50">
+                                            ⚙️ Edit Preferences
+                                        </a>
+                                        <hr class="my-1">
+                                        <button data-action="logout" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-50">
+                                            🚪 Sign Out
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -63,8 +140,8 @@
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Header -->
         <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">✏️ Manual Post</h1>
-            <p class="text-gray-600">Paste your content, optionally improve it with AI, then schedule or post immediately</p>
+            <h1 class="text-3xl font-bold text-text-primary mb-2">Manual Post</h1>
+            <p class="text-text-primary">Paste your content, optionally improve it with AI, then schedule or post immediately</p>
         </div>
 
         <!-- Main Interface -->
@@ -99,7 +176,6 @@
                             <option value="linkedin_post">LinkedIn Expert</option>
                             <option value="viral_content">Viral Content</option>
                             <option value="manual_content">Content Polish</option>
-                            <option value="tweet_repurpose">Twitter Repurpose</option>
                             <option value="research_post">Research-Based</option>
                             <option value="student_industry_post">Student Voice</option>
                         </select>
@@ -410,6 +486,15 @@
 
         // Initialize
         updateButtonStates();
+        
+        // Initialize authentication check using the main app
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🏗️ Initializing Employment app for manual post page...');
+            if (typeof EmploymentApp !== 'undefined') {
+                const app = new EmploymentApp();
+                window.app = app;
+            }
+        });
     </script>
 </body>
 </html> 

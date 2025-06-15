@@ -171,6 +171,28 @@ class EmploymentApp {
                 this.handleLogout(e);
             }
         });
+        
+        // Setup user dropdown functionality
+        this.setupUserDropdown();
+    }
+    
+    setupUserDropdown() {
+        const dropdownBtn = document.getElementById('userDropdownBtn');
+        const dropdown = document.getElementById('userDropdown');
+        
+        if (dropdownBtn && dropdown) {
+            dropdownBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('hidden');
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!dropdown.contains(e.target) && !dropdownBtn.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        }
     }
     
     setupEventListeners() {
@@ -1579,22 +1601,54 @@ class EmploymentApp {
             }
         }
         
+        // Show dashboard section and hide hero section
+        const heroSection = document.getElementById('heroSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        if (heroSection) {
+            heroSection.style.display = 'none';
+        }
+        if (dashboardSection) {
+            dashboardSection.style.display = 'block';
+        }
+        
+        // Update user initials
+        const userInitials = document.getElementById('userInitials');
+        if (userInitials && this.currentUser?.name) {
+            const initials = this.currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            userInitials.textContent = initials;
+        }
+        
+        // Update user profile picture display logic
+        const userInitialsEl = document.getElementById('userInitials');
+        if (userProfilePic && userInitialsEl) {
+            if (this.currentUser?.profilePicture) {
+                userProfilePic.style.display = 'block';
+                userInitialsEl.style.display = 'none';
+            } else {
+                // Show initials instead of profile picture
+                userProfilePic.style.display = 'none';  
+                userInitialsEl.style.display = 'flex';
+            }
+        }
+        
         // Update dashboard user name
         const dashboardUserName = document.getElementById('dashboardUserName');
         if (dashboardUserName && this.currentUser?.name) {
             dashboardUserName.textContent = this.currentUser.name;
         }
         
-        // Show user status section in dashboard
-        const userStatusSection = document.getElementById('userStatusSection');
-        if (userStatusSection) {
-            userStatusSection.style.display = 'block';
-        }
-        
         this.isLoggedIn = true;
+        
+        // Check if user needs onboarding
+        this.checkOnboardingStatus();
         
         // Load and display subscription status
         this.loadSubscriptionStatus();
+        
+        // Load dashboard preferences if on dashboard page
+        if (this.currentPage === 'dashboard') {
+            this.loadDashboardPreferences();
+        }
     }
     
     updateCreditDisplay() {
@@ -1602,22 +1656,18 @@ class EmploymentApp {
         
         const credits = this.currentUser.credits || 0;
         
-        // Find or create credit display element
-        let creditDisplay = document.getElementById('creditDisplay');
-        if (!creditDisplay) {
-            creditDisplay = document.createElement('div');
-            creditDisplay.id = 'creditDisplay';
-            creditDisplay.className = 'text-sm font-medium text-gray-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200';
-            
-            // Insert next to user name
-            const userSection = this.userSection;
-            if (userSection) {
-                userSection.appendChild(creditDisplay);
-            }
+        // Update credits in the dashboard card
+        const creditsRemaining = document.getElementById('creditsRemaining');
+        if (creditsRemaining) {
+            creditsRemaining.textContent = credits;
+            console.log('💳 Updated dashboard credit display:', credits);
         }
         
-        creditDisplay.innerHTML = `💳 ${credits} credits`;
-        creditDisplay.title = `You have ${credits} credits available for content generation`;
+        // Also update any other credit displays on other pages
+        const otherCreditDisplays = document.querySelectorAll('#creditBalance, .credit-display');
+        otherCreditDisplays.forEach(el => {
+            el.textContent = credits;
+        });
         
         console.log('💳 Updated credit display:', credits);
     }
@@ -1630,8 +1680,112 @@ class EmploymentApp {
         if (this.userSection) {
             this.userSection.style.display = 'none';
         }
+        
+        // Show hero section and hide dashboard section
+        const heroSection = document.getElementById('heroSection');
+        const dashboardSection = document.getElementById('dashboardSection');
+        if (heroSection) {
+            heroSection.style.display = 'flex';
+        }
+        if (dashboardSection) {
+            dashboardSection.style.display = 'none';
+        }
+        
         this.currentUser = null;
         this.isLoggedIn = false;
+    }
+
+    checkOnboardingStatus() {
+        // Skip onboarding check if we're already on an onboarding page or dashboard
+        if (window.location.pathname.includes('onboarding') || 
+            window.location.search.includes('onboarding=complete')) {
+            return;
+        }
+        
+        // Check if user has completed onboarding
+        const onboardingData = localStorage.getItem('onboardingData');
+        const hasCompletedOnboarding = onboardingData ? JSON.parse(onboardingData).completed : false;
+        
+        // Check if this appears to be a new user (no automation settings, no posts, etc.)
+        if (!hasCompletedOnboarding && this.currentUser) {
+            // Check if user has any automation settings or history
+            fetch('/api/automation/status', {
+                credentials: 'include'
+            })
+            .then(response => response.json())
+            .then(data => {
+                // If no automation is set up and user is new, redirect to onboarding
+                if (!data.automation_enabled && !data.has_generated_posts) {
+                    console.log('🎯 New user detected, redirecting to onboarding');
+                    window.location.href = '/onboarding-step1.html';
+                }
+            })
+            .catch(error => {
+                // If API fails, check localStorage
+                if (!hasCompletedOnboarding) {
+                    console.log('🎯 No onboarding data found, redirecting to onboarding');
+                    window.location.href = '/onboarding-step1.html';
+                }
+            });
+        }
+    }
+
+    loadDashboardPreferences() {
+        try {
+            // Load onboarding data from localStorage
+            const step1Data = JSON.parse(localStorage.getItem('onboardingStep1') || '{}');
+            const step2Data = JSON.parse(localStorage.getItem('onboardingStep2') || '{}');
+            
+            // Update goal
+            const userGoal = document.getElementById('userGoal');
+            if (userGoal) {
+                const goalMap = {
+                    'job_search': 'Find a new job',
+                    'network_building': 'Build professional network',
+                    'thought_leadership': 'Establish thought leadership',
+                    'business_growth': 'Grow my business',
+                    'career_advancement': 'Advance my career',
+                    'skill_sharing': 'Share knowledge & skills'
+                };
+                userGoal.textContent = goalMap[step1Data.goals] || 'Not set';
+            }
+            
+            // Update role & industry
+            const userRole = document.getElementById('userRole');
+            if (userRole) {
+                userRole.textContent = step1Data.roleIndustry || 'Not set';
+            }
+            
+            // Update content tone
+            const userTone = document.getElementById('userTone');
+            if (userTone) {
+                const toneMap = {
+                    'professional': 'Professional',
+                    'conversational': 'Conversational',
+                    'inspirational': 'Inspirational',
+                    'educational': 'Educational',
+                    'thought-provoking': 'Thought-Provoking'
+                };
+                userTone.textContent = toneMap[step2Data.contentTone] || 'Professional';
+            }
+            
+            // Update posting frequency
+            const userFrequency = document.getElementById('userFrequency');
+            if (userFrequency) {
+                const frequencyMap = {
+                    'daily': 'Daily',
+                    'few_times_week': 'Few times a week',
+                    'weekly': 'Weekly',
+                    'few_times_month': 'Few times a month',
+                    'monthly': 'Monthly'
+                };
+                userFrequency.textContent = frequencyMap[step1Data.postingFrequency] || 'Not set';
+            }
+            
+            console.log('✅ Dashboard preferences loaded');
+        } catch (error) {
+            console.error('❌ Error loading dashboard preferences:', error);
+        }
     }
 
     async loadSubscriptionStatus() {
@@ -2987,15 +3141,9 @@ class EmploymentApp {
         console.log('📝 Form values:', { topic, tone, length, contentType, engagementOptions });
         
         // Validate based on content type
-        if (contentType === 'news' || contentType === 'viral' || contentType === 'research') {
+        if (contentType === 'news' || contentType === 'research') {
             if (!topic) {
                 this.showError('Please enter a topic or select from popular topics');
-                return;
-            }
-        } else if (contentType === 'tweet') {
-            const tweetText = document.getElementById('tweetText')?.value?.trim() || '';
-            if (!tweetText) {
-                this.showError('Please paste the tweet content you want to repurpose');
                 return;
             }
         } else if (contentType === 'manual') {
@@ -3022,16 +3170,29 @@ class EmploymentApp {
         this.hideMessages();
         
         try {
+            // Get viral format - if selected, use it regardless of base content type
+            const viralFormat = document.getElementById('viralFormat')?.value || '';
+            
             switch (contentType) {
                 case 'news':
-                    console.log(`🎯 Generating news-based content for: ${topic}`);
-                    await this.generatePost(topic, tone, length, engagementOptions, studentContext);
+                    if (viralFormat) {
+                        console.log(`🔥 Generating news-based content with viral format: ${viralFormat} for: ${topic}`);
+                        await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions, studentContext);
+                    } else {
+                        console.log(`🎯 Generating news-based content for: ${topic}`);
+                        await this.generatePost(topic, tone, length, engagementOptions, studentContext);
+                    }
                     break;
                 case 'research':
                     const keywords = document.getElementById('keywords')?.value?.trim() || '';
-                    console.log(`🔍 Generating research-based content for: ${topic} with keywords: ${keywords}`);
+                    console.log(`🔍 Generating research-based content for: ${topic} with keywords: ${keywords}${viralFormat ? ' with viral format: ' + viralFormat : ''}`);
                     try {
-                        await this.generateResearchPost(topic, tone, length, engagementOptions, keywords, studentContext);
+                        if (viralFormat) {
+                            // For research + viral combo, we'll use viral post generation with research-based topic
+                            await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions, studentContext);
+                        } else {
+                            await this.generateResearchPost(topic, tone, length, engagementOptions, keywords, studentContext);
+                        }
                     } catch (researchError) {
                         console.log('🔄 Research generation failed, falling back to news-based content...');
                         
@@ -3044,28 +3205,31 @@ class EmploymentApp {
                         // Automatically fall back to news-based generation
                         console.log(`🔍 Fallback: Generating news-based content for: ${topic}`);
                         this.setLoadingState(true); // Re-enable loading for fallback
-                        await this.generatePost(topic, tone, length, engagementOptions, studentContext);
+                        if (viralFormat) {
+                            await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions, studentContext);
+                        } else {
+                            await this.generatePost(topic, tone, length, engagementOptions, studentContext);
+                        }
                         return; // Exit to avoid double error handling
                     }
                     break;
-                case 'viral':
-                    const viralFormat = document.getElementById('viralFormat')?.value || 'open-loop';
-                    console.log(`🔥 Generating viral content for: ${topic} with format: ${viralFormat}`);
-                    await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions, studentContext);
-                    break;
-                case 'tweet':
-                    const tweetText = document.getElementById('tweetText')?.value?.trim() || '';
-                    console.log(`🔄 Repurposing tweet: ${tweetText.substring(0, 50)}...`);
-                    await this.generateRepurposedTweet(tweetText, topic, tone, length, engagementOptions, studentContext);
-                    break;
                 case 'manual':
                     const customContent = document.getElementById('customContent')?.value?.trim() || '';
-                    console.log(`🧠 Generating manual content from: ${customContent.substring(0, 50)}...`);
-                    await this.generateManualPost(customContent, tone, length, engagementOptions, studentContext);
+                    console.log(`🧠 Generating manual content from: ${customContent.substring(0, 50)}...${viralFormat ? ' with viral format: ' + viralFormat : ''}`);
+                    if (viralFormat) {
+                        // For manual + viral combo, use the custom content as the topic for viral generation
+                        await this.generateViralPost(customContent, tone, length, viralFormat, engagementOptions, studentContext);
+                    } else {
+                        await this.generateManualPost(customContent, tone, length, engagementOptions, studentContext);
+                    }
                     break;
                 default:
                     console.log(`🎯 Fallback to news-based content for: ${topic}`);
-                    await this.generatePost(topic, tone, length, engagementOptions, studentContext);
+                    if (viralFormat) {
+                        await this.generateViralPost(topic, tone, length, viralFormat, engagementOptions, studentContext);
+                    } else {
+                        await this.generatePost(topic, tone, length, engagementOptions, studentContext);
+                    }
             }
         } catch (error) {
             console.error('❌ Generation failed:', error);
@@ -3091,14 +3255,10 @@ class EmploymentApp {
         const contentType = document.getElementById('contentType')?.value || 'news';
         
         // Hide all content-specific sections
-        const viralTemplates = document.getElementById('viralTemplates');
-        const tweetInput = document.getElementById('tweetInput');
         const manualInput = document.getElementById('manualInput');
         const researchExplanation = document.getElementById('researchExplanation');
         const requiredKeywords = document.getElementById('requiredKeywords');
         
-        if (viralTemplates) viralTemplates.style.display = 'none';
-        if (tweetInput) tweetInput.style.display = 'none';
         if (manualInput) manualInput.style.display = 'none';
         if (researchExplanation) researchExplanation.style.display = 'none';
         if (requiredKeywords) requiredKeywords.style.display = 'none';
@@ -3108,12 +3268,6 @@ class EmploymentApp {
             case 'research':
                 if (researchExplanation) researchExplanation.style.display = 'block';
                 if (requiredKeywords) requiredKeywords.style.display = 'block';
-                break;
-            case 'viral':
-                if (viralTemplates) viralTemplates.style.display = 'block';
-                break;
-            case 'tweet':
-                if (tweetInput) tweetInput.style.display = 'block';
                 break;
             case 'manual':
                 if (manualInput) manualInput.style.display = 'block';
@@ -4614,92 +4768,7 @@ class EmploymentApp {
         }
     }
 
-    // Generate repurposed tweet
-    async generateRepurposedTweet(tweetText, topic, tone = 'professional', length = 'medium', engagementOptions = {}) {
-        try {
-            const authToken = this.getAuthToken();
-            
-            const headers = {
-                'Content-Type': 'application/json'
-            };
-            
-            if (authToken) {
-                headers['Authorization'] = `Bearer ${authToken}`;
-            }
-            
-            const requestData = {
-                tweet_text: tweetText,
-                topic: topic || 'General',
-                tone,
-                length,
-                post_type: 'tweet',
-                engagement_options: engagementOptions
-            };
-            
-            console.log('📤 Sending tweet repurpose request:', requestData);
-            
-            const response = await fetch('/api/generate-post', {
-                method: 'POST',
-                headers,
-                credentials: 'include',
-                body: JSON.stringify(requestData)
-            });
-            
-            if (!response.ok) {
-                let errorData = {};
-                try {
-                    const text = await response.text();
-                    if (text && text !== "undefined" && text.trim() !== "") {
-                        errorData = JSON.parse(text);
-                    }
-                } catch (parseError) {
-                    errorData = { error: 'Server error occurred' };
-                }
-                
-                if (response.status === 403 && errorData.needsUpgrade) {
-                    await this.showSubscriptionModal();
-                    throw new Error(errorData.error || 'Subscription limit reached');
-                }
-                
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            let data;
-            try {
-                const text = await response.text();
-                if (text && text !== "undefined" && text.trim() !== "") {
-                    data = JSON.parse(text);
-                } else {
-                    throw new Error('Empty or invalid response from server');
-                }
-            } catch (parseError) {
-                console.error('Failed to parse response:', parseError);
-                throw new Error('Invalid response from server');
-            }
-            
-            if (data.post) {
-                this.currentPost = {
-                    post: data.post,
-                    image: data.image,
-                    article: null,
-                    post_type: 'tweet',
-                    original_tweet: tweetText
-                };
-                this.currentImageUrl = data.image?.url;
-                this.currentArticleData = null;
-                
-                this.displayGeneratedContent(data);
-                this.showSuccess('Tweet repurposed successfully!');
-                
-                console.log('✅ Tweet repurposed successfully');
-            } else {
-                throw new Error(data.error || 'Failed to repurpose tweet');
-            }
-        } catch (error) {
-            console.error('❌ Error repurposing tweet:', error);
-            throw error;
-        }
-    }
+
 
     async generateResearchPost(topic, tone = 'professional', length = 'medium', engagementOptions = {}, keywords = '') {
         try {

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://fonts.googleapis.com https://cdn.tailwindcss.com; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.tailwindcss.com; img-src 'self' data: https: http:; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com; font-src 'self' https://fonts.gstatic.com;">
+    <title>Onboarding - Setup Automation</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'background': '#f2f2f2',
+                        'text-primary': '#333333',
+                        'accent': '#0066CC',
+                    },
+                    fontFamily: {
+                        'sans': ['Montserrat', 'sans-serif'],
+                    },
+                    borderRadius: {
+                        'button': '8px',
+                    },
+                    boxShadow: {
+                        'subtle': '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-background font-sans">
+    <div class="min-h-screen bg-background">
+        <!-- Header -->
+        <nav class="bg-white shadow-subtle">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <a href="/" class="text-accent font-bold text-xl">
+                                EMPLOYMENT
+                            </a>
+                        </div>
+                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <a href="/" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Dashboard
+                            </a>
+                            <a href="/generator.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Content Generator
+                            </a>
+                            <a href="/automation.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Automation
+                            </a>
+                            <a href="/manual-post.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Manual Post
+                            </a>
+                            <a href="/pricing.html" class="text-text-primary hover:text-accent px-3 py-2 text-sm font-medium">
+                                Pricing
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Authentication buttons -->
+                    <div class="flex items-center" id="authSection">
+                        <div id="loginSection">
+                            <a href="/auth/linkedin" class="bg-white text-text-primary px-6 py-2 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 text-sm font-medium">
+                                Connect to LinkedIn
+                            </a>
+                        </div>
+                        
+                        <div id="userSection" style="display: none;">
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center">
+                                    <img id="userProfilePic" src="" alt="Profile" class="h-8 w-8 rounded-full" style="display: none;">
+                                    <div class="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-white" id="userInitials">
+                                        U
+                                    </div>
+                                    <span class="ml-2 text-sm font-medium text-text-primary" id="userName">User</span>
+                                </div>
+                                <button data-action="logout" class="text-text-primary hover:text-accent text-sm font-medium">Sign Out</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-2xl mx-auto">
+                <!-- Progress Indicator -->
+                <div class="mb-8">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-accent">Step 2 of 2</span>
+                        <span class="text-sm text-text-primary">Almost done!</span>
+                    </div>
+                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                        <div class="bg-accent h-2 rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <h1 class="text-4xl font-bold text-black font-sans mb-4">
+                    Setup Your Automation
+                </h1>
+                
+                <p class="text-lg text-text-primary mb-8">
+                    Let's configure when and how often you want to post
+                </p>
+
+                <form id="automationForm" class="space-y-8">
+                    <!-- Posting Times -->
+                    <div>
+                        <label class="block text-lg font-medium text-text-primary mb-4">
+                            When do you want to post?
+                        </label>
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="time_morning"
+                                    name="postingTime"
+                                    value="morning"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="time_morning" class="ml-3 text-text-primary">
+                                    🌅 Morning (9:00 AM) - Great for business professionals
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="time_afternoon"
+                                    name="postingTime"
+                                    value="afternoon"
+                                    checked
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="time_afternoon" class="ml-3 text-text-primary">
+                                    ☀️ Afternoon (1:00 PM) - Peak engagement time
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="time_evening"
+                                    name="postingTime"
+                                    value="evening"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="time_evening" class="ml-3 text-text-primary">
+                                    🌆 Evening (5:00 PM) - Ideal for thought leadership
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="time_mixed"
+                                    name="postingTime"
+                                    value="mixed"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="time_mixed" class="ml-3 text-text-primary">
+                                    🔄 Mixed Times - Vary throughout the day
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Content Mix -->
+                    <div>
+                        <label class="block text-lg font-medium text-text-primary mb-4">
+                            What type of content mix do you prefer?
+                        </label>
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="mix_news"
+                                    name="contentMix"
+                                    value="news_heavy"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="mix_news" class="ml-3 text-text-primary">
+                                    📰 News-Heavy (70% News, 30% Other) - Stay current with industry trends
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="mix_balanced"
+                                    name="contentMix"
+                                    value="balanced"
+                                    checked
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="mix_balanced" class="ml-3 text-text-primary">
+                                    ⚖️ Balanced Mix (50% News, 50% Other) - Perfect blend of content
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="mix_viral"
+                                    name="contentMix"
+                                    value="viral_heavy"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="mix_viral" class="ml-3 text-text-primary">
+                                    🔥 Viral-Heavy (70% Viral, 30% Other) - Maximize engagement
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="mix_professional"
+                                    name="contentMix"
+                                    value="professional"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="mix_professional" class="ml-3 text-text-primary">
+                                    🎯 Professional Only - Focus on industry insights
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Default Tone -->
+                    <div>
+                        <label class="block text-lg font-medium text-text-primary mb-4">
+                            What's your preferred writing tone?
+                        </label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="tone_professional"
+                                    name="tone"
+                                    value="professional"
+                                    checked
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="tone_professional" class="ml-3 text-text-primary text-sm">
+                                    🎯 Professional
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="tone_conversational"
+                                    name="tone"
+                                    value="conversational"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="tone_conversational" class="ml-3 text-text-primary text-sm">
+                                    💬 Conversational
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="tone_inspirational"
+                                    name="tone"
+                                    value="inspirational"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="tone_inspirational" class="ml-3 text-text-primary text-sm">
+                                    ✨ Inspirational
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input
+                                    type="radio"
+                                    id="tone_educational"
+                                    name="tone"
+                                    value="educational"
+                                    class="h-5 w-5 text-accent border-gray-300"
+                                />
+                                <label for="tone_educational" class="ml-3 text-text-primary text-sm">
+                                    📚 Educational
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enable Automation -->
+                    <div class="bg-white p-6 rounded-button shadow-subtle">
+                        <div class="flex items-center">
+                            <input
+                                type="checkbox"
+                                id="enableAutomation"
+                                name="enableAutomation"
+                                class="h-5 w-5 text-accent border-gray-300 rounded"
+                            />
+                            <label for="enableAutomation" class="ml-3 text-lg font-medium text-text-primary">
+                                ✅ Enable automation after setup
+                            </label>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2 ml-8">
+                            We'll start posting automatically based on your preferences. You can always change this later.
+                        </p>
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="flex gap-4">
+                        <button
+                            type="button"
+                            onclick="window.location.href='/onboarding-step1.html'"
+                            class="flex-1 bg-white text-text-primary py-4 px-6 rounded-button shadow-subtle hover:shadow-md transition-shadow duration-200 font-medium border border-gray-300"
+                        >
+                            ← Back
+                        </button>
+                        <button
+                            type="submit"
+                            class="flex-1 bg-accent text-white py-4 px-6 rounded-button hover:bg-opacity-90 transition-colors duration-200 font-medium"
+                        >
+                            Complete Setup
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load previous onboarding data
+        document.addEventListener('DOMContentLoaded', function() {
+            const onboardingData = localStorage.getItem('onboardingData');
+            if (onboardingData) {
+                const data = JSON.parse(onboardingData);
+                
+                // Set defaults based on step 1 preferences
+                if (data.frequency === 'multiple-day') {
+                    document.getElementById('time_mixed').checked = true;
+                    document.getElementById('mix_viral').checked = true;
+                } else if (data.frequency === 'once-per-day') {
+                    document.getElementById('time_afternoon').checked = true;
+                    document.getElementById('mix_balanced').checked = true;
+                } else if (data.frequency === 'three-per-week') {
+                    document.getElementById('time_morning').checked = true;
+                    document.getElementById('mix_professional').checked = true;
+                }
+            }
+        });
+
+        // Handle form submission
+        document.getElementById('automationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = new FormData(this);
+            const postingTime = formData.get('postingTime');
+            const contentMix = formData.get('contentMix');
+            const tone = formData.get('tone');
+            const enableAutomation = formData.get('enableAutomation') === 'on';
+            
+            // Get previous onboarding data
+            const previousData = JSON.parse(localStorage.getItem('onboardingData') || '{}');
+            
+            // Combine all onboarding data
+            const completeOnboardingData = {
+                ...previousData,
+                postingTime,
+                contentMix,
+                tone,
+                enableAutomation,
+                step: 2,
+                completed: true,
+                completedAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem('onboardingData', JSON.stringify(completeOnboardingData));
+            
+            try {
+                // Send onboarding data to server to set up automation
+                const response = await fetch('/api/automation/setup-onboarding', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(completeOnboardingData)
+                });
+                
+                if (response.ok) {
+                    // Success! Redirect to dashboard
+                    window.location.href = '/?onboarding=complete';
+                } else {
+                    throw new Error('Failed to save automation settings');
+                }
+            } catch (error) {
+                console.error('Error saving onboarding data:', error);
+                // Still redirect to dashboard even if API fails
+                window.location.href = '/?onboarding=complete';
+            }
+        });
+    </script>
+</body>
+</html> 
