@@ -1201,7 +1201,21 @@ app.post('/api/user/onboarding', requireAuth, async (req, res) => {
     const userId = req.user.id;
     const onboardingData = req.body;
     
-    // Validate required fields
+    // Handle skip functionality
+    if (onboardingData.skipped && onboardingData.completed) {
+      console.log('⏭️ User skipped onboarding');
+      await UserDB.saveOnboardingData(userId, {
+        skipped: true,
+        completed: true,
+        step1: null,
+        step2: null
+      });
+      
+      console.log('✅ Onboarding skip status saved successfully');
+      return res.json({ success: true, skipped: true });
+    }
+    
+    // Validate required fields for normal onboarding completion
     if (!onboardingData.step1 || !onboardingData.step2) {
       return res.status(400).json({ error: 'Both step1 and step2 data are required' });
     }
@@ -1226,11 +1240,13 @@ app.get('/api/user/onboarding-status', requireAuth, async (req, res) => {
     if (onboardingData) {
       res.json({
         completed: true,
+        skipped: onboardingData.skipped || false,
         onboardingData: onboardingData
       });
     } else {
       res.status(404).json({
         completed: false,
+        skipped: false,
         onboardingData: null
       });
     }

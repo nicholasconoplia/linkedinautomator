@@ -320,7 +320,49 @@
                     >
                         Continue to Step 2
                     </button>
+                    
+                    <!-- Skip Button -->
+                    <button
+                        type="button"
+                        onclick="showSkipWarning()"
+                        class="w-full mt-3 bg-gray-200 text-gray-700 py-3 px-6 rounded-button hover:bg-gray-300 transition-colors duration-200 font-medium"
+                    >
+                        Skip Onboarding
+                    </button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skip Warning Modal -->
+    <div id="skipWarningModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-md w-full p-6">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
+                    <svg class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Skip Personalization Setup?</h3>
+                <p class="text-sm text-gray-500 mb-6">
+                    These preferences are <strong>important for creating personalized content</strong> that matches your goals and industry. 
+                    <br><br>
+                    If you skip this setup, your posts will be <strong>generic but still good quality</strong>. You can always customize these settings later in your Preferences tab.
+                </p>
+                <div class="flex gap-3">
+                    <button
+                        onclick="hideSkipWarning()"
+                        class="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-button hover:bg-gray-300 transition-colors duration-200"
+                    >
+                        Go Back
+                    </button>
+                    <button
+                        onclick="confirmSkipOnboarding()"
+                        class="flex-1 bg-yellow-500 text-white py-2 px-4 rounded-button hover:bg-yellow-600 transition-colors duration-200"
+                    >
+                        Yes, Skip Setup
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -328,6 +370,45 @@
     <script src="script.js"></script>
     <script>
         let employmentApp;
+
+        function showSkipWarning() {
+            document.getElementById('skipWarningModal').classList.remove('hidden');
+        }
+
+        function hideSkipWarning() {
+            document.getElementById('skipWarningModal').classList.add('hidden');
+        }
+
+        async function confirmSkipOnboarding() {
+            try {
+                // Mark onboarding as skipped in the database
+                const response = await fetch('/api/user/onboarding', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        skipped: true,
+                        completed: true // Mark as completed so it doesn't show again
+                    })
+                });
+
+                if (response.ok) {
+                    // Show final confirmation message
+                    alert('Onboarding skipped! You can always customize your preferences later in the Preferences tab to get more personalized content.');
+                    
+                    // Redirect to dashboard
+                    window.location.href = '/';
+                } else {
+                    console.error('Failed to save skip status');
+                    alert('There was an error. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error skipping onboarding:', error);
+                alert('There was an error. Please try again.');
+            }
+        }
         
         // Initialize the app and get user name
         document.addEventListener('DOMContentLoaded', async function() {

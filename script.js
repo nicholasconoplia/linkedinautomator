@@ -1860,6 +1860,12 @@ class EmploymentApp {
                 console.log('📋 Onboarding status from server:', data);
                 
                 if (data.completed) {
+                    // Check if user skipped onboarding
+                    if (data.skipped) {
+                        console.log('⏭️ User previously skipped onboarding - allowing access');
+                        return; // User skipped onboarding, don't redirect
+                    }
+                    
                     // User has completed onboarding, load their preferences
                     if (data.onboardingData) {
                         // Update localStorage with server data for immediate use
@@ -1938,8 +1944,8 @@ class EmploymentApp {
                 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.completed && data.onboardingData) {
-                        // Update localStorage with fresh server data
+                    if (data.completed && data.onboardingData && !data.skipped) {
+                        // Update localStorage with fresh server data (only if not skipped)
                         if (data.onboardingData.step1) {
                             localStorage.setItem('onboardingStep1', JSON.stringify(data.onboardingData.step1));
                         }
@@ -1947,6 +1953,8 @@ class EmploymentApp {
                             localStorage.setItem('onboardingStep2', JSON.stringify(data.onboardingData.step2));
                         }
                         console.log('✅ Refreshed preferences from server');
+                    } else if (data.skipped) {
+                        console.log('⏭️ User skipped onboarding - using default preferences');
                     }
                 }
             } catch (serverError) {
@@ -1956,6 +1964,9 @@ class EmploymentApp {
             // Load onboarding data from localStorage (now potentially updated from server)
             const step1Data = JSON.parse(localStorage.getItem('onboardingStep1') || '{}');
             const step2Data = JSON.parse(localStorage.getItem('onboardingStep2') || '{}');
+            
+            // Check if user has any preferences data
+            const hasPreferences = Object.keys(step1Data).length > 0 || Object.keys(step2Data).length > 0;
             
             // Update goal
             const userGoal = document.getElementById('userGoal');
@@ -1968,13 +1979,13 @@ class EmploymentApp {
                     'career_advancement': 'Advance my career',
                     'skill_sharing': 'Share knowledge & skills'
                 };
-                userGoal.textContent = goalMap[step1Data.goals] || 'Not set';
+                userGoal.textContent = goalMap[step1Data.goals] || (hasPreferences ? 'Not set' : 'Generic content (customize in Preferences)');
             }
             
             // Update role & industry
             const userRole = document.getElementById('userRole');
             if (userRole) {
-                userRole.textContent = step1Data.roleIndustry || 'Not set';
+                userRole.textContent = step1Data.roleIndustry || (hasPreferences ? 'Not set' : 'General professional');
             }
             
             // Update content tone
@@ -2000,7 +2011,7 @@ class EmploymentApp {
                     'few_times_month': 'Few times a month',
                     'monthly': 'Monthly'
                 };
-                userFrequency.textContent = frequencyMap[step1Data.postingFrequency] || 'Not set';
+                userFrequency.textContent = frequencyMap[step1Data.postingFrequency] || (hasPreferences ? 'Not set' : 'Manual posting');
             }
             
             console.log('✅ Dashboard preferences loaded');
